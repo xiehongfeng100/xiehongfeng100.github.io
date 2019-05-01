@@ -7,7 +7,7 @@
   <title>Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接 | Max&#39;s Blog</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="description" content="在上一博文 Linux 内核学习笔记：内核引导程序之“head.s”最后我们提到，执行完 head 程序，指令指针就跳转至 main 函数，即从 main 函数开始执行。 main 函数定义在 init/main.c 文件（在 init 目录下，只有一个文件 main.c），是 Linux 0.11 的初始化程序，负责设备环境初始化并激活进程 0。 本文主要分析 main 函数功能，大部分参考自《">
-<meta name="keywords" content="Linux,内核,中断,硬盘,内存规划,虚拟盘,根设备">
+<meta name="keywords" content="Linux,内核,硬盘,中断,内存规划,虚拟盘,根设备">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接">
 <meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/index.html">
