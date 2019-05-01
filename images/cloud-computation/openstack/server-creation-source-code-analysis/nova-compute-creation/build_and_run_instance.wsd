@@ -1,0 +1,135 @@
+@startuml
+
+participant compute_task_manager as "nova.conductor.manager::ComputeTaskManager"
+participant compute_rpcapi as "nova.compute.rpcapi::ComputeAPI"
+participant compute_manager as "nova.compute.manager::ComputeManager"
+participant libvirt_driver as "nova.virt.libvirt.driver::LibvirtDriver"
+
+activate compute_task_manager
+note over compute_task_manager: Lets start from \nnova.conductor.manager::\nComputeTaskManager::**schedule_and_build_instances**
+note over compute_task_manager
+class ComputeTaskManager(base.Base):
+    def schedule_and_build_instances(...)
+            try:
+            	# 1. Instance Scheduling
+            	hosts = self._schedule_instances(...)
+            with obj_target_cell(instance, cell):
+                # **2. Build and run instance** 本 UML 重点
+                self.compute_rpcapi.build_and_run_instance(...)
+end note
+
+compute_task_manager->compute_rpcapi: call nova.compute.rpcapi::\nComputeAPI::build_and_run_instance()
+
+activate compute_rpcapi
+compute_rpcapi->compute_manager: ** rpc call** nova.compute.manager::\nComputeManager::build_and_run_instance()
+
+activate compute_manager
+note over compute_manager: spawn a thread to build and run instance
+note over compute_manager: **!!!Lock & Synchronize & Semaphore**
+
+compute_manager->compute_manager: call self._do_build_and_run_instance()
+
+activate compute_manager
+note over compute_manager
+set the instance **vm_state to BUILDING** and
+**task_state to None**, and
+**"expected" task_state to [SCHEDULING, None]**
+save (update) them to DB instance entry.
+end note
+note over compute_manager: b64 decode the files to inject
+note over compute_manager: set limits to {} if it is None
+note over compute_manager: get available nodes if node is None
+compute_manager->compute_manager: call self._build_and_run_instance()
+
+activate compute_manager
+note over compute_manager: get image name
+note over compute_manager: **_notify_about_instance_usage**
+note over compute_manager: **notify_about_instance_action**
+note over compute_manager
+cache the keystone roles associated with the instance
+at boot time for later reference
+end note
+note over compute_manager: check device tagging
+note over compute_manager: get resource tracker
+note over compute_manager
+**claim instance** on the target compute node,
+like cpu, ram, and update resource stats for the node.
+
+This is very important as it will affect
+the schedule for other instances.
+And remember, the instance_claim is
+**synchronized** to avoid race.
+end note
+note over compute_manager: validate instance for group policy
+
+compute_manager->compute_manager: call self._build_resources()
+
+activate compute_manager
+compute_manager->compute_manager: call self._build_networks_for_instance()
+
+activate compute_manager
+
+note over compute_manager #EB9898
+**!!!Build networks for the instance**
+
+set instance **vm_state to BUILDING**, and
+**task_state to NETWORKING**,
+**"expected" task_state to [None]**
+and save them to the instance DB entry
+
+这里 Build network 做的最核心的其实就是
+**调用 neutron 为该虚拟机分配一个 port（create_port）**
+该 port 拥有 mac 及分配有 ip 地址
+end note
+
+note over compute_manager #EB9898
+**!!!Attach volumes**
+
+set instance **vm_state to BUILDING**, and
+**task_state to BLOCK_DEVICE_MAPPING**
+and save them to the instance DB entry
+
+对于 Cinder 目前还没撰写相关博文，
+我们后续补上。
+end note
+
+compute_manager-->compute_manager: return
+deactivate compute_manager
+
+compute_manager-->compute_manager: return
+deactivate compute_manager
+
+note over compute_manager
+set instance **vm_state to BUILDING**, and
+**task_state to SPAWNING**,
+**"expected" task_state to BLOCK_DEVICE_MAPPING**
+and save them to the instance DB entry
+end note
+
+compute_manager->libvirt_driver: call nova.virt.libvirt.driver::LibvirtDriver::spawn()
+
+activate libvirt_driver
+note over libvirt_driver #EB9898
+**!!!Build and run the instance with the LibvirtDriver**
+
+到这一步，证明我们已经进入虚拟机创建的最后一步了。不过这里
+我们不会一步一步的去分析，而是会参考其他人写的一个概览。
+请见下文。
+end note
+
+libvirt_driver-->compute_manager: return
+deactivate libvirt_driver
+
+compute_manager-->compute_manager: return
+deactivate compute_manager
+
+compute_manager-->compute_manager: return build results
+deactivate compute_manager
+
+compute_manager-->compute_rpcapi: return
+deactivate compute_manager
+
+compute_rpcapi-->compute_task_manager: return
+deactivate compute_task_manager
+
+@enduml

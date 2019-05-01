@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>指针专题：指针及数组 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文阐述指针及数组的之间的联系。 指针及数组指针和数组是一样的吗？经常可以看到    一维数组是一级指针   二维数组是二级指针   数组名是一个常量指针   数组名是一个指针常量    这些说法，但真的是这样吗？让我们先看一下指针和数组的定义。">
+<meta name="keywords" content="C&#x2F;C++,指针">
+<meta property="og:type" content="article">
+<meta property="og:title" content="指针专题：指针及数组">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/16/ccplusplus-pointer-part2/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文阐述指针及数组的之间的联系。 指针及数组指针和数组是一样的吗？经常可以看到    一维数组是一级指针   二维数组是二级指针   数组名是一个常量指针   数组名是一个指针常量    这些说法，但真的是这样吗？让我们先看一下指针和数组的定义。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/pointer/part2/下边运算符[]和数组关系.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/pointer/part2/数组在内存中的存储示意图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/pointer/part2/sizeof对指针和数组求得的不同结果.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/pointer/part2/二级指针和指针数组如何表示二维数组.png">
+<meta property="og:updated_time" content="2019-05-01T05:31:14.608Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="指针专题：指针及数组">
+<meta name="twitter:description" content="本文阐述指针及数组的之间的联系。 指针及数组指针和数组是一样的吗？经常可以看到    一维数组是一级指针   二维数组是二级指针   数组名是一个常量指针   数组名是一个指针常量    这些说法，但真的是这样吗？让我们先看一下指针和数组的定义。">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/pointer/part2/下边运算符[]和数组关系.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-ccplusplus-pointer-part2" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/16/ccplusplus-pointer-part2/" class="article-date">
+  	<time datetime="2016-01-16T02:05:34.000Z" itemprop="datePublished">2016-01-16</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      指针专题：指针及数组
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/C-C/">C/C++</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/指针/">指针</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/编程语言/">编程语言</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文阐述指针及数组的之间的联系。</p>
+<h1 id="指针及数组"><a href="#指针及数组" class="headerlink" title="指针及数组"></a><strong>指针及数组</strong></h1><h2 id="指针和数组是一样的吗？"><a href="#指针和数组是一样的吗？" class="headerlink" title="指针和数组是一样的吗？"></a><strong>指针和数组是一样的吗？</strong></h2><p>经常可以看到  </p>
+<ul>
+<li>一维数组是一级指针  </li>
+<li>二维数组是二级指针  </li>
+<li>数组名是一个常量指针  </li>
+<li>数组名是一个指针常量  </li>
+</ul>
+<p>这些说法，但真的是这样吗？让我们先看一下指针和数组的定义。</p>
+<a id="more"></a>
+<h3 id="指针与数组概念"><a href="#指针与数组概念" class="headerlink" title="指针与数组概念"></a><strong>指针与数组概念</strong></h3><p>博文<a href="http://blog.csdn.net/code_crash/article/details/4855027" target="_blank" rel="noopener">数组与指针概念剖析</a>对指针及数组的概念有很深刻的探讨，特整理如下（概念部分）。</p>
+<p><strong>指针</strong>：根据 C99 标准，指针的定义如下：  </p>
+<blockquote>
+<p>A pointer type may be derived from a function type or an object type, called the referenced type. <code>A pointer type describes an object whose value provides a reference to an entity of the referenced type.</code> A pointer type derived from the referenced type T is sometimes called “pointer to T”. The construction of a pointer type from a referenced type is called “pointer type derivation”.</p>
+</blockquote>
+<p><code>指针是一种派生类型，它描述了这样一个对象，其值为对某种类型实体的引用。</code>标准在这里所用的措词是指针类型描述了一个<code>对象</code>。</p>
+<p>但我们再看一下取址运算符<code>&amp;</code>的定义：</p>
+<blockquote>
+<p>The unary &amp; operator returns the address of its operand. If the operand has type “type”, the result has type “pointer to type”……. Otherwise, the result is a pointer to the object or function designated by its operand.</p>
+</blockquote>
+<p>这个条款规定，<code>&amp; 运算符的结果是一个指针。</code>但问题是，&amp; 表达式的结果不是对象！标准自相矛盾了吗？当然不是，这说明的是，<code>指针的实体有对象与非对象两种形态。</code></p>
+<p>我们常说的指针变量只是指针实体的对象形态，但<code>对象与非对象两种形态合起来，才是指针的完整涵义</code>，就是说，<code>无论是否对象，只要是一个具有指针类型的实体，都可以称之为指针，换言之，指针不一定是对象，也不一定是变量。</code></p>
+<p><strong>数组</strong>：数组的定义如下：  </p>
+<blockquote>
+<p>An array type describes a contiguously allocated nonempty set of objects with a particular member object type, called the element type. <code>Array types are characterized by their element type and by the number of elements in the array.</code> An array type is said to be derived from its element type, and if its element type is T , the array type is sometimes called “array of T”. The construction of an array type from an element type is called “array type derivation”.</p>
+</blockquote>
+<p><code>数组类型同样是派生类型，它描述了某种对象的连续的非空集合，由其中元素类型和元素个数来刻画。</code></p>
+<p>由指针和数组定义可以看出，<code>指针和数组是完全不同的类型。</code>这里还有另外一个问题。</p>
+<h3 id="数组名是指针吗？"><a href="#数组名是指针吗？" class="headerlink" title="数组名是指针吗？"></a><strong>数组名是指针吗？</strong></h3><p>根据《征服C指针》一书，<code>数组名并不是指针，只不过在表达式中，数组名可以解读成“指向它的初始元素的指针”。</code></p>
+<p>在另一篇博文<a href="http://blog.csdn.net/code_crash/article/details/4855018" target="_blank" rel="noopener">数组名是一个指针常量吗？</a>中，作者就分析的更加透彻：</p>
+<blockquote>
+<p>数组名是一个指针常量这种观点来源于数组名在表达式计算中与指针的结果等效性。例如下面的代码：</p>
+</blockquote>
+<blockquote>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> a[<span class="number">10</span>], *p = a, *q;</span><br><span class="line">q = a + <span class="number">1</span>;</span><br><span class="line">q = p + <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>在效果上看，a + 1 与 p + 1 是相同的，这很容易给人一种 a 就是 p 的假象，但，这仅仅是假象。  </p>
+</blockquote>
+<blockquote>
+<p>在《C与指针》一书中，作者用一个著名的例子阐述了数组名与指针的不同。在一个文件中定义：int a[10]; 然后在另一个文件中声明：extern int *a; 笔者不在这里重复其中的原理，书中的作者试图从底层操作上阐述数组名与指针的不同点，但笔者认为这个例子存在一些不足，a 在表达式中会转换为一个非对象的符号地址，而指针 a 却是一个对象，用一个非对象去跟一个对象比较，有“偷跑”的嫌疑，这个例子只是说明了数组名的非对象性质，只能证明对象与非对象实体在底层操作上的不同，事实上，如上一章所述，指针也有非对象形态。笔者认为，无须从底层的角度上花费那么多唇舌，仅仅从字面上的语义就可以推翻数组名是一个指针的观点。  </p>
+</blockquote>
+<blockquote>
+<p><code>首先，在C/C++中，数组类型跟指针类型是两种不同的派生类型，数组名跟指针是两种不同类型的实体</code>，把数组类型的实体说成“是”另一个类型的实体，本身就是荒谬的；  </p>
+</blockquote>
+<blockquote>
+<p><code>其次，a + 1 在效果上之所以等同于 p + 1，是因为 a 进行了数组到指针的隐式转换，这是一个转换的过程，是 converted to 而不是 is a 的过程。</code>如果是两个相同的事物，又怎会有转换的过程呢？当把 a 放在 a + 1 表达式中时，a 已经从一个数组名转换为一个指针，a 是作为指针而不是数组名参与运算的；  </p>
+</blockquote>
+<blockquote>
+<p><code>第三，a + 1 与 p + 1 是等效关系，不是等价关系。</code>等价是相同事物的不同表现形式，而等效是不同事物的相同效果。把数组名说成是指针实际上把等效关系误解为等价关系。  </p>
+</blockquote>
+<blockquote>
+<p>因此，<code>数组名不是指针，永远也不是，但在一定条件下，数组名可以转换为指针。</code></p>
+</blockquote>
+<p>而根据《C和指针》一书的第 8 章 8.1 节，作者提到：<code>“只有当数组名在表达式中使用时，编译器才会为它产生一个指针常量”。</code>注意这个值是指针常量，而不是指针变量。我们不能修改常量的值。<code>只有在两种场合下，数组名在表达式中不用指针常量来表示——就是当数组名作为 sizeof 操作符或单目操作符 &amp; （如 &amp;a[0]）的操作数时。sizeof 返回整个数组的长度，而不是指向数组的指针的长度。取一个数组名的地址所产生的是一个指向数组的指针，而不是一个指向某个指针常量值的指针。</code></p>
+<p>综上所述，<code>数组不是指针，数组名也只有在表达式中才会被当成一个指针常量。</code></p>
+<h2 id="下标运算符-和数组有关系吗？"><a href="#下标运算符-和数组有关系吗？" class="headerlink" title="下标运算符[]和数组有关系吗？"></a><strong>下标运算符<code>[]</code>和数组有关系吗？</strong></h2><p>对于下标运算符，相信大家都再熟悉不过了，我们可用其方便快速访问数组中的元素。但它和数组有关系吗？先来看一个例子：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> p[<span class="number">10</span>];</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++)</span><br><span class="line">        p[i] = i + <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="string">"*(p + i)\t"</span> &lt;&lt; <span class="string">"p[i]"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++)</span><br><span class="line">        <span class="built_in">cout</span> &lt;&lt; *(p + i) &lt;&lt; <span class="string">"\t\t"</span> &lt;&lt; p[i] &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>程序输出如下：<br><img src="/images/programing-languages/CCPlusPlus/pointer/part2/下边运算符[]和数组关系.png" alt>  </p>
+<p>所以，*(p + i) 跟 p[i] 的效果是一样的。根据《征服C指针》，<code>p[i] 这种写法只不过是 *(p + i) 的简便写法。实际上，至少对于编译器来说，[] 这样的运算符完全可以不存在。[] 运算符是为了方便人们读写而引入的，是一种语法糖。</code></p>
+<p><strong>注意，</strong>认为<code>[]</code>和数组没有关系中的<code>[]</code>指的是表达式中出现的下标运算符，而不是声明中的<code>[]</code>。</p>
+<h2 id="题外话：判断机器大小端问题"><a href="#题外话：判断机器大小端问题" class="headerlink" title="题外话：判断机器大小端问题"></a><strong>题外话：判断机器大小端问题</strong></h2><p>从上边的分析，我们知道<code>对数组元素的访问本质上是需要解引用的</code>，如访问第 i 个元素需要采用 *(p + i) 的形式。这种做法跟指针的解引用一模一样。既然指针所指向的内存在堆（指针变量在栈）中，那数组的元素是不是应该存储在堆（数组名存储在栈）？答案是肯定的。具体可参考博文<a href="http://book.51cto.com/art/200809/89194.htm" target="_blank" rel="noopener">内存中的数组</a>。数组在虚拟内存空间中的存储示意图如下（以上述程序为例）：<br><img src="/images/programing-languages/CCPlusPlus/pointer/part2/数组在内存中的存储示意图.png" alt>   </p>
+<p>而对于大小端，他们的简单定义如下（以数字 0x12345678 在内存中的表示形式为例）：</p>
+<ul>
+<li><code>小端就是低位字节排放在内存的低地址端，高位字节排放在内存的高地址端。</code>所以，对于数字 0x12345678 而言，它在内存中的存储顺序为：<br>低地址 —————&gt; 高地址<br>0x78  |  0x56  |  0x34  |  0x12  </li>
+<li><code>大端就是高位字节排放在内存的低地址端，低位字节排放在内存的高地址端。</code>所以，对于数字 0x12345678 而言，它在内存中的存储顺序为：<br>低地址 —————&gt; 高地址<br>0x12  |  0x34  |  0x56  |  0x78  </li>
+</ul>
+<p>综上，我们利用一下简单程序就可以判断出机器的大小端：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">checkEndian</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">union</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">int</span> s;</span><br><span class="line">        <span class="keyword">char</span> c[<span class="number">4</span>];</span><br><span class="line">    &#125;u;</span><br><span class="line"></span><br><span class="line">    u.s = <span class="number">0x12345678</span>;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"%s\n"</span>, (<span class="number">0x12</span> == u.c[<span class="number">0</span>]) ? <span class="string">"大端模式"</span> : <span class="string">"小端模式"</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    checkEndian();</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="sizeof-对指针和数组求得的不同结果"><a href="#sizeof-对指针和数组求得的不同结果" class="headerlink" title="sizeof 对指针和数组求得的不同结果"></a><strong>sizeof 对指针和数组求得的不同结果</strong></h2><p>请看一小程序：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">myFunc</span><span class="params">(<span class="keyword">int</span> a[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="keyword">sizeof</span>(a) &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> a[]&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>&#125;;</span><br><span class="line">    <span class="keyword">int</span> *p = a;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="keyword">sizeof</span>(a) &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="keyword">sizeof</span>(p) &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    myFunc(a);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在本人机器上的运行结果如下:<br><img src="/images/programing-languages/CCPlusPlus/pointer/part2/sizeof对指针和数组求得的不同结果.png" alt>  </p>
+<p>很明显，<code>对于数组而言，sizeof 的结果是数组所占的所有字节数；而对于指针而言，sizeof 的结果是指针类型的大小。</code>为什么呢？因为：  </p>
+<ol>
+<li>对于数组而言，它的大小是固定的和已知的，所以 sizeof 求到的结果是数组所占的所有字节数（虽然在表达式中数组名被当作指针处理）；  </li>
+<li>对于指针而言，sizeof 无法知道指针类型，也就无法确定指针所指向的内存的大小，所以要让 sizeof 返回指针所指向的内存大小是不现实的，而返回指针类型大小很简单，因为只跟系统位数相关。</li>
+</ol>
+<p><strong>注意：</strong>下边一小段这是个人以前说法，不正确，不过可以作为参照，以加深理解。</p>
+<blockquote>
+<p>对于指针而言，我们只能知道它指向的内存的字节大小，而无法知道它知道它指向的连续内存的字节大小（因为不清楚在哪里结束），所以 sizeof 是无法返回指针所指连续内存的字节大小。在这种情况下，可能返回指针类型的大小可能较好。</p>
+</blockquote>
+<p>另外，<code>当把数组作为函数的参数进行传递时，该数组自动退化为同类型的指针。</code>所以函数myFunc输出结果是4。</p>
+<h1 id="二级指针和指针数组"><a href="#二级指针和指针数组" class="headerlink" title="二级指针和指针数组"></a><strong>二级指针和指针数组</strong></h1><p>二级指针是指向指针的指针的简称，如下常见例子：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> **p;</span><br></pre></td></tr></table></figure></p>
+<p>而指针数组则是元素类型为指针的数组，如：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> *p[<span class="number">10</span>];</span><br></pre></td></tr></table></figure></p>
+<h2 id="二级指针和指针数组区别与联系"><a href="#二级指针和指针数组区别与联系" class="headerlink" title="二级指针和指针数组区别与联系"></a><strong>二级指针和指针数组区别与联系</strong></h2><p>我们知道指针和数组是不一样的，当然二级指针和指针数组也是不一样的。那他们有什么联系呢？　　</p>
+<p>下边请看一个例子：</p>
+<p>对于main函数，常见的其中两种写法如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span></span>;</span><br></pre></td></tr></table></figure></p>
+<p>或<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span></span>;</span><br></pre></td></tr></table></figure></p>
+<p>根据 <a href="http://docs.linuxtone.org/ebooks/C&amp;CPP/c/ch23s06.html" target="_blank" rel="noopener">Linux C 编程一站式学习</a>说法，<code>函数原型中的 [] 表示指针而不表示数组，等价于 char **argv。</code>那为什么要写成 char *argv[] 而不写成 char **argv 呢？这样写给读代码的人提供了有用信息，argv 不是指向单个指针，而是指向一个指针数组的首元素。数组中每个元素都是 char * 指针，指向一个命令行参数字符串。</p>
+<p>其实，<code>就算在表达式中，它们也是等效的。</code></p>
+<h2 id="二级指针和指针数组如何表示二维数组？"><a href="#二级指针和指针数组如何表示二维数组？" class="headerlink" title="二级指针和指针数组如何表示二维数组？"></a><strong>二级指针和指针数组如何表示二维数组？</strong></h2><p>在表达式中，二级指针和指针数组是等效的。所以我们下文可以只以二级指针来说明。</p>
+<p>对于一个二级指针而言，第一级指针指向一个指针数组的首元素，因此利用下标运算符<code>[]</code>即可获得指针数组的每一个元素；而指针数组每个元素存储的是指针，可以再额外指向另一个数组。这样一来，我们就可以利用二级指针来实现一个二维数组了，如下例：</p>
+<p>先看一个简单例子：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> i;</span><br><span class="line">    <span class="keyword">for</span>(i = <span class="number">0</span>; i &lt; argc; i++)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"argv[%d]=%s\t"</span>, i, argv[i]);</span><br><span class="line">        <span class="keyword">int</span> len = <span class="built_in">strlen</span>(argv[i]), j;</span><br><span class="line">        <span class="keyword">for</span>(j = <span class="number">0</span>; j &lt; len; j++)</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">"%s[%d]=%c "</span>, argv[i], j, argv[i][j]);</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"\n"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>在Linux下编译执行：<br><img src="/images/programing-languages/CCPlusPlus/pointer/part2/二级指针和指针数组如何表示二维数组.png" alt>  </p>
+<h2 id="二级指针妙用：删除单向链表"><a href="#二级指针妙用：删除单向链表" class="headerlink" title="二级指针妙用：删除单向链表"></a><strong>二级指针妙用：删除单向链表</strong></h2><p>主要参考：</p>
+<ul>
+<li><p><a href="http://wordaligned.org/articles/two-star-programming" target="_blank" rel="noopener">Two star programming</a></p>
+</li>
+<li><p><a href="http://coolshell.cn/articles/8990.html" target="_blank" rel="noopener">Linus：利用二级指针删除单向链表</a>（有详细解释，非常值得参考！）</p>
+</li>
+</ul>
+<p>在删除单向链表（保留头指针head）时，我们可能会采用比较典型的做法：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">node</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">node</span> * <span class="title">next</span>;</span></span><br><span class="line">    ....</span><br><span class="line">&#125; node;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">typedef</span> <span class="title">bool</span> <span class="params">(* remove_fn)</span><span class="params">(node <span class="keyword">const</span> * v)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Remove all nodes from the supplied list for which the </span></span><br><span class="line"><span class="comment">// supplied remove function returns true.</span></span><br><span class="line"><span class="comment">// Returns the new head of the list.</span></span><br><span class="line"><span class="function">node * <span class="title">remove_if</span><span class="params">(node * head, remove_fn rm)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (node * prev = <span class="literal">NULL</span>, * curr = head; curr != <span class="literal">NULL</span>; )</span><br><span class="line">    &#123;</span><br><span class="line">        node * <span class="keyword">const</span> next = curr-&gt;next;</span><br><span class="line">        <span class="keyword">if</span> (rm(curr))</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (prev)</span><br><span class="line">                prev-&gt;next = next;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">                head = next;</span><br><span class="line">            <span class="built_in">free</span>(curr);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            prev = curr;</span><br><span class="line">        curr = next;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> head;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但Linus大婶就要说这样子写的人了：“<a href="http://wordaligned.org/articles/two-star-programming" target="_blank" rel="noopener">This person doesn’t understand pointers</a>”。那对于Linus大婶来说，怎样做才是最好的？那就是利用二级指针，具体如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">remove_if</span><span class="params">(node ** head, remove_fn rm)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (node** curr = head; *curr; )</span><br><span class="line">    &#123;</span><br><span class="line">        node * entry = *curr;</span><br><span class="line">        <span class="keyword">if</span> (rm(entry))</span><br><span class="line">        &#123;</span><br><span class="line">            *curr = entry-&gt;next;</span><br><span class="line">            <span class="built_in">free</span>(entry);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            curr = &amp;entry-&gt;next;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>果然，改写之后的程序简洁了许多，而且也不需要维护一个 prev 表项指针和考虑头指针的问题。</p>
+<p>在博文<a href="http://coolshell.cn/articles/8990.html" target="_blank" rel="noopener">Linus：利用二级指针删除单向链表</a>中，作者对利用二级指针的程序还附上了一个比较详细的解说：</p>
+<blockquote>
+<p>对于——</p>
+<ul>
+<li>删除节点是表头的情况，输入参数中传入 head 的二级指针，在 for 循环里将其初始化 curr，然后 entry 就是 *head(*curr)，我们马上删除它，那么第 8 行就等效于 *head = (*head)-&gt;next，就是删除表头的实现。</li>
+<li>删除节点不是表头的情况，对于上面的代码，我们可以看到——</li>
+</ul>
+<ol>
+<li>（第12行）如果不删除当前结点 —— curr 保存的是当前结点 next 指针的地址。</li>
+<li>（第5行） entry 保存了 *curr —— 这意味着在下一次循环：entry 就是 prev-&gt;next 指针所指向的内存。</li>
+<li>（第8行）删除结点：*curr = entry-&gt;next; —— 于是：prev-&gt;next 指向了 entry -&gt; next;</li>
+</ol>
+</blockquote>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/16/ccplusplus-pointer-part3/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          指针专题：函数指针及回调函数
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/15/ccplusplus-pointer-part1/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">指针专题：C++ 中的指针及引用</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#指针及数组"><span class="toc-number">1.</span> <span class="toc-text">指针及数组</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#指针和数组是一样的吗？"><span class="toc-number">1.1.</span> <span class="toc-text">指针和数组是一样的吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#指针与数组概念"><span class="toc-number">1.1.1.</span> <span class="toc-text">指针与数组概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#数组名是指针吗？"><span class="toc-number">1.1.2.</span> <span class="toc-text">数组名是指针吗？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#下标运算符-和数组有关系吗？"><span class="toc-number">1.2.</span> <span class="toc-text">下标运算符[]和数组有关系吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#题外话：判断机器大小端问题"><span class="toc-number">1.3.</span> <span class="toc-text">题外话：判断机器大小端问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#sizeof-对指针和数组求得的不同结果"><span class="toc-number">1.4.</span> <span class="toc-text">sizeof 对指针和数组求得的不同结果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#二级指针和指针数组"><span class="toc-number">2.</span> <span class="toc-text">二级指针和指针数组</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#二级指针和指针数组区别与联系"><span class="toc-number">2.1.</span> <span class="toc-text">二级指针和指针数组区别与联系</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#二级指针和指针数组如何表示二维数组？"><span class="toc-number">2.2.</span> <span class="toc-text">二级指针和指针数组如何表示二维数组？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#二级指针妙用：删除单向链表"><span class="toc-number">2.3.</span> <span class="toc-text">二级指针妙用：删除单向链表</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,144 @@
+@startuml
+
+title Neutron Server Startup Overview
+
+participant server_main as "neutron.cmd.eventlet.server._\_init__::main"
+participant wsgi_eventlet as "neutron.server.wsgi_eventlet"
+participant neutron_service as "neutron.service"
+participant api_router as "neutron.api.v2.router::APIRouter"
+participant extension_middleware_factory as "neutron.api.extensions::plugin_aware_extension_middleware_factory"
+
+activate server_main
+note over server_main
+Before really booting the server, some main initiations will be done:
+[neutron/server/_\_init__.py]
+1. init **rpc** (TRANSPORT, NOTIFICATION_TRANSPORT, NOTIFIER)
+2. setup logging
+3. set_cors_middleware_defaults
+
+Then we will directly go to the server setup.
+end note
+
+server_main->wsgi_eventlet: call neutron.server.wsgi_eventlet::eventlet_wsgi_server()
+
+activate wsgi_eventlet
+note over wsgi_eventlet
+init neutron api service and start it:
+````
+* neutron/server/wsgi_eventlet.py
+def eventlet_wsgi_server():
+    neutron_api = service.serve_wsgi(service.NeutronApiService)
+    ...
+````
+end note
+
+wsgi_eventlet->neutron_service: call neutron.service::serve_wsgi()
+
+activate neutron_service
+
+neutron_service->neutron_service: call neutron.service::**NeutronApiService::create()**
+activate neutron_service
+neutron_service-->neutron_service: return the NeutronApiService instance
+deactivate neutron_service
+
+neutron_service->neutron_service: call neutron.service::**NeutronApiService::start()**
+
+activate neutron_service
+neutron_service->neutron_service: call neutron.service::**_run_wsgi()**
+
+activate neutron_service
+note over neutron_service #6EDF64
+**_run_wsgi** 函数主要做了两件事：
+1. **加载 paste app**
+2. **运行该 app (Neutron API Service)**，
+````
+* neutron/service.py
+def _run_wsgi(app_name):
+    app = config.load_paste_app(app_name)
+    ...
+    return run_wsgi_app(app)
+ ````
+
+在这里，我们主要展示第 1 步，而将**第 2 步放到本文后边祥析**。
+end note
+
+neutron_service->api_router: call neutron.api.v2.router.py::**APIRouter()**
+
+activate api_router
+note over api_router #EB9898
+init **APIRouter**:
+1. init NeutronManager (with Core Plugin and Service Plugins)
+2. init Extension manager
+3. init Core Plugin routes
+end note
+
+api_router-->neutron_service: return API Router (wsgi app)
+deactivate api_router
+
+neutron_service->extension_middleware_factory: call neutron.api.extensions::**plugin_aware_extension_middleware_factory()** 
+
+activate extension_middleware_factory
+note over extension_middleware_factory #60A1EB
+1. get extension manager (PluginAwareExtensionManager),
+   but it has been initialized in APIRouter
+2. build **extentions routes**
+end note
+
+extension_middleware_factory-->neutron_service: return
+deactivate extension_middleware_factory
+
+
+neutron_service-->neutron_service: return a wsgi server
+deactivate neutron_service
+
+neutron_service-->neutron_service: return the Neutron api service
+deactivate neutron_service
+
+neutron_service-->wsgi_eventlet: return the Neutron api service
+deactivate neutron_service
+
+wsgi_eventlet->wsgi_eventlet: call neutron.server.wsgi_eventlet::start_api_and_rpc_workers()
+
+activate wsgi_eventlet
+note over wsgi_eventlet #6EDF64
+这里主要做了**两步**：
+1. **获取并启动 RPC & Plugins (Core Plguin & Service Plugins) workers**
+2. **开启 evenlet thread "wait" NeutronApiService/RPC/Plugins workers 函数**
+````
+* neutron/server/wsgi_eventlet.py
+def eventlet_wsgi_server():
+    ...
+    start_api_and_rpc_workers(neutron_api)
+
+def start_api_and_rpc_workers(neutron_api):
+    try:
+        # 获取并启动 RPC & Plugin (Core Plguin & Service Plugins) workers
+        worker_launcher = service.start_all_workers()
+
+        # 开启 evenlet thread "wait" NeutronApiService/RPC/Plugins workers
+        pool = eventlet.GreenPool()
+        api_thread = pool.spawn(neutron_api.wait)
+        plugin_workers_thread = pool.spawn(worker_launcher.wait)
+
+        # api and other workers should die together. When one dies,
+        # kill the other.
+        api_thread.link(lambda gt: plugin_workers_thread.kill())
+        plugin_workers_thread.link(lambda gt: api_thread.kill())
+
+        pool.waitall()
+    except NotImplementedError:
+        ...
+````
+
+**这部分会在后文做详细分析。**
+end note
+
+wsgi_eventlet-->wsgi_eventlet: return
+deactivate wsgi_eventlet
+
+wsgi_eventlet-->server_main: return
+deactivate wsgi_eventlet
+
+deactivate server_main
+
+@enduml

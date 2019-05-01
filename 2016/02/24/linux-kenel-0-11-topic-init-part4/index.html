@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：初始化程序（第 4 部分） —— 缓冲区、硬盘、软盘、特权级 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文是前 3 篇博文 Linux 内核学习笔记：初始化程序（第 1 部分）、Linux 内核学习笔记：初始化程序（第 2 部分）和 Linux 内核学习笔记：初始化程序（第 3 部分）的续篇。 缓冲区管理结构初始化注意：缓冲区及缓冲区管理结构跟之前博文 Linux 内核学习笔记：初始化程序（第 2 部分）提到的块设备请求项有关系但不一样:    缓冲区管理结构（buffer_head）主要负责进程">
+<meta name="keywords" content="Linux,内核,硬盘,缓冲区,软盘,特权级">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：初始化程序（第 4 部分） —— 缓冲区、硬盘、软盘、特权级">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/24/linux-kenel-0-11-topic-init-part4/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文是前 3 篇博文 Linux 内核学习笔记：初始化程序（第 1 部分）、Linux 内核学习笔记：初始化程序（第 2 部分）和 Linux 内核学习笔记：初始化程序（第 3 部分）的续篇。 缓冲区管理结构初始化注意：缓冲区及缓冲区管理结构跟之前博文 Linux 内核学习笔记：初始化程序（第 2 部分）提到的块设备请求项有关系但不一样:    缓冲区管理结构（buffer_head）主要负责进程">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/缓冲区与块设备请求项之间的关系.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/缓冲区在内存中的位置.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/缓冲区划分.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/针对所有缓冲块的双向链表结构.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/Hash表结构样例.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/初始化缓冲区管理结构.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/硬盘初始化结果.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/软盘初始化结果.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/开启中断.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/move_to_user_mode1.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/move_to_user_mode2.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.582Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：初始化程序（第 4 部分） —— 缓冲区、硬盘、软盘、特权级">
+<meta name="twitter:description" content="本文是前 3 篇博文 Linux 内核学习笔记：初始化程序（第 1 部分）、Linux 内核学习笔记：初始化程序（第 2 部分）和 Linux 内核学习笔记：初始化程序（第 3 部分）的续篇。 缓冲区管理结构初始化注意：缓冲区及缓冲区管理结构跟之前博文 Linux 内核学习笔记：初始化程序（第 2 部分）提到的块设备请求项有关系但不一样:    缓冲区管理结构（buffer_head）主要负责进程">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part4/缓冲区与块设备请求项之间的关系.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-init-part4" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/24/linux-kenel-0-11-topic-init-part4/" class="article-date">
+  	<time datetime="2016-02-24T07:45:55.000Z" itemprop="datePublished">2016-02-24</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：初始化程序（第 4 部分） —— 缓冲区、硬盘、软盘、特权级
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/特权级/">特权级</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/硬盘/">硬盘</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/缓冲区/">缓冲区</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/软盘/">软盘</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文是前 3 篇博文 <a href="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/">Linux 内核学习笔记：初始化程序（第 1 部分）</a>、<a href="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part2/">Linux 内核学习笔记：初始化程序（第 2 部分）</a>和 <a href="http://xiehongfeng100.github.io/2016/02/23/linux-kenel-0-11-topic-init-part3/">Linux 内核学习笔记：初始化程序（第 3 部分）</a>的续篇。</p>
+<h1 id="缓冲区管理结构初始化"><a href="#缓冲区管理结构初始化" class="headerlink" title="缓冲区管理结构初始化"></a><strong>缓冲区管理结构初始化</strong></h1><p>注意：缓冲区及缓冲区管理结构跟之前博文 <a href="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part2/">Linux 内核学习笔记：初始化程序（第 2 部分）</a>提到的块设备请求项有关系但不一样:  </p>
+<ul>
+<li>缓冲区管理结构（buffer_head）主要负责<code>进程与缓冲区</code>中缓冲块的数据交互，在确保数据交互正确的前提下，让数据在缓冲区中停留的时间尽可能长</li>
+<li>块设备请求项（request）主要负责<code>块设备与缓冲区</code>之间的数据交互，在确保数据交互正确的前提下，尽可能地及时将进程修改过的缓冲块中的数据同步到块设备中</li>
+</ul>
+<p>进程、块设备与缓冲区之间的关系如下：<br><img src="/images/os/linux-kenel-0.11/init/part4/缓冲区与块设备请求项之间的关系.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<a id="more"></a>
+<h2 id="缓冲区"><a href="#缓冲区" class="headerlink" title="缓冲区"></a><strong>缓冲区</strong></h2><p>《Linux 内核设计的艺术》对缓冲区有一个简要的介绍：  </p>
+<blockquote>
+<p>缓冲区是内存与外设（如硬盘）进行数据交互的媒介。内存与硬盘最大的区别在于，硬盘的作用仅仅是对数据信息以很低的成本做大量数据的断电保存，并不参与运算（因为 <code>CPU 无法到硬盘上寻址</code>），而内存除了需要对数据进行保存以外，更重要的是与 CPU、总线配合进行数据运算。<code>缓冲区则介于两者之间，它既对数据信息进行保存，也能够参与一些像查找、组织之类的间接、辅助性运算。有了缓冲区这个媒介后，对外设而言，它仅需要考虑与缓冲区进行数据交互是否符合要求，而不需要考虑内存如何使用这些交互的数据；对内存而言，它也仅需要考虑与缓冲区交互的条件是否成熟，而不需要关心此时外设对缓冲区的交互情况。</code>两者的组织、管理和协调将由操作系统统一操作。</p>
+</blockquote>
+<p>缓冲区在内存中的位置如下：<br><img src="/images/os/linux-kenel-0.11/init/part4/缓冲区在内存中的位置.png" alt>图片来源：《Linux 内核完全注释》  </p>
+<p>注意：</p>
+<ul>
+<li>显存和 BIOS ROM 在缓冲区内部</li>
+<li><code>end</code> 表示内核模块的末端，也是缓冲区的开端。end 是内核模块（system）链接期间由链接程序 ld 设置的一个外部变量，内核代码中没有定义这个符号。当在生成 system 模块时，ld 设置了 end 的地址，它等于 data_start+datasize+bss_size，即 bss 段结束后的第 1 个有效地址，也即内核模块的末端。另外，ld 还设置了 etext 和 edata 两个外部变量，分别表示代码段后第 1 个地址和数据段后第 1 个地址。</li>
+</ul>
+<h2 id="缓冲区管理"><a href="#缓冲区管理" class="headerlink" title="缓冲区管理"></a><strong>缓冲区管理</strong></h2><p>缓冲区从高地址端向低地址端划分成一个个 1024 字节大小的<code>缓冲块</code>，与块设备上的逻辑块大小相同（逻辑块是由设备驱动程序<code>拼接</code>而成的，而驱动程序为了拼接好这个逻辑块，可能需要多次读写外设。如从硬盘读两个扇区（512B）才能拼接成一个逻辑块）。而从缓冲区低地址端向高地址端方向，需要建立缓冲区管理结构，以管理这些划分出来的缓冲块。缓冲区具体划分如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part4/缓冲区划分.png" alt>图片来源：《Linux 内核完全注释》  </p>
+<p>每一个<code>缓冲块</code>都用这样一个结构体来管理：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// include/linux/fs.h --------------------------</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> &#123;</span></span><br><span class="line">	<span class="keyword">char</span> * b_data;			<span class="comment">/* pointer to data block (1024 bytes) */</span>		<span class="comment">// 指向缓冲块</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> b_blocknr;		<span class="comment">/* block number */</span>				<span class="comment">// 该缓冲块对应的设备上的块号（注意不是用来</span></span><br><span class="line">											<span class="comment">// 标记缓冲块的），如硬盘上的第 0 块</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">short</span> b_dev;		<span class="comment">/* device (0 = free) */</span>				<span class="comment">// 该缓冲块对应的设备号，如第一块硬盘设备号是 0x300</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> b_uptodate;	<span class="comment">// 更新标志：表示数据是否已更新</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> b_dirt;		<span class="comment">/* 0-clean,1-dirty */</span>				<span class="comment">// 该缓冲块上的数据是否已修改</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> b_count;		<span class="comment">/* users using this block */</span>			<span class="comment">// 使用该缓冲块的用户数</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> b_lock;		<span class="comment">/* 0 - ok, 1 -locked */</span>				<span class="comment">// 该缓冲块是否被锁定</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> * <span class="title">b_wait</span>;</span>	<span class="comment">// 指向等待该缓冲块解锁的任务</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">b_prev</span>;</span>		<span class="comment">// Hash 队列上前一块</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">b_next</span>;</span>		<span class="comment">// Hash 队列上下一块</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">b_prev_free</span>;</span>	<span class="comment">// 空闲表上前一块</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">b_next_free</span>;</span>	<span class="comment">// 空闲表上下一块</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>Linux 0.11 对缓冲区的管理分为两个部分：  </p>
+<ul>
+<li><p><strong>针对<code>所有缓冲块</code>的双向链表结构</strong><br>所有的缓冲块的管理结构 buffer_head 被链接成一个双向链表结构，如下图所示。图中 free_list 指针是该链表的头指针，指向空闲块链表中第一个“最为空闲”的缓冲块，即近期最少使用的缓冲块。而该缓冲块的 buffer_head 的反向指针 b_prev_free 则指向缓冲块链表中最后一个缓冲块，即最近刚使用的缓冲块。<br><img src="/images/os/linux-kenel-0.11/init/part4/针对所有缓冲块的双向链表结构.png" alt>图片来源：《Linux 内核完全注释》  </p>
+</li>
+<li><p><strong>针对<code>已读入数据的缓冲块</code>的 Hash 表</strong><br>为了能够快速而有效地在缓冲区中判断所请求的数据块是否已经被读入到缓冲区中，buffer.c 程序使用了具有 307 个 buffer_head 指针项的 Hash 表。Hash 表所使用的 Hash 函数由设备号和逻辑号通过异或操作组合而成，即<code>（设备号^逻辑块号）Mod 307</code>。某一时刻，动态变化的 Hash 表结构可能如下：<br><img src="/images/os/linux-kenel-0.11/init/part4/Hash表结构样例.png" alt>图片来源：《Linux 内核完全注释》<br>注：上图中双箭头横线表示散列在同一 Hash 表项中缓冲块头结构 buffer_head 之间的双向链接指针。</p>
+</li>
+</ul>
+<h2 id="缓冲区管理结构初始化-1"><a href="#缓冲区管理结构初始化-1" class="headerlink" title="缓冲区管理结构初始化"></a><strong>缓冲区管理结构初始化</strong></h2><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	buffer_init(buffer_memory_end);</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/linux/fs.h --------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> NR_HASH 307</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// fs/buffer.c ---------------------------------</span></span><br><span class="line"><span class="keyword">extern</span> <span class="keyword">int</span> end;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">start_buffer</span> = (<span class="title">struct</span> <span class="title">buffer_head</span> *) &amp;<span class="title">end</span>;</span>		<span class="comment">// 关于 end 请参照前文解释</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">hash_table</span>[<span class="title">NR_HASH</span>];</span></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">free_list</span>;</span></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> * <span class="title">buffer_wait</span> = <span class="title">NULL</span>;</span></span><br><span class="line"><span class="keyword">int</span> NR_BUFFERS = <span class="number">0</span>;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">buffer_init</span><span class="params">(<span class="keyword">long</span> buffer_end)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">buffer_head</span> * <span class="title">h</span> = <span class="title">start_buffer</span>;</span>	<span class="comment">// h：缓冲块管理结构起始处，缓冲区低地址端-&gt;高地址端</span></span><br><span class="line">	<span class="keyword">void</span> * b;				<span class="comment">// b：缓冲块起始处，缓冲区高地址端-&gt;低地址端</span></span><br><span class="line">	<span class="keyword">int</span> i;</span><br><span class="line">	<span class="comment">// 如果缓冲区高地址端等于 1MB，则由于 640KB~1MB 区域被显示内存和 BIOS 占用，因此实际可用</span></span><br><span class="line">	<span class="comment">// 缓冲区内存高地址端应该是 640KB。否则高地址端一定大于 1MB。</span></span><br><span class="line">	<span class="keyword">if</span> (buffer_end == <span class="number">1</span>&lt;&lt;<span class="number">20</span>)</span><br><span class="line">		b = (<span class="keyword">void</span> *) (<span class="number">640</span>*<span class="number">1024</span>);</span><br><span class="line">	<span class="keyword">else</span></span><br><span class="line">		b = (<span class="keyword">void</span> *) buffer_end;</span><br><span class="line">	<span class="comment">// h、b 分别从缓冲区的低地址端和高地址端开始，每次绑定一对 buffer_head、缓冲块</span></span><br><span class="line">	<span class="comment">// 忽略剩余不足一对 buffer_head、缓冲块的空间</span></span><br><span class="line">	<span class="keyword">while</span> ( (b -= BLOCK_SIZE) &gt;= ((<span class="keyword">void</span> *) (h+<span class="number">1</span>)) ) &#123;</span><br><span class="line">		h-&gt;b_dev = <span class="number">0</span>;</span><br><span class="line">		h-&gt;b_dirt = <span class="number">0</span>;</span><br><span class="line">		h-&gt;b_count = <span class="number">0</span>;</span><br><span class="line">		h-&gt;b_lock = <span class="number">0</span>;</span><br><span class="line">		h-&gt;b_uptodate = <span class="number">0</span>;</span><br><span class="line">		h-&gt;b_wait = <span class="literal">NULL</span>;</span><br><span class="line">		h-&gt;b_next = <span class="literal">NULL</span>;</span><br><span class="line">		h-&gt;b_prev = <span class="literal">NULL</span>;</span><br><span class="line">		h-&gt;b_data = (<span class="keyword">char</span> *) b;		<span class="comment">// 每个 buffer_head 关联一个缓冲块</span></span><br><span class="line">		h-&gt;b_prev_free = h<span class="number">-1</span>;</span><br><span class="line">		h-&gt;b_next_free = h+<span class="number">1</span>;</span><br><span class="line">		h++;</span><br><span class="line">		NR_BUFFERS++;			<span class="comment">// 缓冲区块数累加</span></span><br><span class="line">		<span class="keyword">if</span> (b == (<span class="keyword">void</span> *) <span class="number">0x100000</span>)	<span class="comment">// 避开 VGA 和 BIOS ROM</span></span><br><span class="line">			b = (<span class="keyword">void</span> *) <span class="number">0xA0000</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	h--;					<span class="comment">// 让 h 指向最后一个有效 buffer_head</span></span><br><span class="line">	free_list = start_buffer;		<span class="comment">// 闭合双向链表</span></span><br><span class="line">	free_list-&gt;b_prev_free = h;</span><br><span class="line">	h-&gt;b_next_free = free_list;</span><br><span class="line">	<span class="keyword">for</span> (i=<span class="number">0</span>;i&lt;NR_HASH;i++)			<span class="comment">// 清空 Hash 表</span></span><br><span class="line">		hash_table[i]=<span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码执行结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part4/初始化缓冲区管理结构.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="硬盘初始化"><a href="#硬盘初始化" class="headerlink" title="硬盘初始化"></a><strong>硬盘初始化</strong></h1><p>硬盘初始化代码为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	hd_init();</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/blk.h -------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> (MAJOR_NR == 1)</span></span><br><span class="line"><span class="comment">/* ram disk */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 2)</span></span><br><span class="line"><span class="comment">/* floppy */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 3)</span></span><br><span class="line"><span class="comment">/* harddisk */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_NAME <span class="meta-string">"harddisk"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_INTR do_hd</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_REQUEST do_hd_request</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/hd.c --------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAJOR_NR 3</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">do_hd_request</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">hd_init</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;</span><br><span class="line">	set_intr_gate(<span class="number">0x2E</span>,&amp;hd_interrupt);</span><br><span class="line">	outb_p(inb_p(<span class="number">0x21</span>)&amp;<span class="number">0xfb</span>,<span class="number">0x21</span>);</span><br><span class="line">	outb(inb_p(<span class="number">0xA1</span>)&amp;<span class="number">0xbf</span>,<span class="number">0xA1</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="comment">// _set_gate 解释请参照之前博文 Linux 内核学习笔记：初始化程序（第 1 部分）http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> set_intr_gate(n,addr) \</span></span><br><span class="line">	_set_gate(&amp;idt[n],<span class="number">14</span>,<span class="number">0</span>,addr)</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">_hd_interrupt:</span><br><span class="line">	pushl %eax</span><br><span class="line">	pushl %ecx</span><br><span class="line">	pushl %edx</span><br><span class="line">	push %ds</span><br><span class="line">	push %es</span><br><span class="line">	push %fs</span><br><span class="line">	movl $<span class="number">0x10</span>,%eax</span><br><span class="line">	mov %ax,%ds</span><br><span class="line">	mov %ax,%es</span><br><span class="line">	movl $<span class="number">0x17</span>,%eax</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	movb $<span class="number">0x20</span>,%al</span><br><span class="line">	outb %al,$<span class="number">0xA0</span>		# EOI to interrupt controller #<span class="number">1</span></span><br><span class="line">	jmp <span class="number">1f</span>			<span class="meta"># give port chance to breathe</span></span><br><span class="line"><span class="number">1</span>:	jmp <span class="number">1f</span></span><br><span class="line"><span class="number">1</span>:	xorl %edx,%edx</span><br><span class="line">	xchgl _do_hd,%edx</span><br><span class="line">	testl %edx,%edx</span><br><span class="line">	jne <span class="number">1f</span></span><br><span class="line">	movl $_unexpected_hd_interrupt,%edx</span><br><span class="line"><span class="number">1</span>:	outb %al,$<span class="number">0x20</span></span><br><span class="line">	call *%edx		# <span class="string">"interesting"</span> way of handling intr.</span><br><span class="line">	pop %fs</span><br><span class="line">	pop %es</span><br><span class="line">	pop %ds</span><br><span class="line">	popl %edx</span><br><span class="line">	popl %ecx</span><br><span class="line">	popl %eax</span><br><span class="line">	iret</span><br></pre></td></tr></table></figure></p>
+<p>这段代码跟之前博文 <a href="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/">Linux 内核学习笔记：初始化程序（第 1 部分）</a>中“设置虚拟盘空间并初始化”部分很类似。</p>
+<p>在 hd_init() 函数中，将硬盘请求项服务程序 do_hd_request() 与 blk_dev 控制结构相挂接，硬盘与请求项的交互工作将由 do_hd_request()函数（由 kenel/blk_dev/ll_rw_block.c -&gt; ll_rw_block()函数调用）来处理。然后将硬盘中断服务程序 hd_interrupt 与 IDT 相挂接。最后，复位主 8259A int2 的屏蔽位，允许从片发出中断请求信号；复位硬盘的中断请求屏蔽位（在从片上），允许硬盘控制器发送中断请求信号。</p>
+<p>硬盘初始化结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part4/硬盘初始化结果.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="软盘初始化"><a href="#软盘初始化" class="headerlink" title="软盘初始化"></a><strong>软盘初始化</strong></h1><p>软盘初始化代码为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	floppy_init();</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/blk.h -------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> (MAJOR_NR == 1)</span></span><br><span class="line"><span class="comment">/* ram disk */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 2)</span></span><br><span class="line"><span class="comment">/* floppy */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_NAME <span class="meta-string">"floppy"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_INTR do_floppy</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_REQUEST do_fd_request</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 3)</span></span><br><span class="line"><span class="comment">/* harddisk */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/floppy.c ----------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAJOR_NR 2</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">do_fd_request</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">floppy_init</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;</span><br><span class="line">	set_trap_gate(<span class="number">0x26</span>,&amp;floppy_interrupt);</span><br><span class="line">	outb(inb_p(<span class="number">0x21</span>)&amp;~<span class="number">0x40</span>,<span class="number">0x21</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="comment">// _set_gate 解释请参照之前博文 Linux 内核学习笔记：初始化程序（第 1 部分）http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> set_intr_gate(n,addr) \</span></span><br><span class="line">	_set_gate(&amp;idt[n],<span class="number">14</span>,<span class="number">0</span>,addr)</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">_floppy_interrupt:</span><br><span class="line">	pushl %eax</span><br><span class="line">	pushl %ecx</span><br><span class="line">	pushl %edx</span><br><span class="line">	push %ds</span><br><span class="line">	push %es</span><br><span class="line">	push %fs</span><br><span class="line">	movl $<span class="number">0x10</span>,%eax</span><br><span class="line">	mov %ax,%ds</span><br><span class="line">	mov %ax,%es</span><br><span class="line">	movl $<span class="number">0x17</span>,%eax</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	movb $<span class="number">0x20</span>,%al</span><br><span class="line">	outb %al,$<span class="number">0x20</span>		# EOI to interrupt controller #<span class="number">1</span></span><br><span class="line">	xorl %eax,%eax</span><br><span class="line">	xchgl _do_floppy,%eax</span><br><span class="line">	testl %eax,%eax</span><br><span class="line">	jne <span class="number">1f</span></span><br><span class="line">	movl $_unexpected_floppy_interrupt,%eax</span><br><span class="line"><span class="number">1</span>:	call *%eax		# <span class="string">"interesting"</span> way of handling intr.</span><br><span class="line">	pop %fs</span><br><span class="line">	pop %es</span><br><span class="line">	pop %ds</span><br><span class="line">	popl %edx</span><br><span class="line">	popl %ecx</span><br><span class="line">	popl %eax</span><br><span class="line">	iret</span><br></pre></td></tr></table></figure></p>
+<p>软盘跟硬盘的初始化过程基本是一样的，除了软盘请求项处理函数是 do_fd_request()。</p>
+<p>软盘初始化结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part4/软盘初始化结果.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="开中断"><a href="#开中断" class="headerlink" title="开中断"></a><strong>开中断</strong></h1><p>到此，<code>系统中所有中断服务程序都已经和 IDT 正常挂接。这意味着中断服务体系已经构建完毕，系统现在可以在 32 位保护模式下处理中断，重要意义之一是可以使用系统调用。</code></p>
+<p>现在可以开启中断了：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	sti();</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> sti() __asm__ (<span class="meta-string">"sti"</span>::)</span></span><br></pre></td></tr></table></figure></p>
+<p>代码执行结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part4/开启中断.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="进程-0-特权级翻转"><a href="#进程-0-特权级翻转" class="headerlink" title="进程 0 特权级翻转"></a><strong>进程 0 特权级翻转</strong></h1><p>《Linux 内核设计的艺术》对进程 0 特权级翻转有一简要描述：  </p>
+<blockquote>
+<p>Linux 操作系统规定，<code>除进程 0 之外，所有进程都要由一个已有进程在 3 特权级下创建。</code>在 Linux 0.11 中，进程 0 的代码和数据都是由操作系统的设计者写在内核代码、数据区，并且，进程 0 此前处在 0 特权级，严格说还不是真正意义上的进程。为了遵守规则，在进程 0 创建进程 1 之前，要将进程 0 由 0 特权级转变为 3 特权级。方法是调用 move_to_user_mode() 函数，模仿中断返回动作，实现进程 0 的特权级从 0 转变为 3。</p>
+</blockquote>
+<p>执行代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	move_to_user_mode();</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> move_to_user_mode() \		<span class="comment">// 模仿中断硬件压栈，顺序是 ss、esp、eflags、cs、eip</span></span></span><br><span class="line">__asm__ (<span class="string">"movl %%esp,%%eax\n\t"</span> \</span><br><span class="line">	<span class="string">"pushl $0x17\n\t"</span> \		<span class="comment">// ss 进栈，0x17 即二进制的 10 111（3 特权级、LDT、数据段）</span></span><br><span class="line">	<span class="string">"pushl %%eax\n\t"</span> \		<span class="comment">// esp 进栈</span></span><br><span class="line">	<span class="string">"pushfl\n\t"</span> \			<span class="comment">// eflags 进栈</span></span><br><span class="line">	<span class="string">"pushl $0x0f\n\t"</span> \		<span class="comment">// cs 进栈，0x0f 即 1 111（3 特权级、LDT、代码段）</span></span><br><span class="line">	<span class="string">"pushl $1f\n\t"</span> \		<span class="comment">// eip 进栈</span></span><br><span class="line">	<span class="string">"iret\n"</span> \			<span class="comment">// 出栈恢复现场，翻转特权级从 0 到 3</span></span><br><span class="line">	<span class="string">"1:\tmovl $0x17,%%eax\n\t"</span> \	<span class="comment">// 下面代码使 ds、es、fs、gs 与 ss 一致</span></span><br><span class="line">	<span class="string">"movw %%ax,%%ds\n\t"</span> \</span><br><span class="line">	<span class="string">"movw %%ax,%%es\n\t"</span> \</span><br><span class="line">	<span class="string">"movw %%ax,%%fs\n\t"</span> \</span><br><span class="line">	<span class="string">"movw %%ax,%%gs"</span> \</span><br><span class="line">	:::<span class="string">"ax"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>对该程序，《Linux 内核设计的艺术》有一个很详细的解释：<br><img src="/images/os/linux-kenel-0.11/init/part4/move_to_user_mode1.png" alt><br><img src="/images/os/linux-kenel-0.11/init/part4/move_to_user_mode2.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/25/linux-kenel-0-11-topic-process-one-part1/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：进程 1 的创建及执行（第 1 部分） —— 进程派生
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/02/23/linux-kenel-0-11-topic-init-part3/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：初始化程序（第 3 部分） —— 初始化进程 0</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#缓冲区管理结构初始化"><span class="toc-number">1.</span> <span class="toc-text">缓冲区管理结构初始化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#缓冲区"><span class="toc-number">1.1.</span> <span class="toc-text">缓冲区</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#缓冲区管理"><span class="toc-number">1.2.</span> <span class="toc-text">缓冲区管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#缓冲区管理结构初始化-1"><span class="toc-number">1.3.</span> <span class="toc-text">缓冲区管理结构初始化</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#硬盘初始化"><span class="toc-number">2.</span> <span class="toc-text">硬盘初始化</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#软盘初始化"><span class="toc-number">3.</span> <span class="toc-text">软盘初始化</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#开中断"><span class="toc-number">4.</span> <span class="toc-text">开中断</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#进程-0-特权级翻转"><span class="toc-number">5.</span> <span class="toc-text">进程 0 特权级翻转</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“汇编语言” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要对汇编一些个人认为比较重要的点进行阐述。 下文如无特别说明，所采用的汇编语言为 AT&amp;amp;T 格式的汇编语言。关于汇编语言开发，有一篇写的很好的 IBM 的博文值得参考：Linux 汇编语言开发指南（如果链接失效，可从百度云下载得到。）。 汇编只是一种助记符在以前博文 Linux 内核学习笔记：预备知识之“目标文件”中我们曾提到 C/C++ 源代码经编译后可以生成汇编代码，而汇编代码经">
+<meta name="keywords" content="Linux,内核,指令集,AT&amp;T,汇编">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“汇编语言”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/28/linux-kenel-0-11-topic-necessary-preparation-part7/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要对汇编一些个人认为比较重要的点进行阐述。 下文如无特别说明，所采用的汇编语言为 AT&amp;amp;T 格式的汇编语言。关于汇编语言开发，有一篇写的很好的 IBM 的博文值得参考：Linux 汇编语言开发指南（如果链接失效，可从百度云下载得到。）。 汇编只是一种助记符在以前博文 Linux 内核学习笔记：预备知识之“目标文件”中我们曾提到 C/C++ 源代码经编译后可以生成汇编代码，而汇编代码经">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/样例二进制代码及其对应的汇编代码.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/Intel-Architecture-Instruction-Format.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/保护模式下段加偏移的寻址组合.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/寻址方式小结.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/32位保护模式内存寻址方式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/比较和测试指令.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/跳转指令.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/cmp与jmp相结合.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part1.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part2.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part3.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.586Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“汇编语言”">
+<meta name="twitter:description" content="本文主要对汇编一些个人认为比较重要的点进行阐述。 下文如无特别说明，所采用的汇编语言为 AT&amp;amp;T 格式的汇编语言。关于汇编语言开发，有一篇写的很好的 IBM 的博文值得参考：Linux 汇编语言开发指南（如果链接失效，可从百度云下载得到。）。 汇编只是一种助记符在以前博文 Linux 内核学习笔记：预备知识之“目标文件”中我们曾提到 C/C++ 源代码经编译后可以生成汇编代码，而汇编代码经">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part7/样例二进制代码及其对应的汇编代码.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part7" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/28/linux-kenel-0-11-topic-necessary-preparation-part7/" class="article-date">
+  	<time datetime="2016-01-28T07:24:51.000Z" itemprop="datePublished">2016-01-28</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“汇编语言”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/AT-T/">AT&T</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/指令集/">指令集</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/汇编/">汇编</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要对汇编一些个人认为比较重要的点进行阐述。</p>
+<p>下文如无特别说明，所采用的汇编语言为 AT&amp;T 格式的汇编语言。关于汇编语言开发，有一篇写的很好的 IBM 的博文值得参考：<a href="https://www.ibm.com/developerworks/cn/linux/l-assembly/" target="_blank" rel="noopener">Linux 汇编语言开发指南</a>（如果链接失效，可从<a href="http://pan.baidu.com/s/1eRrtUYu" target="_blank" rel="noopener">百度云</a>下载得到。）。</p>
+<h1 id="汇编只是一种助记符"><a href="#汇编只是一种助记符" class="headerlink" title="汇编只是一种助记符"></a><strong>汇编只是一种助记符</strong></h1><p>在以前博文 <a href="http://xiehongfeng100.github.io/2016/01/24/linux-kenel-0-11-topic-necessary-preparation-part4/">Linux 内核学习笔记：预备知识之“目标文件”</a>中我们曾提到 C/C++ 源代码经编译后可以生成汇编代码，而汇编代码经过汇编器能够被直接“翻译”（注意这里用的是“翻译”而不是“生成”或“转换”）成二进制代码（可重定位目标文件）。从这个意义上来说，汇编其实是一种中间代码，它可以不存在。实际上，<code>它是机器指令的助记符，它跟机器指令是一一对应的。</code>例如，如下一个简单 C 程序：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">sum</span><span class="params">(<span class="keyword">int</span> x, <span class="keyword">int</span> y)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> t = x + y;</span><br><span class="line">	<span class="keyword">return</span> t;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p>我们对其进行编译并查看其汇编代码：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">$ gcc -O0 -S sum.c</span><br><span class="line">$ vim sum.s</span><br><span class="line"></span><br><span class="line">	.file	<span class="string">"sum.c"</span></span><br><span class="line">	.text</span><br><span class="line">	.globl	sum</span><br><span class="line">	.type	sum, @function</span><br><span class="line">sum:</span><br><span class="line">.LFB0:</span><br><span class="line">	.cfi_startproc</span><br><span class="line">	pushl	%ebp</span><br><span class="line">	.cfi_def_cfa_offset <span class="number">8</span></span><br><span class="line">	.cfi_offset <span class="number">5</span>, <span class="number">-8</span></span><br><span class="line">	movl	%esp, %ebp</span><br><span class="line">	.cfi_def_cfa_register <span class="number">5</span></span><br><span class="line">	subl	$<span class="number">16</span>, %esp</span><br><span class="line">	movl	<span class="number">8</span>(%ebp), %edx</span><br><span class="line">	movl	<span class="number">12</span>(%ebp), %eax</span><br><span class="line">	addl	%edx, %eax</span><br><span class="line">	movl	%eax, <span class="number">-4</span>(%ebp)</span><br><span class="line">	movl	<span class="number">-4</span>(%ebp), %eax</span><br><span class="line">	leave</span><br><span class="line">	.cfi_restore <span class="number">5</span></span><br><span class="line">	.cfi_def_cfa <span class="number">4</span>, <span class="number">4</span></span><br><span class="line">	ret</span><br><span class="line">	.cfi_endproc</span><br><span class="line">.LFE0:</span><br><span class="line">	.size	sum, .-sum</span><br><span class="line">	.ident	<span class="string">"GCC: (Debian 4.9.2-10) 4.9.2"</span></span><br><span class="line">	.section	.note.GNU-<span class="built_in">stack</span>,<span class="string">""</span>,@progbits</span><br></pre></td></tr></table></figure></p>
+<p>然后我们再将该文件汇编为可重定位目标文件并查看其二进制代码与汇编代码的对应：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ gcc -O0 -c sum.s</span><br><span class="line">$ objdump -d sum.o</span><br></pre></td></tr></table></figure></p>
+<p>得到如下结果：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/样例二进制代码及其对应的汇编代码.png" alt><br>上图中，左边红色方框内的是计算机能够识别并执行的机器代码，右边红色方框是这些机器代码一一对应的汇编代码。<code>这些汇编代码是由&quot;objdump&quot;命令从机器代码翻译过来，而且它们跟&quot;sum.s&quot;文件内容一模一样（除去指导汇编器的助记符）。</code></p>
+<p>通过以上分析，<code>汇编代码和机器代码之间能够互相翻译。这说明汇编代码确实是机器代码的一种助记符（因为计算机只能够识别并执行机器代码），只不过汇编代码的可读性要更好。</code></p>
+<h1 id="汇编跟指令集的关系"><a href="#汇编跟指令集的关系" class="headerlink" title="汇编跟指令集的关系"></a><strong>汇编跟指令集的关系</strong></h1><p>汇编语言是一种低级的跟机器相关的语言，可移植性不够好。那具体原因是什么呢？</p>
+<p>我们知道，不同的处理器架构支持的指令集（Instruction Set）是不一样的，如 Intel 处理器使用的是复杂指令集（Complex Instruction Set），ARM 处理器使用的精简指令集（Reduced Instruction Set）。又因为汇编语言依赖于处理器所能支持的指令集，所以，不同架构的处理器支持的汇编语言并不一样，这样就导致了汇编语言的可移植性比较差。那为什么高级语言的可移植性会比较好？这要归功于编译器，是编译器将同样的一份高级语言代码编译为某个处理器所支持的汇编语言。</p>
+<p>到这里，我们不得不问一下，上边提到的指令集究竟是什么？</p>
+<p>维基百科给出的<a href="https://en.wikipedia.org/wiki/Instruction_set" target="_blank" rel="noopener">定义</a>是这样子的：  </p>
+<blockquote>
+<p>An instruction set, or instruction set architecture (ISA), is the part of the computer architecture related to programming, including the native data types, instructions, registers, addressing modes, memory architecture, interrupt and exception handling, and external I/O. <code>An ISA includes a specification of the set of opcodes (machine language), and the native commands implemented by a particular processor.</code></p>
+</blockquote>
+<p>通俗来讲，<code>指令集就是机器指令的一个集合，这些指令有不同的操作码（opcodes）。</code>而我们在上一节提到汇编语言其实跟机器语言是一一对应的，所以我们可以这样理解汇编语言跟指令集的关系：<code>汇编语言本质只是指令集中指令的一种助记符。</code></p>
+<hr>
+<p><strong>题外：</strong></p>
+<p>同一指令集可以有不同的实现，如 Intel 和 AMD 都开发出了支持 X86 指令集的处理器，但它们具体是怎么实现的并不一样。一般来说，对指令集中每个指令的实现采用的是流水线技术，即<code>取指-&gt;译码-&gt;执行-&gt;访存-&gt;回写</code>。详细可参考《自己动手写 CPU》和《深入理解计算机系统》第四章“处理器体系架构”。</p>
+<p>另外，不同的指令有不同的操作码（opcodes）。维基百科上的<a href="https://en.wikipedia.org/wiki/Opcode" target="_blank" rel="noopener">定义</a>如下：  </p>
+<blockquote>
+<p>In computing, an opcode (abbreviated from operation code) is the portion of a machine language instruction that specifies the operation to be performed. Beside the opcode itself, instructions usually specify the data they will process, in form of operands.</p>
+</blockquote>
+<p>也就是说，<code>操作码告诉计算机具体要做的事情。</code>在 Intel 处理器，它定义每条<a href="http://pan.baidu.com/s/1pKw1x2r" target="_blank" rel="noopener">指令格式</a>为：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/Intel-Architecture-Instruction-Format.png" alt>  </p>
+<h1 id="寻址方式"><a href="#寻址方式" class="headerlink" title="寻址方式"></a><strong>寻址方式</strong></h1><p>在之前博文 <a href="http://xiehongfeng100.github.io/2016/01/22/linux-kenel-0-11-topic-necessary-preparation-part3/">Linux 内核学习笔记：预备知识之“存储器模型”</a>提到，默认的“段+偏移”寻址组合如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/保护模式下段加偏移的寻址组合.png" alt>  </p>
+<p>作为补充，<a href="http://item.jd.com/11314390.html#none" target="_blank" rel="noopener">《汇编语言》</a>（第 2 版）（王爽著）对寻址方式有一个小结特别详细（下图汇编语言格式是 Intel，针对 16 位 8086）：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/寻址方式小结.png" alt>  </p>
+<p><strong>需要注意的是：</strong></p>
+<ul>
+<li>在 16 位实模式（8086），内存寻址采用的是真正的“段+偏移”，所以线性地址为“段基址*16 + 偏移”；</li>
+<li>在 32 位保护模式下，内存寻址采用的并不是真正的“段+偏移”，而是“段基址”用作“段选择子”，具体可参考前边博文 <a href="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2">Linux 内核学习笔记：预备知识之“存储器管理基础”</a>。<ul>
+<li>在 AT&amp;T 汇编格式中，内存操作数的寻址方式是<code>section:disp(base, index, scale)</code>(disp -&gt; displacement)</li>
+<li>在 Intel 汇编格式中，内存操作数的寻址方式为<code>section:[base + index*scale + disp]</code></li>
+<li>所以，在 32 位保护模式下，线性地址（虚拟地址）在计算地址时不用考虑段基址和偏移量，而是采用这样的地址计算方法：<code>disp + base + index * scale</code></li>
+<li>如下图所示的一些例子：</li>
+<li><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/32位保护模式内存寻址方式.png" alt><a href="https://www.ibm.com/developerworks/cn/linux/l-assembly/" target="_blank" rel="noopener">图片来源</a>  </li>
+</ul>
+</li>
+</ul>
+<h1 id="其他一些值得一说的点"><a href="#其他一些值得一说的点" class="headerlink" title="其他一些值得一说的点"></a><strong>其他一些值得一说的点</strong></h1><p>这部分主要参考自《深入理解计算机系统》第 3 章“程序的机器级表示”。</p>
+<h2 id="比较和测试"><a href="#比较和测试" class="headerlink" title="比较和测试"></a><strong>比较和测试</strong></h2><p>有两类指令（有 8、16 和 32 位形式）只设置<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">标志寄存器</a>一些标志位的值而不改变其它寄存器：比较和测试，如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/比较和测试指令.png" alt>  </p>
+<ul>
+<li><p><code>cmp</code>指令根据它们的两个操作数之差来设置标志位。除了只设置标志位而不更新目标寄存器外，它跟<code>sub</code>指令的行为是一样的。如果两个数相等，零标志位<code>ZF</code>将会被设置为 1，而其他的的标志位可以用来确定两个操作数之间的大小。</p>
+</li>
+<li><p><code>test</code>指令除了只设置标志位而不更新目标寄存器外，它跟<code>and</code>指令的行为是一样的。典型的用法是，两个操作数是一样的（例如，testl %eax, %eax 用来检查 %eax 是负数、零还是正数），或其中的一个操作数是一个掩码，用来指示哪些位应该被测试。</p>
+</li>
+</ul>
+<p>这两个指令的意义在于它们会改变<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">标志寄存器</a>的一些标志位的值，从而作为其它指令转移的条件。</p>
+<h2 id="条件跳转"><a href="#条件跳转" class="headerlink" title="条件跳转"></a><strong>条件跳转</strong></h2><p>条件跳转指令如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/跳转指令.png" alt><br>注意：上图中的<code>jmp</code>是无条件跳转，不属于条件跳转。</p>
+<p>关于条件转移指令，请参考博文<a href="http://liuchang.blog.51cto.com/382643/77468" target="_blank" rel="noopener">关于汇编跳转指令的说明</a>。</p>
+<p>一个结合<code>cmp</code>和<code>jmp</code>指令的例子如下：　</p>
+<ul>
+<li><p>C 源程序</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">getSum</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> i = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">for</span>(; i &lt; <span class="number">10</span>; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		sum += i;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> sum;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>汇编代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ gcc -c getsum.c</span><br><span class="line">$ objdump -d getsum.o</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>可得结果如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/cmp与jmp相结合.png" alt>  </p>
+<h1 id="GCC-内联汇编"><a href="#GCC-内联汇编" class="headerlink" title="GCC 内联汇编"></a><strong>GCC 内联汇编</strong></h1><p>这部分主要参考资料：<br><a href="http://www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html" target="_blank" rel="noopener">GCC-Inline-Assembly-HOWTO</a><br><a href="http://blog.csdn.net/slvher/article/details/8864996" target="_blank" rel="noopener">Linux C 中内联汇编的语法格式及使用方法（Inline Assembly in Linux C）</a>  </p>
+<h2 id="基本语法规则"><a href="#基本语法规则" class="headerlink" title="基本语法规则"></a><strong>基本语法规则</strong></h2><p>内联汇编基本语法模板如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">asm</span> [ <span class="keyword">volatile</span> ] (  </span><br><span class="line">        assembler <span class="keyword">template</span></span><br><span class="line">        [ : output operands ]                <span class="comment">/* 输出操作数，非必须 */</span></span><br><span class="line">        [ : input operands  ]                <span class="comment">/* 输入操作数，非必须 */</span></span><br><span class="line">        [ : <span class="built_in">list</span> of clobbered registers ]    <span class="comment">/* 被污染的寄存器，非必须 */</span></span><br><span class="line">        );</span><br></pre></td></tr></table></figure></p>
+<h3 id="关键字-asm-和-volatile"><a href="#关键字-asm-和-volatile" class="headerlink" title="关键字 asm 和 volatile "></a><strong>关键字 asm 和 volatile </strong></h3><ul>
+<li><code>asm</code> 为 gcc 关键字，表示接下来要嵌入汇编代码。为避免 asm 与程序中其它部分产生命名冲突，gcc 还支持 <code>__asm__</code> 关键字，与 asm 的作用等价。</li>
+<li><code>volatile</code> 为可选关键字，表示不需要 gcc 对汇编代码做任何优化。同样出于避免命名冲突的原因，<code>__volatile__</code> 也是 gcc 支持的与 volatile 等效的关键字。</li>
+</ul>
+<h3 id="assembler-template"><a href="#assembler-template" class="headerlink" title="assembler template"></a><strong>assembler template</strong></h3><p>这部分就是要嵌入的汇编命令，由于是在 C 语言中内联汇编代码，故需用双引号<code>&quot;&quot;</code>将命令括起来，以便 gcc 以字符串形式将这些命令传给汇编器 as。例如可以写成这样：”movl %eax, %ebx”</p>
+<p>有时候，汇编命令可能有多个，则通常分多行写，每行的命令都用双引号括起来，命令后紧跟 <code>\n\t</code> 之类的分隔符（当然，也可以只用 1 对双引号将多行命令括起来，从语法来说，两种写法均有效，我们可自行决定用哪种格式来写）。示例代码如下所示：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">__asm__ __volatile__ ( <span class="string">"movl %eax, %ebx\n\t"</span> \</span><br><span class="line">                       <span class="string">"movl %ecx, 2(%edx, %ebx, $8)\n\t"</span> \</span><br><span class="line">                       <span class="string">"movb %ah, (%ebx)"</span></span><br><span class="line">                     );</span><br></pre></td></tr></table></figure></p>
+<p>还有时候，根据程序上下文，嵌入的汇编代码中可能会出现一些类似于魔数（Magic Number ）的操作数，比如下面的代码：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> a=<span class="number">10</span>, b;</span><br><span class="line"><span class="keyword">asm</span> (<span class="string">"movl %1, %%eax\n\t"</span> \	<span class="comment">/* NOTICE: 下面会说明此处用%%eax引用寄存器eax的原因</span></span><br><span class="line"><span class="comment">      "movl %%eax, %0\n\t" \</span></span><br><span class="line"><span class="comment">      :"=r"(b) \          	/* output 该字段的语法后面会详细说明，此处可无视，下同 */</span></span><br><span class="line">      :<span class="string">"r"</span>(a) \           	<span class="comment">/* input */</span></span><br><span class="line">      :<span class="string">"%eax"</span>             	<span class="comment">/* clobbered register */</span></span><br><span class="line">    );</span><br></pre></td></tr></table></figure></p>
+<p>我们看到，movl指令的操作数（operand）中，出现了 %1、%0，这往往让人摸不着头脑。其实只要知道下面的规则就不会产生疑惑了：  </p>
+<ul>
+<li>在内联汇编中，<code>操作数通常用数字来引用，具体的编号规则为：若命令共涉及 n 个操作数，则第 1 个输出操作数（the first output operand）被编号为 0，第 2 个输出操作数编号为 1，依次类推，最后 1 个输入操作数（the last input operand）则被编号为 n-1。若无输出操作数，则从输入操作数开始算起。</code></li>
+</ul>
+<p>具体到上面的示例代码中，涉及到 2 个操作数变量 b、a，b 是 output operand，a 是input operand。根据操作数的引用规则，b 用 %0 来引用，a 用 %1 来引用。</p>
+<ul>
+<li>另外，<code>当命令中同时出现寄存器和以 %num 来引用的操作数时，会以 %%reg 来引用寄存器（如上例中的 %%eax），以便帮助 gcc 来区分寄存器和由 C 语言提供的操作数。</code>  </li>
+</ul>
+<h3 id="output-operands"><a href="#output-operands" class="headerlink" title="output operands"></a><strong>output operands</strong></h3><p>该字段为可选项，用以指明输出操作数，典型的格式为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">: <span class="string">"=a"</span> (out_var)</span><br></pre></td></tr></table></figure></p>
+<p>其中，”=a”指定 output operand 的应遵守的约束（constraint），out_var 为存放指令结果的变量，通常是个 C 语言变量。本例中，“=”是 output operand 字段特有的约束，表示该操作数是只写的（write-only）；“a”表示先将命令执行结果输出至 %eax，然后再由寄存器 %eax 更新位于内存中的 out_var。</p>
+<p>关于常用的约束规则，本文后面会给出说明。对于输出操作数特有的约束如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">=  输出变量只写</span><br><span class="line">&amp;  输出变量不能和输入变量共用同一个寄存器，与 “=” 一起使用，即 “=&amp;reg”</span><br><span class="line">+  先将输出变量“预先”读入到寄对应存器，单独使用，如 “+reg”</span><br></pre></td></tr></table></figure></p>
+<p>若输出有多个，则典型格式示例如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">asm</span> ( <span class="string">"cpuid"</span> \</span><br><span class="line">      : <span class="string">"=a"</span> (out_var1), <span class="string">"=b"</span> (out_var2), <span class="string">"=c"</span> (out_var3) \</span><br><span class="line">      : <span class="string">"a"</span> (op)</span><br><span class="line">     );</span><br></pre></td></tr></table></figure></p>
+<p>可见，我们可以为每个 output operand 指定其约束。</p>
+<h3 id="input-operands"><a href="#input-operands" class="headerlink" title="input operands"></a><strong>input operands</strong></h3><p>该字段为可选项，用以指明输入操作数，其典型格式为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">: <span class="string">"constraints"</span> (in_var)</span><br></pre></td></tr></table></figure></p>
+<p>其中，constraints 可以是 gcc 支持的各种约束方式，in_var 通常为 C 语言提供的输入变量。</p>
+<p>与 output operands 类似，当有多个 input 时，典型格式为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">: <span class="string">"constraints1"</span> (in_var1), <span class="string">"constraints2"</span> (in_var2), <span class="string">"constraints3"</span> (in_var3), ...</span><br></pre></td></tr></table></figure></p>
+<p>当然，input operands + output operands 的总数通常是有限制的，考虑到每种指令集体系结构对其涉及到的指令支持的最多操作数通常也有限制，此处的操作数限制也不难理解。此处具体的上限为 max(10, max_in_instruction)，其中 max_in_instruction 为 ISA 中拥有最多操作数的那条指令包含的操作数数目。</p>
+<p>需要明确的是，<code>在指明 input operands 的情况下，即使指令没有 output operands，其 : 也需要给出。例如 asm (&quot;sidt %0\n&quot; : :&quot;m&quot;(loc));，该指令即使没有具体的 output operands 也要将 : 写全，因为有后面跟着 :input operands字段。</code></p>
+<h3 id="list-of-clobbered-registers"><a href="#list-of-clobbered-registers" class="headerlink" title="list of clobbered registers"></a><strong>list of clobbered registers</strong></h3><p>该字段为可选项，用于列出<code>指令中涉及到的且没出现在 output operands 字段及 input operands 字段的那些寄存器</code>，如下例子。若寄存器被列入 clobber-list，则等于是告诉 gcc，这些寄存器可能会被内联汇编命令改写。因此，执行内联汇编的过程中，这些寄存器就不会被 gcc 分配给其它进程或命令使用。  </p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> a=<span class="number">10</span>, b;</span><br><span class="line"><span class="keyword">asm</span> (</span><br><span class="line">	<span class="string">"movl %1, %%eax;"</span> \</span><br><span class="line">	<span class="string">"movl %%eax, %0;"</span> \</span><br><span class="line">	:<span class="string">"=r"</span>(b) \   </span><br><span class="line">	:<span class="string">"r"</span>(a) \</span><br><span class="line">	:<span class="string">"%eax"</span>); <span class="comment">/* clobbered register */</span></span><br><span class="line">	&#125;;</span><br></pre></td></tr></table></figure>
+<h2 id="常用约束"><a href="#常用约束" class="headerlink" title="常用约束"></a><strong>常用约束</strong></h2><p>前面介绍 output operands 和 input operands 字段过程中，我们已经知道这些 operands 通常需要指明各自的 constraints，以便更明确地完成我们期望的功能（试想，如果不明确指定约束而由 gcc 自行决定的话，一旦代码执行结果不符合预期，调试将变得很困难）。</p>
+<p>下面开始介绍一些常用的约束项。</p>
+<h3 id="寄存器操作数约束（register-operand-constraint-r）"><a href="#寄存器操作数约束（register-operand-constraint-r）" class="headerlink" title="寄存器操作数约束（register operand constraint, r）"></a><strong>寄存器操作数约束（register operand constraint, r）</strong></h3><p>当操作数被指定为这类约束时，表明汇编指令执行时，操作数被将存储在指定的通用寄存器（General Purpose Registers, GPR）中。例如：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">asm</span> (<span class="string">"movl %%eax, %0\n"</span> : <span class="string">"=r"</span>(out_val));</span><br></pre></td></tr></table></figure></p>
+<p>该指令的作用是将 %eax 的值返回给 %0 所引用的 C 语言变量 out_val，根据 “=r” 约束可知具体的操作流程为：先将 %eax 值复制给任一 GPR，最终由该寄存器将值写入 %0 所代表的变量中。<code>r 约束指明 gcc 可以先将 %eax 值存入任一可用的寄存器。</code></p>
+<p>通常还可以明确指定作为“中转”的寄存器，约束参数与寄存器的对应关系为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">+---+--------------------+</span><br><span class="line">| r |    Register(s)     |</span><br><span class="line">+---+--------------------+</span><br><span class="line">| a |   %eax, %ax, %al   |</span><br><span class="line">| b |   %ebx, %bx, %bl   |</span><br><span class="line">| c |   %ecx, %cx, %cl   |</span><br><span class="line">| d |   %edx, %dx, %dl   |</span><br><span class="line">| S |   %esi, %si        |</span><br><span class="line">| D |   %edi, %di        |</span><br><span class="line">+---+--------------------+</span><br></pre></td></tr></table></figure></p>
+<p>例如，如果想指定用%ebx作为中转寄存器，则命令为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">asm</span> (<span class="string">"movl %%eax, %0\n"</span> : <span class="string">"=b"</span>(out_val));</span><br></pre></td></tr></table></figure></p>
+<h3 id="内存操作数约束（Memory-operand-constraint-m）"><a href="#内存操作数约束（Memory-operand-constraint-m）" class="headerlink" title="内存操作数约束（Memory operand constraint, m）"></a><strong>内存操作数约束（Memory operand constraint, m）</strong></h3><p>当我们不想通过寄存器中转，而是直接操作内存时，可以用 <code>m</code> 来约束。例如：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">asm</span> <span class="title">volatile</span> <span class="params">( <span class="string">"lock; decl %0"</span> : <span class="string">"=m"</span> (counter) : <span class="string">"m"</span> (counter))</span></span>;</span><br></pre></td></tr></table></figure></p>
+<p>该指令实现原子减一操作，输入、输出操作数均直接来自内存（也正因如此，才能保证操作的原子性）。</p>
+<h3 id="关联约束（matching-constraint）"><a href="#关联约束（matching-constraint）" class="headerlink" title="关联约束（matching constraint）"></a><strong>关联约束（matching constraint）</strong></h3><p>在有些情况下，如果命令的输入、输出均为同一个变量，则可以在内联汇编中指定以 matching constraint 方式分配寄存器，此时，input operand 和 output operand 共用一个“中转”寄存器。例如：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> a = <span class="number">1</span>, b = <span class="number">1</span>, c = <span class="number">0</span>, d = <span class="number">0</span>;</span><br><span class="line">__asm__ __volatile__ (</span><br><span class="line">		<span class="string">"incl %0\n\t"</span> \</span><br><span class="line">		<span class="string">"incl %1\n\t"</span> \</span><br><span class="line">		:<span class="string">"=a"</span>(c), <span class="string">"=b"</span>(d)</span><br><span class="line">		:<span class="string">"0"</span>(a), <span class="string">"1"</span>(b)</span><br><span class="line">		);</span><br></pre></td></tr></table></figure></p>
+<p>上述代码中的 “0” 说明输入操作数 a 与输出操作数 c 共用寄存器 eax，“1” 说明了 b、d 共用寄存器 ebx。注意这里的 <code>“0”、“1” ...（以此类推，按输出操作数出现顺序）就是关联约束字段，修饰输入操作数。</code></p>
+<h3 id="其他约束"><a href="#其他约束" class="headerlink" title="其他约束"></a><strong>其他约束</strong></h3><p>其他约束如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">"m"</span> : A memory operand is allowed, with any kind of address that the machine supports in general.</span><br><span class="line"><span class="string">"o"</span> : A memory operand is allowed, but only <span class="keyword">if</span> the address is offsettable. ie, adding a small offset to the address gives a valid address.</span><br><span class="line"><span class="string">"V"</span> : A memory operand that is <span class="keyword">not</span> offsettable. In other words, anything that would fit the `m’ constraint but <span class="keyword">not</span> the `o’constraint.</span><br><span class="line">"i" : An immediate integer operand (one with constant value) is allowed. This includes symbolic constants whose values will be known only at assembly time.</span><br><span class="line"><span class="string">"n"</span> : An immediate integer operand with a known numeric value is allowed. Many systems cannot support assembly-time constants <span class="keyword">for</span> operands less than a word wide. Constraints <span class="keyword">for</span> these operands should use ’n’ rather than ’i’.</span><br><span class="line"><span class="string">"g"</span> : Any <span class="keyword">register</span>, memory <span class="keyword">or</span> immediate integer operand is allowed, except <span class="keyword">for</span> registers that are <span class="keyword">not</span> general registers.</span><br></pre></td></tr></table></figure></p>
+<p>x86 专用约束：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Following constraints are x86 specific.</span><br><span class="line"></span><br><span class="line"><span class="string">"r"</span> : Register operand constraint, look table given above.</span><br><span class="line"><span class="string">"q"</span> : Registers a, b, c <span class="keyword">or</span> d.</span><br><span class="line"><span class="string">"I"</span> : Constant in range <span class="number">0</span> to <span class="number">31</span> (<span class="keyword">for</span> <span class="number">32</span>-bit shifts).</span><br><span class="line"><span class="string">"J"</span> : Constant in range <span class="number">0</span> to <span class="number">63</span> (<span class="keyword">for</span> <span class="number">64</span>-bit shifts).</span><br><span class="line"><span class="string">"K"</span> : <span class="number">0xff</span>.</span><br><span class="line"><span class="string">"L"</span> : <span class="number">0xffff</span>.</span><br><span class="line"><span class="string">"M"</span> : <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="keyword">or</span> <span class="number">3</span> (shifts <span class="keyword">for</span> lea instruction).</span><br><span class="line"><span class="string">"N"</span> : Constant in range <span class="number">0</span> to <span class="number">255</span> (<span class="keyword">for</span> out instruction).</span><br><span class="line"><span class="string">"f"</span> : Floating point <span class="keyword">register</span></span><br><span class="line"><span class="string">"t"</span> : First (top of <span class="built_in">stack</span>) floating point <span class="keyword">register</span></span><br><span class="line"><span class="string">"u"</span> : Second floating point <span class="keyword">register</span></span><br><span class="line"><span class="string">"A"</span> : Specifies the `a’ <span class="keyword">or</span> `d’ registers. This is primarily useful <span class="keyword">for</span> <span class="number">64</span>-bit integer values intended to be returned with the `d’ <span class="keyword">register</span> holding the most significant bits <span class="keyword">and</span> the `a’ <span class="keyword">register</span> holding the least significant bits.</span><br></pre></td></tr></table></figure></p>
+<h3 id="大总结"><a href="#大总结" class="headerlink" title="大总结"></a><strong>大总结</strong></h3><p>博文 <a href="http://www.cnblogs.com/pengdonglin137/p/3328063.html" target="_blank" rel="noopener">GCC 内联汇编（GCC内嵌ARM汇编规则）</a> （转自其他博文）对内联汇编（i386）中常用的约束字符有一个很全面的总结：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part1.png" alt><br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part2.png" alt><br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part7/约束字符-part3.png" alt>  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“硬盘基础知识”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/27/linux-kenel-0-11-topic-necessary-preparation-part6/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：预备知识之“中断和异常”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#汇编只是一种助记符"><span class="toc-number">1.</span> <span class="toc-text">汇编只是一种助记符</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#汇编跟指令集的关系"><span class="toc-number">2.</span> <span class="toc-text">汇编跟指令集的关系</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#寻址方式"><span class="toc-number">3.</span> <span class="toc-text">寻址方式</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#其他一些值得一说的点"><span class="toc-number">4.</span> <span class="toc-text">其他一些值得一说的点</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#比较和测试"><span class="toc-number">4.1.</span> <span class="toc-text">比较和测试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#条件跳转"><span class="toc-number">4.2.</span> <span class="toc-text">条件跳转</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#GCC-内联汇编"><span class="toc-number">5.</span> <span class="toc-text">GCC 内联汇编</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#基本语法规则"><span class="toc-number">5.1.</span> <span class="toc-text">基本语法规则</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#关键字-asm-和-volatile"><span class="toc-number">5.1.1.</span> <span class="toc-text">关键字 asm 和 volatile </span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#assembler-template"><span class="toc-number">5.1.2.</span> <span class="toc-text">assembler template</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#output-operands"><span class="toc-number">5.1.3.</span> <span class="toc-text">output operands</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#input-operands"><span class="toc-number">5.1.4.</span> <span class="toc-text">input operands</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#list-of-clobbered-registers"><span class="toc-number">5.1.5.</span> <span class="toc-text">list of clobbered registers</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#常用约束"><span class="toc-number">5.2.</span> <span class="toc-text">常用约束</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#寄存器操作数约束（register-operand-constraint-r）"><span class="toc-number">5.2.1.</span> <span class="toc-text">寄存器操作数约束（register operand constraint, r）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#内存操作数约束（Memory-operand-constraint-m）"><span class="toc-number">5.2.2.</span> <span class="toc-text">内存操作数约束（Memory operand constraint, m）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#关联约束（matching-constraint）"><span class="toc-number">5.2.3.</span> <span class="toc-text">关联约束（matching constraint）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#其他约束"><span class="toc-number">5.2.4.</span> <span class="toc-text">其他约束</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#大总结"><span class="toc-number">5.2.5.</span> <span class="toc-text">大总结</span></a></li></ol></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

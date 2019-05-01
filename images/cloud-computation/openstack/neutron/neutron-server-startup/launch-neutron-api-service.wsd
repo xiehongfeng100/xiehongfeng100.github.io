@@ -1,0 +1,202 @@
+@startuml
+
+title Launch NeutronApiService
+
+participant run_wsgi as "neutron.service::_run_wsgi"
+participant run_wsgi_app as "neutron.service::run_wsgi_app"
+participant wsgi_server as "neutron.wsgi::Server"
+participant worker_service as "neutron.wsgi::WorkerService"
+participant process_launcher as "oslo_service.service::ProcessLauncher"
+
+activate run_wsgi
+note over run_wsgi
+NeutronApiService 的初始化 (load_paste_app)，
+我们在前文中已经详细分析过
+end note
+
+run_wsgi->run_wsgi_app: call neutron.service::run_wsgi_app()
+
+activate run_wsgi_app
+
+run_wsgi_app->wsgi_server: call neutron.wsgi::Server::_\_init__
+activate wsgi_server
+wsgi_server-->run_wsgi_app: return a wsgi server
+deactivate wsgi_server
+
+run_wsgi_app->wsgi_server: call neutron.wsgi::Server::start()
+
+activate wsgi_server
+note over wsgi_server: init host & port
+note over wsgi_server: get listen socket
+wsgi_server->wsgi_server: call self._launch()
+
+activate wsgi_server
+wsgi_server->worker_service: call neutron.wsgi::WorkerService::_\_init__()
+
+activate worker_service
+note over worker_service
+init a (service = )WorkerService with
+1. app (paste app, the NeutronApiService)
+2. (num of) workers
+end note
+
+worker_service-->wsgi_server: return the WorkerService instance
+deactivate worker_service
+
+note over wsgi_server: let service = the returned WorkerService instance
+
+note over wsgi_server #FFAAAA
+下边分成了两个分支，为了简化，
+我们就直接在同一个生命线上表示。
+end note
+
+group if (num of) workers < 1
+
+note over wsgi_server: self._server = service (the WorkerService)
+wsgi_server->worker_service: call neutron.wsgi::WorkerService::start()
+
+activate worker_service
+note over wsgi_server
+这里实际是调用了在 (WSGI) Server 中初始化的
+self.pool = eventlet.GreenPool(1) 来启动：
+````
+* neutron/wsgi.py
+class WorkerService(neutron_worker.NeutronWorker):
+  def start(self):
+    ...
+    self._server = self._service.pool.spawn(self._service._run,
+                        self._application,
+                        dup_sock)
+````
+这里的 self._service 就是 (WSGI) Server 实例
+end note
+worker_service->wsgi_server: call neutron.wsgi::Server::_run()
+
+activate wsgi_server
+note over wsgi_server
+真正的启动代码如下：
+````
+* neutron/wsgi.py
+class Server(object):
+  def _run(self, application, socket):
+    """Start a WSGI server in a new green thread."""
+    eventlet.wsgi.server(socket, application,
+               max_size=self.num_threads,
+               log=LOG,
+               keepalive=CONF.wsgi_keep_alive,
+               socket_timeout=self.client_socket_timeout)
+````
+end note
+
+wsgi_server-->worker_service: return
+deactivate wsgi_server
+
+worker_service-->wsgi_server: return
+deactivate worker_service
+
+end
+
+group if (num of) workers >= 1
+
+wsgi_server->process_launcher: call oslo_service.service::ProcessLauncher::_\_init__()
+
+activate process_launcher
+
+
+process_launcher-->wsgi_server: return the ProcessLauncher instance
+deactivate process_launcher
+
+note over wsgi_server: self._server = the returned ProcessLauncher instance
+wsgi_server->process_launcher: call oslo_service.service::ProcessLauncher::launch_service()
+
+activate process_launcher
+note over process_launcher
+**wrap** the service (the WorkerService):
+````
+* oslo_service/service.py
+class ProcessLauncher(object):
+  def launch_service(self, service, workers=1):
+    """Launch a service with a given number of workers.
+
+    :param service: a service to launch, must be an instance of
+       :class:`oslo_service.service.ServiceBase`
+    :param workers: a number of processes in which a service
+       will be running
+    """
+    ...
+    wrap = ServiceWrapper(service, workers)
+    ...
+
+class ServiceWrapper(object):
+  def _\_init__(self, service, workers):
+    self.service = service
+    self.workers = workers
+    self.children = set()
+    self.forktimes = []
+````
+end note
+
+note over process_launcher
+**fork** child processes according to **(num of) workers**
+to run the service (the WorkerService):
+````
+* oslo_service/service.py
+class ProcessLauncher(object):
+  def launch_service(self, service, workers=1):
+    ...
+    LOG.info(_LI('Starting %d workers'), wrap.workers)
+    while self.running and len(wrap.children) < wrap.workers:
+      self._start_child(wrap)
+````
+end note
+process_launcher->process_launcher: call self._start_child()
+
+activate process_launcher
+note over process_launcher
+**fork** 一个子进程来运行服务。(num of) workers 多大就开多少个子进程
+````
+* oslo_service/service.py
+class ProcessLauncher(object):
+  def _start_child(self, wrap):
+    ...
+    pid = os.fork()
+    if pid == 0:	# 子进程
+      self.launcher = self._child_process(wrap.service)
+      while True:
+        self._child_process_handle_signal()
+        status, signo = self._child_wait_for_exit_or_signal(
+          self.launcher)
+        if not _is_sighup_and_daemon(signo):
+          self.launcher.wait()
+          break
+        self.launcher.restart()
+
+      os._exit(status)
+
+    LOG.debug('Started child %d', pid)
+
+    wrap.children.add(pid)
+    self.children[pid] = wrap
+
+    return pid
+````
+end note
+
+process_launcher-->process_launcher: return
+deactivate process_launcher
+
+process_launcher-->wsgi_server: return
+deactivate process_launcher
+
+end
+
+wsgi_server-->wsgi_server: return
+deactivate wsgi_server
+
+wsgi_server-->run_wsgi_app: return
+deactivate wsgi_server
+
+run_wsgi_app-->run_wsgi: return Neutron wsgi server
+deactivate run_wsgi_app
+
+@enduml

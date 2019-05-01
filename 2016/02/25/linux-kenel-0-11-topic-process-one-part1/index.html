@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：进程 1 的创建及执行（第 1 部分） —— 进程派生 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Linux 0.11 初始化好设备环境和激活进程 0 后就开始创建进程 1。接下来几篇博文将关注进程 1 的创建及执行。 注：比较完整的进程创建案例可参考《Linux 内核设计的艺术》（第 2 版）第 6.3 节“一个用户进程从创建到退出的完整过程”。这个小节写的相当不错！ 调用 fork进程 0 现在已经工作在 3 特权级，即进程状态，可以调用 fork 函数创建子进程。它创建的第一个子进程是进">
+<meta name="keywords" content="Linux,内核,用户栈,内核栈,分页,进程派生">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：进程 1 的创建及执行（第 1 部分） —— 进程派生">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/25/linux-kenel-0-11-topic-process-one-part1/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="Linux 0.11 初始化好设备环境和激活进程 0 后就开始创建进程 1。接下来几篇博文将关注进程 1 的创建及执行。 注：比较完整的进程创建案例可参考《Linux 内核设计的艺术》（第 2 版）第 6.3 节“一个用户进程从创建到退出的完整过程”。这个小节写的相当不错！ 调用 fork进程 0 现在已经工作在 3 特权级，即进程状态，可以调用 fork 函数创建子进程。它创建的第一个子进程是进">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/task_union结构示意图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/操作系统为创建进程1进行的准备工作.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/进程1完全继承进程0的task_struct.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/段描述符结构图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/Linux-0-11-线性地址空间的使用示意图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/进程代码和数据在其虚拟地址空间中的分布.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/实际物理内存.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/进程0和进程1共享页示意图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/设置进程1的线性地址空间.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/操作系统如何区分进程0和进程1.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.586Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：进程 1 的创建及执行（第 1 部分） —— 进程派生">
+<meta name="twitter:description" content="Linux 0.11 初始化好设备环境和激活进程 0 后就开始创建进程 1。接下来几篇博文将关注进程 1 的创建及执行。 注：比较完整的进程创建案例可参考《Linux 内核设计的艺术》（第 2 版）第 6.3 节“一个用户进程从创建到退出的完整过程”。这个小节写的相当不错！ 调用 fork进程 0 现在已经工作在 3 特权级，即进程状态，可以调用 fork 函数创建子进程。它创建的第一个子进程是进">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/process-one/part1/task_union结构示意图.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-process-one-part1" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/25/linux-kenel-0-11-topic-process-one-part1/" class="article-date">
+  	<time datetime="2016-02-25T06:35:38.000Z" itemprop="datePublished">2016-02-25</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：进程 1 的创建及执行（第 1 部分） —— 进程派生
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核栈/">内核栈</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/分页/">分页</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/用户栈/">用户栈</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/进程派生/">进程派生</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Linux 0.11 初始化好设备环境和激活进程 0 后就开始创建进程 1。接下来几篇博文将关注进程 1 的创建及执行。</p>
+<p><strong>注：</strong>比较完整的进程创建案例可参考《Linux 内核设计的艺术》（第 2 版）第 6.3 节“一个用户进程从创建到退出的完整过程”。这个小节写的相当不错！</p>
+<h1 id="调用-fork"><a href="#调用-fork" class="headerlink" title="调用 fork"></a><strong>调用 fork</strong></h1><p>进程 0 现在已经工作在 3 特权级，即进程状态，可以调用 fork 函数创建子进程。它创建的第一个子进程是进程 1：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// include/unistd.h ----------------------------	// unistd -&gt; unix standard</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> __NR_fork	2</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _syscall0(type,name) \</span></span><br><span class="line">type name(void) \</span><br><span class="line">&#123; \</span><br><span class="line"><span class="keyword">long</span> __res; \</span><br><span class="line">__<span class="function">asm__ <span class="title">volatile</span> <span class="params">(<span class="string">"int $0x80"</span> \		<span class="comment">// int 0x80 是所有系统调用函数的总入口，fork() 是其中之一</span></span></span></span><br><span class="line"><span class="function"><span class="params">					<span class="comment">// 它将导致 CPU 硬件自动将 ss esp eflags cs eip 按序压栈</span></span></span></span><br><span class="line"><span class="function"><span class="params">					<span class="comment">// 在这里，压栈的 eip 指向的是下一条语句 if (__res &gt;= 0)</span></span></span></span><br><span class="line"><span class="function"><span class="params">	: <span class="string">"=a"</span> (__res) \		<span class="comment">// 返回值存放到 %eax</span></span></span></span><br><span class="line"><span class="function"><span class="params">	: <span class="string">"0"</span> (__NR_##name))</span></span>; \		<span class="comment">// __NR_fork -&gt; %eax</span></span><br><span class="line"><span class="keyword">if</span> (__res &gt;= <span class="number">0</span>) \			<span class="comment">// int 0x80 中断返回后，将执行这一句</span></span><br><span class="line">	<span class="keyword">return</span> (type) __res; \</span><br><span class="line">errno = -__res; \</span><br><span class="line"><span class="keyword">return</span> <span class="number">-1</span>; \</span><br><span class="line">&#125;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">fork</span><span class="params">(<span class="keyword">void</span>)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">inline</span> _syscall0(<span class="keyword">int</span>,fork)	<span class="comment">// fork 函数</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	sti();</span><br><span class="line">	move_to_user_mode();</span><br><span class="line">	<span class="keyword">if</span> (!fork()) &#123;		<span class="comment">/* we count on this going ok */</span></span><br><span class="line">		init();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p>int 0x80 中断发生后，CPU 从 3 特权级的进程 0 代码调到 0 特权级内核代码执行。需要注意的是，此时 <code>ss esp eflags cs eip</code> 已经按序压到进程 0 的内核栈，它们都是 <code>copy_process()</code> 函数的参数。</p>
+<h1 id="题外：进程的用户栈和内核栈"><a href="#题外：进程的用户栈和内核栈" class="headerlink" title="题外：进程的用户栈和内核栈"></a><strong>题外：进程的用户栈和内核栈</strong></h1><p>对进程的用户栈和内核栈，博文<a href="http://www.cnblogs.com/shengge/archive/2011/08/29/2158748.html" target="_blank" rel="noopener">进程内核栈、用户栈</a>有一段简明的阐述：  </p>
+<blockquote>
+<ul>
+<li>进程的栈<ul>
+<li>内核在创建进程的时候，在创建 task_struct 的同时，会为进程创建相应的栈。<code>每个进程会有两个栈，一个用户栈，存在于用户空间，一个内核栈，存在于内核空间。当进程在用户空间运行时，CPU 堆栈指针寄存器里面的内容是用户堆栈地址，使用用户栈；当进程在内核空间时，CPU 堆栈指针寄存器里面的内容是内核栈空间地址，使用内核栈。</code></li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li>进程用户栈和内核栈的切换<ul>
+<li>当进程因为中断或者系统调用而陷入内核态时，进程所使用的堆栈也要从用户栈转到内核栈。</li>
+<li><code>进程陷入内核态后，先把用户栈的地址保存在内核栈之中，然后设置堆栈指针寄存器的内容为内核栈的地址，这样就完成了用户栈向内核栈的转换；当进程从内核态恢复到用户态时，将保存在内核栈里面的用户栈的地址恢复到堆栈指针寄存器即可。这样就实现了内核栈和用户栈的互转。</code></li>
+<li>那么，我们知道从内核态转到用户态时，用户栈的地址是在陷入内核的时候保存在内核栈里面的，但是在陷入内核的时候，我们是如何知道内核栈的地址的呢？</li>
+<li>关键<code>在进程从用户态转到内核态的时候，进程的内核栈总是空的。</code>这是因为，当进程在用户态运行时，使用的是用户栈，当进程陷入到内核态时，内核栈保存进程在内核态运行的相关信息，但是一旦进程返回到用户态后，内核栈中保存的信息无效，会全部恢复，因此每次进程从用户态陷入内核的时候得到的内核栈都是空的。所以<code>在进程陷入内核的时候，直接把内核栈的栈顶地址给堆栈指针寄存器就可以了。</code></li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<p>具体地，在 Linux 0.11，内核用于管理进程的结构 <a href="http://xiehongfeng100.github.io/2016/02/23/linux-kenel-0-11-topic-init-part3/">task_union</a> 在提供了进程描述符 task_struct 的存储空间同时，也提供了进程内核栈的空间，如进程 0 的 task_union 如下图所示；而对于进程的用户栈，要从<a href="http://xiehongfeng100.github.io/2016/01/25/linux-kenel-0-11-topic-necessary-preparation-part5/">虚拟地址空间</a>角度来理解。</p>
+<p><img src="/images/os/linux-kenel-0.11/process-one/part1/task_union结构示意图.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<p>对于 task_union，《Linux 内核设计的艺术》有一个简要的评论：  </p>
+<blockquote>
+<p><code>task_union 的设计颇具匠心。前面是 task_struct，后面是内核栈，增长的方向正好相反，正好占用一页，顺应分页机制，分配内存非常方便。</code>而且操作系统设计者肯定经过反复测试，保证内核代码所有可能的调用导致压栈的最大长度都不会覆盖前面的 task_struct。因为内核代码都是操作系统设计者设计的，可以做到心中有数。相反，假如用这个方法为用户进程提供栈空间，恐怕要出大问题了。</p>
+</blockquote>
+<p>另外，<code>除了进程 0，其他进程的内核栈都是建立在内存 1MB 区域之外，即内核代码和数据区域之外的页面（copy_process 函数 -&gt; p = (struct task_struct *) get_free_page()）。但这个页面都没有映射到进程的线性地址空间（即没有调用 put_page 函数），所以进程是无法访问这个页面的，只有内核可以访问。</code></p>
+<h1 id="调用-sys-fork"><a href="#调用-sys-fork" class="headerlink" title="调用 sys_fork"></a><strong>调用 sys_fork</strong></h1><p>在之前博文 <a href="http://xiehongfeng100.github.io/2016/02/23/linux-kenel-0-11-topic-init-part3/">Linux 内核学习笔记：初始化程序（第 3 部分）</a>，我们知道 int80 绑定的中断服务程序是 system_call，所以 fork 函数还是要通过 system_call 来实现。不过 system_call 是一个总的入口服务程序，对于具体的服务还是要由具体的服务程序来完成，如 fork 函数最终要通过具体的服务程序 _sys_fork 来实现。关于 fork 函数的执行流程如下代码所示：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">_system_call:</span><br><span class="line">	......</span><br><span class="line">	push %ds	# 下面 <span class="number">6</span> 个 push 都是 copy_process() 的参数</span><br><span class="line">	push %es</span><br><span class="line">	push %fs</span><br><span class="line">	pushl %edx</span><br><span class="line">	pushl %ecx		<span class="meta"># push %ebx,%ecx,%edx as parameters</span></span><br><span class="line">	pushl %ebx		<span class="meta"># to the system call</span></span><br><span class="line">	movl $<span class="number">0x10</span>,%edx		<span class="meta"># set up ds,es to kernel space	# 下边两句其实非常重要，说明了要切换到内核空间</span></span><br><span class="line">	mov %dx,%ds</span><br><span class="line">	mov %dx,%es</span><br><span class="line">	movl $<span class="number">0x17</span>,%edx		<span class="meta"># fs points to local data space</span></span><br><span class="line">	mov %dx,%fs</span><br><span class="line">	call _sys_call_table(,%eax,<span class="number">4</span>)	# sys_call_table 定义在 include/linux/sys.h</span><br><span class="line">					# 调用地址 = _sys_call_table + %eax * <span class="number">4</span></span><br><span class="line">					# 在这里，%eax = __NR_fork，所以调用地址为 _sys_call_table + <span class="number">8</span>，查 sys_call_table 可知，该地址刚好指向 sys_fork</span><br><span class="line">					# 调用 call _sys_call_table(,%eax,<span class="number">4</span>) 本身也会压栈保护现场。这个压栈体现在 copy_process() 函数的第 <span class="number">6</span> 个参数 `<span class="keyword">long</span> none`。</span><br><span class="line">					# call 指令会导致下一指令的 EIP 被压栈，以便 call 返回后从下一指令处开始执行。在这里，这个 EIP 就是 copy_process() 函数的参数 none</span><br><span class="line">	......</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/linux/sys.h -------------------------</span></span><br><span class="line"><span class="keyword">extern</span> <span class="keyword">int</span> sys_fork();</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">fn_ptr sys_call_table[] = &#123;  sys_setup, sys_exit, sys_fork, ... &#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">_sys_fork:</span><br><span class="line">	call _find_empty_process</span><br><span class="line">	testl %eax,%eax		# 如果返回的是 -EAGAIN(<span class="number">11</span>)，则说明已有 <span class="number">64</span> 个进程在运行</span><br><span class="line">	js <span class="number">1f</span></span><br><span class="line">	push %gs		# 下面 <span class="number">5</span> 个 push 都是 copy_process() 的参数</span><br><span class="line">	pushl %esi</span><br><span class="line">	pushl %edi</span><br><span class="line">	pushl %ebp</span><br><span class="line">	pushl %eax		# find_empty_process 函数返回的是任务号 i（注意不是进程号），</span><br><span class="line">				# 是 copy_process 函数的第一个参数 nr</span><br><span class="line">	call _copy_process</span><br><span class="line">	addl $<span class="number">20</span>,%esp		# 丢弃这里所有的压栈内容（gs esi edi ebp eax）</span><br><span class="line"><span class="number">1</span>:	ret</span><br></pre></td></tr></table></figure></p>
+<p>代码的执行过程如下图所示：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/操作系统为创建进程1进行的准备工作.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p><strong>注意：</strong>在调用 _sys_fork 之前，进程 0 的内核栈又按序压入了 <code>ds es fs edx ecx ebx</code>。另外，调用 call _sys_call_table(,%eax,4) 本身也会压栈保护现场。这个压栈体现在 _sys_fork 调用的 copy_process 函数的第 6 个参数 <code>long none</code>。</p>
+<h1 id="调用-find-empty-process"><a href="#调用-find-empty-process" class="headerlink" title="调用 find_empty_process"></a><strong>调用 find_empty_process</strong></h1><p>进入 _sys_fork 服务程序后，第一步就是为进程 1 寻找一个可用的进程号和 task[64] 中的一个可用位置（任务号）。这个过程是由 find_empty_process 函数来实现的，其定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="keyword">long</span> last_pid=<span class="number">0</span>;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">find_empty_process</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> i;</span><br><span class="line"></span><br><span class="line">	repeat:</span><br><span class="line">		<span class="keyword">if</span> ((++last_pid)&lt;<span class="number">0</span>) last_pid=<span class="number">1</span>;		<span class="comment">// 如 ++ 后 last_pid 溢出，则置 1</span></span><br><span class="line">		<span class="keyword">for</span>(i=<span class="number">0</span> ; i&lt;NR_TASKS ; i++)		<span class="comment">// 为新建进程寻找一个可用进程号 last_pid</span></span><br><span class="line">			<span class="keyword">if</span> (task[i] &amp;&amp; task[i]-&gt;pid == last_pid) <span class="keyword">goto</span> repeat;</span><br><span class="line">	<span class="keyword">for</span>(i=<span class="number">1</span> ; i&lt;NR_TASKS ; i++)	<span class="comment">// 为新建进程在 task[64] 寻找一个可用位置，即任务号</span></span><br><span class="line">		<span class="keyword">if</span> (!task[i])</span><br><span class="line">			<span class="keyword">return</span> i;</span><br><span class="line">	<span class="keyword">return</span> -EAGAIN;	<span class="comment">// EAGAIN=11</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码中，全局变量 last_pid 用来存放系统自开机以来累计的进程数，也将此变量用作新建进程的<code>进程号</code>。</p>
+<p><strong>注意：</strong>在调用 copy_process 函数之前，进程 0 的内核栈又按序压入了 <code>gs esi edi ebp eax</code>，它们都是 copy_process 函数的参数。其中 <code>%eax 保存的是 find_empty_process 函数返回的进程 1 的任务号（注意跟进程号的区别），是 copy_process 函数的第一个参数 nr。</code></p>
+<h1 id="调用-copy-process"><a href="#调用-copy-process" class="headerlink" title="调用 copy_process"></a><strong>调用 copy_process</strong></h1><p>对于<strong>函数参数压栈</strong>，《Linux 内核设计的艺术》对此有一简单说明：  </p>
+<blockquote>
+<p><code>一个函数的参数不是由函数定义的，而是由函数定义以外的程序通过压栈的方式“做”出来的</code>，是操作系统底层代码与应用程序代码写作手法的差异之一。运行时，C 语言的函数的参数存在于栈中。模仿这个原理，<code>操作系统的设计者可以将前面程序所压栈的值，按序“强行”认定为函数的参数；当 call 这个函数时，这些值就可以当做参数用。</code></p>
+</blockquote>
+<p>这说明，之前压栈的数可作为 copy_process 函数的实际输入参数。之前压栈（进程 0 内核栈）的数为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 高地址 -&gt; 低地址</span></span><br><span class="line">ss esp eflags cs eip ds es fs edx ecx ebx none gs esi edi ebp eax</span><br></pre></td></tr></table></figure></p>
+<p>按“低地址 -&gt; 高地址”方向将这些数一一“弹出”（不是真正弹出，这些数还留在栈中），作为 copy_process 函数的参数：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> *<span class="title">p</span>;</span></span><br><span class="line">	<span class="keyword">int</span> i;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">file</span> *<span class="title">f</span>;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// get_free_page 函数从主内存末端向低地址端查找可用页。现在是开机以来，内核</span></span><br><span class="line">	<span class="comment">// 第一次为进程在主内存申请空闲页面，申请到的空闲页面肯定在主内存的最末端</span></span><br><span class="line">	<span class="comment">// 强制类型转换的潜台词是将这个页当作 task_union 用</span></span><br><span class="line">	p = (struct task_struct *) get_free_page();	</span><br><span class="line">	<span class="keyword">if</span> (!p)</span><br><span class="line">		<span class="keyword">return</span> -EAGAIN;</span><br><span class="line">	task[nr] = p;	<span class="comment">// 这里 nr=%eax，潜台词是将这个页当作 task_union 用</span></span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="调用-get-free-page"><a href="#调用-get-free-page" class="headerlink" title="调用 get_free_page"></a><strong>调用 get_free_page</strong></h2><p><strong>注：</strong><code>对于内核而言，它不按用户态下的分页系统来寻址，而是按照“段（选择子）+偏移”的方法。它能寻址整个内存。</code></p>
+<p>如果能找到空闲页，get_free_page 返回该页在内存中的实际起始位置；反之返回 0。</p>
+<p>该函数定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// mm/memory.c ---------------------------------</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Get physical address of first (actually last :-) free page, and mark it</span></span><br><span class="line"><span class="comment"> * used. If no free pages left, return 0.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="title">get_free_page</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="keyword">register</span> <span class="keyword">unsigned</span> <span class="keyword">long</span> __<span class="function">res <span class="title">asm</span><span class="params">(<span class="string">"ax"</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">__asm__(<span class="string">"std ; repne ; scasb\n\t"</span>	<span class="comment">// 反向扫描串（mem_map[]），al （=0） 与 es:edi 所指向内存内容 不等则重复</span></span><br><span class="line">	<span class="string">"jne 1f\n\t"</span>			<span class="comment">// 找不到空闲页，跳转到 1</span></span><br><span class="line">	<span class="string">"movb $1,1(%%edi)\n\t"</span></span><br><span class="line">	<span class="string">"sall $12,%%ecx\n\t"</span>		<span class="comment">// 页面数 * 4KB = 相对页面起始地址</span></span><br><span class="line">	<span class="string">"addl %2,%%ecx\n\t"</span>		<span class="comment">// 再加上低端内存地址（LOW_MEM=1MB），获得页面实际物理地址</span></span><br><span class="line">	<span class="string">"movl %%ecx,%%edx\n\t"</span>		<span class="comment">// 将页面实际起始地址 -&gt; edx</span></span><br><span class="line">	<span class="string">"movl $1024,%%ecx\n\t"</span>		<span class="comment">// 循环次数为 1024。每次复制 4 个字节，共 1024*4=4092 个字节，恰好是一个页面的大小。</span></span><br><span class="line">	<span class="string">"leal 4092(%%edx),%%edi\n\t"</span>	<span class="comment">// 将该页面的末端 4092+edx -&gt; edi</span></span><br><span class="line">	<span class="string">"rep ; stosl\n\t"</span>		<span class="comment">// 将该页面从高地址向低地址方向清零（eax 为 0）</span></span><br><span class="line">	<span class="string">"movl %%edx,%%eax\n"</span>		<span class="comment">// 将页面实际起始位置 -&gt; eax</span></span><br><span class="line">	<span class="string">"1:"</span></span><br><span class="line">	:<span class="string">"=a"</span> (__res)</span><br><span class="line">	:<span class="string">"0"</span> (<span class="number">0</span>),<span class="string">"i"</span> (LOW_MEM),<span class="string">"c"</span> (PAGING_PAGES),</span><br><span class="line">	<span class="string">"D"</span> (mem_map+PAGING_PAGES<span class="number">-1</span>)</span><br><span class="line">	:<span class="string">"di"</span>,<span class="string">"cx"</span>,<span class="string">"dx"</span>);</span><br><span class="line"><span class="keyword">return</span> __res;		<span class="comment">// 返回空闲页面实际地址</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>注：</strong></p>
+<ul>
+<li><code>scasb</code>：Scan String Byte 的缩写。还有类似的 scasw。<ul>
+<li>ecx 控制循环次数</li>
+<li>每次循环比较 al 与 es:edi （es 为段选择子）所指向内存内容（因为比较的是 Byte，所以用 al）</li>
+<li>若 EFLAGS 中的方向标志位 DF=0 （使用 cld 指令），则 edi 自增 1 （因为比较的是 Byte，所以递增 1）；若 DF=1（使用 std 指令），则 edi 自减 1</li>
+<li>repne 表示当 ecx &gt; 0 并且 ZF=0 （al 与 es:edi 所指向内存内容不相等）时，循环继续；反之停止</li>
+<li>在这个程序开头，al=0，ecx=PAGING_PAGES，es=0x10（选择子，在 _system_call 中所赋的值），edi=mem_map+PAGING_PAGES-1，DF=1（std）。所以，程序开头的”std ; repne ; scasb”表示的是反方向扫描串，al 与 es:edi 所指向内存内容不等则重复，直到条件不满足（ecx&lt;=0 或者 ZF=1）。实际上，它表示的是按 mem_map[PAGING_PAGES-1]…mem_map[0] 方向扫描，如果找到值为 0 的 mem_map 项（表示该项指向的物理页没有使用过），则停止循环。反之，则说明已经没有可用的空闲页。</li>
+</ul>
+</li>
+<li><code>stosl</code>：每次保存的是 4 个字节。<ul>
+<li>ecx 控制循环次数</li>
+<li>每次循环将 eax 的值保存到 es:edi （es 为段选择子）指向的内存</li>
+<li>若 EFLAGS 中的方向标志位 DF=0 （使用 cld 指令），则 edi 自增 4 （因为每次操作大小是 Long，所以递增 4）；若 DF=1（使用 std 指令），则 edi 自减 4</li>
+<li>rep 表示当 ecx&gt;0 时，循环继续；反之停止</li>
+<li>在这个程序中，每循环 1 次，清零的内存范围是 4 字节；循环 1024 次，清零的内存范围是 1024*4=4096 字节，恰好是一个页。而且该页是主内存区最末端的页。</li>
+</ul>
+</li>
+<li>字符串处理指令  <ul>
+<li>lodsb、lodsw：把 ds:si 指向的存储单元中的数据装入 al 或 ax，然后根据 df 标志增减 si</li>
+<li>stosb、stosw：把 al 或 ax 中的数据装入 es:di 指向的存储单元，然后根据 df 标志增减 di</li>
+<li>movsb、movsw：把 ds:si 指向的存储单元中的数据装入 es:di 指向的存储单元中，然后根据 df 标志分别增减 si 和 di</li>
+<li>scasb、scasw：把 al 或 ax 中的数据与 es:di 指向的存储单元中的数据相减，影响标志位，然后根据 df 标志分别增减 si 和 di</li>
+<li>cmpsb、cmpsw：把 ds:si 指向的存储单元中的数据与 es:di 指向的存储单元中的数据相减，影响标志位，然后根据 df 标志分别增减 si 和 di</li>
+<li>rep：重复其后的串操作指令。重复前先判断 cx 是否为 0，为 0 就结束重复，否则 cx 减 1，重复其后的串操作指令。主要用在movs和stos 前。一般不用在 lods 前。</li>
+<li>上述指令涉及的寄存器：段寄存器 ds 和 es、变址寄存器 si 和 di、累加器 ax、计数器 cx</li>
+<li>涉及的标志位：DF、AF、CF、OF、PF、SF、ZF</li>
+</ul>
+</li>
+</ul>
+<h2 id="复制父进程-task-struct"><a href="#复制父进程-task-struct" class="headerlink" title="复制父进程 task_struct"></a><strong>复制父进程 task_struct</strong></h2><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	p = (struct task_struct *) get_free_page();</span><br><span class="line">	<span class="keyword">if</span> (!p)</span><br><span class="line">		<span class="keyword">return</span> -EAGAIN;</span><br><span class="line">	task[nr] = p;</span><br><span class="line">	*p = *current;	<span class="comment">/* NOTE! this doesn't copy the supervisor stack */</span></span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码中的 current 指向当前进程的 task_struct 的指针，当前进程是进程 0。<code>*p = *current 表示将父进程的 task_struct 复制给子进程。这是父子进程创建机制的重要体现。这行代码执行后，父子进程的 task_struct 完全一样。</code>如下图所示：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/进程1完全继承进程0的task_struct.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>不过需要注意的是，进程 0 的 task_struct 的信息不一定完全适合进程 1，所以需要进行一些<code>调整</code>：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="comment">// 在内核执行过程中，Linux 0.11 不允许进行进程切换，在这里不设置进程状态都可以</span></span><br><span class="line">	<span class="comment">// 但“如果”允许进程在内核执行时切换，这里就有必要设置为不可中断等待状态了。这是因为进程 task_struct 结构已经</span></span><br><span class="line">	<span class="comment">// 挂接在 task[64] 结构中了。如果在个性化设置中发生时钟中断，就会轮转到该进程，而此时其个性化设置尚未完成，一旦</span></span><br><span class="line">	<span class="comment">// 切换到该进程去执行，就会引起进程执行的混乱。</span></span><br><span class="line">	p-&gt;state = TASK_UNINTERRUPTIBLE;</span><br><span class="line"></span><br><span class="line">	p-&gt;pid = last_pid;</span><br><span class="line">	p-&gt;father = current-&gt;pid;</span><br><span class="line">	p-&gt;counter = p-&gt;priority;</span><br><span class="line">	p-&gt;signal = <span class="number">0</span>;</span><br><span class="line">	p-&gt;alarm = <span class="number">0</span>;</span><br><span class="line">	p-&gt;leader = <span class="number">0</span>;		<span class="comment">/* process leadership doesn't inherit */</span></span><br><span class="line">	p-&gt;utime = p-&gt;stime = <span class="number">0</span>;</span><br><span class="line">	p-&gt;cutime = p-&gt;cstime = <span class="number">0</span>;</span><br><span class="line">	p-&gt;start_time = jiffies;</span><br><span class="line">	p-&gt;tss.back_link = <span class="number">0</span>;</span><br><span class="line">	p-&gt;tss.esp0 = PAGE_SIZE + (<span class="keyword">long</span>) p;	<span class="comment">// 重要！esp0 是内核指针。见本文前头的 task_union 部分</span></span><br><span class="line">	p-&gt;tss.ss0 = <span class="number">0x10</span>;</span><br><span class="line">	p-&gt;tss.eip = eip;	<span class="comment">// 重要！就是参数的 eip，是 int 0x80 压栈的，指向的是：if (__res &gt;= 0)</span></span><br><span class="line">	p-&gt;tss.eflags = eflags;</span><br><span class="line">	p-&gt;tss.eax = <span class="number">0</span>;		<span class="comment">// 重要！决定 main 函数中 if(!fork()) 后面的分支走向</span></span><br><span class="line">	p-&gt;tss.ecx = ecx;</span><br><span class="line">	p-&gt;tss.edx = edx;</span><br><span class="line">	p-&gt;tss.ebx = ebx;</span><br><span class="line">	p-&gt;tss.esp = esp;</span><br><span class="line">	p-&gt;tss.ebp = ebp;</span><br><span class="line">	p-&gt;tss.esi = esi;</span><br><span class="line">	p-&gt;tss.edi = edi;</span><br><span class="line">	p-&gt;tss.es = es &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.cs = cs &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.ss = ss &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.ds = ds &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.fs = fs &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.gs = gs &amp; <span class="number">0xffff</span>;</span><br><span class="line">	p-&gt;tss.ldt = _LDT(nr);	<span class="comment">// 挂接子进程的 LDT</span></span><br><span class="line">	p-&gt;tss.trace_bitmap = <span class="number">0x80000000</span>;</span><br><span class="line">	<span class="keyword">if</span> (last_task_used_math == current)</span><br><span class="line">		__asm__(<span class="string">"clts ; fnsave %0"</span>::<span class="string">"m"</span> (p-&gt;tss.i387));</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="设置分页管理系统"><a href="#设置分页管理系统" class="headerlink" title="设置分页管理系统"></a><strong>设置分页管理系统</strong></h2><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="keyword">if</span> (copy_mem(nr,p)) &#123;</span><br><span class="line">		task[nr] = <span class="literal">NULL</span>;</span><br><span class="line">		free_page((<span class="keyword">long</span>) p);</span><br><span class="line">		<span class="keyword">return</span> -EAGAIN;</span><br><span class="line">	&#125;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_mem</span><span class="params">(<span class="keyword">int</span> nr,struct task_struct * p)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="设置代码、数据段基地址"><a href="#设置代码、数据段基地址" class="headerlink" title="设置代码、数据段基地址"></a><strong>设置代码、数据段基地址</strong></h3><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_mem</span><span class="params">(<span class="keyword">int</span> nr,struct task_struct * p)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="comment">// 获取父进程的代码段、数据段段限长</span></span><br><span class="line">	code_limit=get_limit(<span class="number">0x0f</span>);	<span class="comment">// 0x0f 即 1 111：（进程 0）代码段、LDT、3 特权级</span></span><br><span class="line">	data_limit=get_limit(<span class="number">0x17</span>);	<span class="comment">// 0x17 即 10 111：（进程 0）数据段、LDT、3 特权级</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// 获取父进程的代码段、数据段段基址</span></span><br><span class="line">	old_code_base = get_base(current-&gt;ldt[<span class="number">1</span>]);</span><br><span class="line">	old_data_base = get_base(current-&gt;ldt[<span class="number">2</span>]);</span><br><span class="line">	<span class="keyword">if</span> (old_data_base != old_code_base)	<span class="comment">// Linux 0.11 不支持代码段和数据段分立的情况</span></span><br><span class="line">		panic(<span class="string">"We don't support separate I&amp;D"</span>);</span><br><span class="line">	<span class="keyword">if</span> (data_limit &lt; code_limit)</span><br><span class="line">		panic(<span class="string">"Bad data_limit"</span>);</span><br><span class="line">	new_data_base = new_code_base = nr * <span class="number">0x4000000</span>;</span><br><span class="line">	p-&gt;start_code = new_code_base;</span><br><span class="line">	set_base(p-&gt;ldt[<span class="number">1</span>],new_code_base);</span><br><span class="line">	set_base(p-&gt;ldt[<span class="number">2</span>],new_data_base);</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 我们在 copy_mem 函数并没有看到设置新进程 LDT 中的代码段和数据段的段限长的代码，而是沿用父进程的（*p = *current）。</span></span><br><span class="line"><span class="comment">// 这主要是因为新进程在刚创建的时候还没有加载自己的程序（或许以后也不用加载），而是共用父进程的代码和数据，所以新进程</span></span><br><span class="line"><span class="comment">// 执行的是父进程的代码，数据也来自父进程。沿用父进程中 LDT 的段限长的信息是为了共享父进程的全部代码和数据。</span></span><br><span class="line"><span class="comment">// 不过，在新进程加载（exceve）自己的程序后，它就会更改这些数据。这方面可参考博文</span></span><br><span class="line"><span class="comment">// “Linux 内核学习笔记：进程 2 的创建及执行（第 2 部分）” 中提到的 change_ldt 函数。</span></span><br><span class="line"><span class="comment">// 博文链接：http://xiehongfeng100.github.io/2016/03/03/linux-kenel-0-11-topic-process-two-part2/</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// include/linux/sched.h -----------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _set_base(addr,base) \</span></span><br><span class="line">__asm__(<span class="string">"movw %%dx,%0\n\t"</span> \</span><br><span class="line">	<span class="string">"rorl $16,%%edx\n\t"</span> \</span><br><span class="line">	<span class="string">"movb %%dl,%1\n\t"</span> \</span><br><span class="line">	<span class="string">"movb %%dh,%2"</span> \</span><br><span class="line">	::<span class="string">"m"</span> (*((addr)+<span class="number">2</span>)), \</span><br><span class="line">	  <span class="string">"m"</span> (*((addr)+<span class="number">4</span>)), \</span><br><span class="line">	  <span class="string">"m"</span> (*((addr)+<span class="number">7</span>)), \</span><br><span class="line">	  <span class="string">"d"</span> (base) \</span><br><span class="line">	:<span class="string">"dx"</span>)</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> set_base(ldt,base) _set_base( ((char *)&amp;(ldt)) , base )</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _get_base(addr) (&#123;\</span></span><br><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> __base; \</span><br><span class="line">__asm__(<span class="string">"movb %3,%%dh\n\t"</span> \</span><br><span class="line">	<span class="string">"movb %2,%%dl\n\t"</span> \</span><br><span class="line">	<span class="string">"shll $16,%%edx\n\t"</span> \</span><br><span class="line">	<span class="string">"movw %1,%%dx"</span> \</span><br><span class="line">	:<span class="string">"=d"</span> (__base) \</span><br><span class="line">	:<span class="string">"m"</span> (*((addr)+<span class="number">2</span>)), \</span><br><span class="line">	 <span class="string">"m"</span> (*((addr)+<span class="number">4</span>)), \</span><br><span class="line">	 <span class="string">"m"</span> (*((addr)+<span class="number">7</span>))); \</span><br><span class="line">__base;&#125;)</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> get_base(ldt) _get_base( ((char *)&amp;(ldt)) )</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> get_limit(segment) (&#123; \</span></span><br><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> __limit; \</span><br><span class="line">__asm__(<span class="string">"lsll %1,%0\n\tincl %0"</span>:<span class="string">"=r"</span> (__limit):<span class="string">"r"</span> (segment)); \</span><br><span class="line">__limit;&#125;)</span><br></pre></td></tr></table></figure></p>
+<p>这部分代码是提取进程 0 的代码段、数据段的段基址以及段限长的信息，并设置进程 1 的代码段、数据段的段基址。下边分两部分对这段代码进行解释：  </p>
+<ul>
+<li><p>对于 <code>_get_base</code> 和 <code>_set_base</code> 两个函数的汇编，只要参照段描述符的结构就足够了：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/段描述符结构图.png" alt>图片来源：《Linux 内核设计的艺术》<br>（注：也可参考之前博文 <a href="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/">Linux 内核学习笔记：预备知识之“存储器管理基础”</a>“存储段描述符”部分）</p>
+</li>
+<li><p><code>get_limit</code> 函数的汇编有点难理解。这个函数的参数 segment 是段选择子。当 segment 为 0x0f 时，表示选中进程 0 的 LDT 中的代码段；0x17 表示选中进程 0 的 LDT 中的数据段。通过 <code>lsll</code> 命令取出来的段限长需要加 “1” 才是真正的段限长。例如，当 segment 为 0x0f （该代码段描述符定义在 <a href="http://xiehongfeng100.github.io/2016/02/23/linux-kenel-0-11-topic-init-part3/">INIT_TASK</a>），求出的段限长为 636KB，而实际上应该是 640KB，所以需要加 “1”： (unsigned long)(636KB+1)=640KB。</p>
+</li>
+<li><p>Linux 0.11 内核中人工定义系统支持的最大任务数位 64，每个进程空间的虚拟地址空间是 64MB，并且每个进程的虚拟地址起始位置是”任务号*64MB”。因此所有进程所使用的虚拟地址空间是 64MB*64=4GB，如下图所示：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/Linux-0-11-线性地址空间的使用示意图.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+</li>
+<li><p><code>Linux 0.11 进程虚拟地址空间</code>：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/进程代码和数据在其虚拟地址空间中的分布.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+</li>
+<li><p>但需要注意的是，<code>Linux 0.11 的实际物理内存</code>如下图：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/实际物理内存.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+</li>
+</ul>
+<h3 id="复制页表"><a href="#复制页表" class="headerlink" title="复制页表"></a><strong>复制页表</strong></h3><p><code>Linux 0.11 中只有一个页表目录，为所有进程共享。每个进程都有自己对应的页表目录项，也即都有自己对应的页表。</code></p>
+<p>复制页表的代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_mem</span><span class="params">(<span class="keyword">int</span> nr,struct task_struct * p)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="keyword">if</span> (copy_page_tables(old_data_base,new_data_base,data_limit)) &#123;</span><br><span class="line">		free_page_tables(new_data_base,data_limit);</span><br><span class="line">		<span class="keyword">return</span> -ENOMEM;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// mm/memory.c ---------------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> invalidate() \		<span class="comment">// 重置 CR3 为 0，刷新“页变换高速缓冲”</span></span></span><br><span class="line">__asm__(<span class="string">"movl %%eax,%%cr3"</span>::<span class="string">"a"</span> (<span class="number">0</span>))</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_page_tables</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">long</span> from,<span class="keyword">unsigned</span> <span class="keyword">long</span> to,<span class="keyword">long</span> size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> * from_page_table;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> * to_page_table;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> this_page;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> * from_dir, * to_dir;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">long</span> nr;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// （虚拟地址空间）源地址和目的地址都需要在 4MB 的边界地址上，否则出错，死机</span></span><br><span class="line">	<span class="keyword">if</span> ((from&amp;<span class="number">0x3fffff</span>) || (to&amp;<span class="number">0x3fffff</span>))	</span><br><span class="line">		panic(<span class="string">"copy_page_tables called with wrong alignment"</span>);</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 取得（虚拟地址空间）源地址和目的地址在页表目录中目录项指针（from_dir 和 to_dir）</span></span><br><span class="line">	<span class="comment">// 以“目的地址”为例，计算方法为：</span></span><br><span class="line">	<span class="comment">// 1. 参照线性地址格式（页目录项（10 位）-页表项（10 位）-页内偏移值（12 位））</span></span><br><span class="line">	<span class="comment">// 2. 先计算 to = to &gt;&gt; 22 取得该地址在页表目录中的序号</span></span><br><span class="line">	<span class="comment">// 3. 因为每个页表目录项大小为 4 个字节，所以该地址在页表目录中的实际物理地址 to_dir = to * 4 = to &lt;&lt; 2</span></span><br><span class="line">	<span class="comment">// 这种计算方法跟 (to&gt;&gt;20) &amp; 0xffc 的计算方法是一致的（0xc = 0b1100）</span></span><br><span class="line">	from_dir = (<span class="keyword">unsigned</span> <span class="keyword">long</span> *) ((from&gt;&gt;<span class="number">20</span>) &amp; <span class="number">0xffc</span>); <span class="comment">/* _pg_dir = 0 */</span></span><br><span class="line">	to_dir = (<span class="keyword">unsigned</span> <span class="keyword">long</span> *) ((to&gt;&gt;<span class="number">20</span>) &amp; <span class="number">0xffc</span>);</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 计算要复制的页表目录项数，也即页表数</span></span><br><span class="line">	size = ((<span class="keyword">unsigned</span>) (size+<span class="number">0x3fffff</span>)) &gt;&gt; <span class="number">22</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span>( ; size--&gt;<span class="number">0</span> ; from_dir++,to_dir++) &#123;</span><br><span class="line">		<span class="comment">// 页表目录项的格式为：页表号（20 位）-属性（12 位，最低位为 P，为 1 表示对应的页表已经存在，反之不存在）</span></span><br><span class="line">		<span class="comment">// 所以 1 &amp; *to_dir 表示：如果目的地址的页表目录项指定的页表已经存在，则出错，死机</span></span><br><span class="line">		<span class="comment">// !(1 &amp; *from_dir) 表示：如果源页表目录项未被使用，则不用复制页表，跳过</span></span><br><span class="line">		<span class="keyword">if</span> (<span class="number">1</span> &amp; *to_dir)</span><br><span class="line">			panic(<span class="string">"copy_page_tables: already exist"</span>);</span><br><span class="line">		<span class="keyword">if</span> (!(<span class="number">1</span> &amp; *from_dir))</span><br><span class="line">			<span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">		<span class="comment">// 页表目录项的格式为：页表号（20 位）-属性（12 位)</span></span><br><span class="line">		<span class="comment">// 将 *from_dir 低 12 位置 0，这样 *from_dir 表示页表的物理地址</span></span><br><span class="line">		<span class="comment">// 参考博文 Linux 内核学习笔记：预备知识之“存储器模型”：http://xiehongfeng100.github.io/2016/01/22/linux-kenel-0-11-topic-necessary-preparation-part3/</span></span><br><span class="line">		from_page_table = (<span class="keyword">unsigned</span> <span class="keyword">long</span> *) (<span class="number">0xfffff000</span> &amp; *from_dir);</span><br><span class="line">		</span><br><span class="line">		<span class="comment">// 为新进程申请一个物理页，用于存放页表</span></span><br><span class="line">		<span class="comment">// 并将该页表的物理地址存放到页表目录中</span></span><br><span class="line">		<span class="keyword">if</span> (!(to_page_table = (<span class="keyword">unsigned</span> <span class="keyword">long</span> *) get_free_page()))</span><br><span class="line">			<span class="keyword">return</span> <span class="number">-1</span>;	<span class="comment">/* Out of memory, see freeing */</span></span><br><span class="line">		*to_dir = ((<span class="keyword">unsigned</span> <span class="keyword">long</span>) to_page_table) | <span class="number">7</span>;	<span class="comment">// 7 是属性，看成 111，表示 Usr,R/W,P</span></span><br><span class="line"></span><br><span class="line">		<span class="comment">// 针对当前处理的页表，设置需复制的页表项数（因为采用了“写时复制”技术，所以并没有实际复制页表）</span></span><br><span class="line">		<span class="comment">// 如果是在内核空间，则仅需复制前 160 个页表项（表示内存区域为 160*4KB=640KB）</span></span><br><span class="line">		<span class="comment">// 否则需要复制 1 个页表的所有 1024 个页表项</span></span><br><span class="line">		nr = (from==<span class="number">0</span>)?<span class="number">0xA0</span>:<span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> ( ; nr-- &gt; <span class="number">0</span> ; from_page_table++,to_page_table++) &#123;</span><br><span class="line">			this_page = *from_page_table;	<span class="comment">// 取源页表项内容</span></span><br><span class="line">			<span class="keyword">if</span> (!(<span class="number">1</span> &amp; this_page))	<span class="comment">// 如果当前源页面没有使用，则不用复制</span></span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			this_page &amp;= ~<span class="number">2</span>;	<span class="comment">// 复位页表项中的 R/W 标志（置 0），表示只读。2 是 010，~2 是 101。</span></span><br><span class="line">			*to_page_table = this_page;	<span class="comment">// 将该页表项复制到目的页表中</span></span><br><span class="line"></span><br><span class="line">			<span class="comment">// 在 Linux 0.11，物理内存 1MB （LOW_MEM） 并不采用用户态下的分页系统来寻址，而是按照“段（选择子）+偏移”的方法</span></span><br><span class="line">			<span class="comment">// 1MB 以上，采用分页管理系统</span></span><br><span class="line">			<span class="keyword">if</span> (this_page &gt; LOW_MEM) &#123;</span><br><span class="line">				*from_page_table = this_page;	<span class="comment">// 令源页表项也只读</span></span><br><span class="line">				this_page -= LOW_MEM;</span><br><span class="line">				this_page &gt;&gt;= <span class="number">12</span>;</span><br><span class="line">				mem_map[this_page]++;	<span class="comment">// 增加引用计数，见 init/main.c -&gt; mem_init()</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	invalidate();	<span class="comment">// 重置 CR3 为 0，刷新“页变换高速缓冲”</span></span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>对 copy_page_tables 函数，上边已经有详细的注释。其中，需要注意的是：</p>
+<ul>
+<li><a href="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/">boot/head.s</a> 文件设置并初始化了分页管理系统；而 <a href="http://xiehongfeng100.github.io/2016/02/23/linux-kenel-0-11-topic-init-part3/">sched_init()</a> 函数虽然对进程 0 进行了初始化，但并没有设置进程 0 的分页系统。<code>对于进程 0，其起始线性地址（0x0000 0000）刚好能够映射到页表目录的第 1 项；整个虚拟地址空间（64MB）可以映射到页表目录的第 1 ~ 16 项。</code>而这些页表目录项已经在 <a href="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/">boot/head.s</a> 设置好，所以就相当于<code>进程 0 的页表系统早在进程 0 被创建之前就已经设置好了</code>。进程 1 映射的第 1 个页表目录项在页表目录中算第 17 个。</li>
+<li><code>Linux 0.11 只有一个页表目录</code></li>
+<li>页面复制时采用了<code>写时复制</code>的技术</li>
+<li>进程 1 只复制了进程 0 页表的前 160 项。这 160 项能表示的实际内存范围为 160*4KB=640KB，恰好是实际内存中“内核+缓冲区低端”所占的区域</li>
+<li><p><code>在 Linux 0.11，物理内存 1MB （LOW_MEM） 并不采用用户态下的分页系统来寻址，而是按照“段（选择子）+偏移”的方法。1MB 以上，才采用分页管理系统。</code></p>
+</li>
+<li><p>这里还有一个没有解决的问题是：size = ((unsigned) (size+0x3fffff)) &gt;&gt; 22; 中的 0x3fffff 是怎么来的？有待下次解决。</p>
+</li>
+</ul>
+<p>copy_page_tables 的执行结果可用下图表示：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/进程0和进程1共享页示意图.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h3 id="小结"><a href="#小结" class="headerlink" title="小结"></a><strong>小结</strong></h3><p>进程 1 的分页系统设置可用图总结如下：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/设置进程1的线性地址空间.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h2 id="共享文件"><a href="#共享文件" class="headerlink" title="共享文件"></a><strong>共享文件</strong></h2><p>进程 1 共享进程 0 文件的代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	<span class="keyword">for</span> (i=<span class="number">0</span>; i&lt;NR_OPEN;i++)</span><br><span class="line">		<span class="keyword">if</span> (f=p-&gt;filp[i])</span><br><span class="line">			f-&gt;f_count++;</span><br><span class="line">	<span class="keyword">if</span> (current-&gt;pwd)</span><br><span class="line">		current-&gt;pwd-&gt;i_count++;</span><br><span class="line">	<span class="keyword">if</span> (current-&gt;root)</span><br><span class="line">		current-&gt;root-&gt;i_count++;</span><br><span class="line">	<span class="keyword">if</span> (current-&gt;executable)</span><br><span class="line">		current-&gt;executable-&gt;i_count++;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="设置-TSS-及-GDT"><a href="#设置-TSS-及-GDT" class="headerlink" title="设置 TSS 及 GDT"></a><strong>设置 TSS 及 GDT</strong></h2><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	set_tss_desc(gdt+(nr&lt;&lt;<span class="number">1</span>)+FIRST_TSS_ENTRY,&amp;(p-&gt;tss));</span><br><span class="line">	set_ldt_desc(gdt+(nr&lt;&lt;<span class="number">1</span>)+FIRST_LDT_ENTRY,&amp;(p-&gt;ldt));</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h2 id="进入就绪态"><a href="#进入就绪态" class="headerlink" title="进入就绪态"></a><strong>进入就绪态</strong></h2><p>将进程 1 的状态设置为就绪态，使它可以参加进程调度：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/fork.c --------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">copy_process</span><span class="params">(<span class="keyword">int</span> nr,<span class="keyword">long</span> ebp,<span class="keyword">long</span> edi,<span class="keyword">long</span> esi,<span class="keyword">long</span> gs,<span class="keyword">long</span> none,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> ebx,<span class="keyword">long</span> ecx,<span class="keyword">long</span> edx,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> fs,<span class="keyword">long</span> es,<span class="keyword">long</span> ds,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">long</span> eip,<span class="keyword">long</span> cs,<span class="keyword">long</span> eflags,<span class="keyword">long</span> esp,<span class="keyword">long</span> ss)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	p-&gt;state = TASK_RUNNING;	<span class="comment">/* do this last, just in case */</span></span><br><span class="line">	<span class="keyword">return</span> last_pid;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码返回值 last_pid 保存在寄存器 eax。</p>
+<h1 id="返回-fork-函数"><a href="#返回-fork-函数" class="headerlink" title="返回 fork 函数"></a><strong>返回 fork 函数</strong></h1><h2 id="返回-sys-fork"><a href="#返回-sys-fork" class="headerlink" title="返回 sys_fork"></a><strong>返回 sys_fork</strong></h2><p>从 copy_process 函数返回后，开始执行下边代码：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">_sys_fork:</span><br><span class="line">	call _find_empty_process</span><br><span class="line">	testl %eax,%eax		# 如果返回的是 -EAGAIN(<span class="number">11</span>)，则说明已有 <span class="number">64</span> 个进程在运行</span><br><span class="line">	js <span class="number">1f</span></span><br><span class="line">	push %gs		# 下面 <span class="number">5</span> 个 push 都是 copy_process() 的参数</span><br><span class="line">	pushl %esi</span><br><span class="line">	pushl %edi</span><br><span class="line">	pushl %ebp</span><br><span class="line">	pushl %eax		# find_empty_process 函数返回的是任务号 i（注意不是进程号），</span><br><span class="line">				# 是 copy_process 函数的第一个参数 nr</span><br><span class="line">	call _copy_process</span><br><span class="line">	addl $<span class="number">20</span>,%esp		# 丢弃这里所有的压栈内容（gs esi edi ebp eax）</span><br><span class="line"><span class="number">1</span>:	ret</span><br></pre></td></tr></table></figure></p>
+<h2 id="返回-system-call"><a href="#返回-system-call" class="headerlink" title="返回 system_call"></a><strong>返回 system_call</strong></h2><p>sys_fork 返回后，跳转到 system_call 中执行：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> ......</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * Stack layout in 'ret_from_system_call':</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> *	 0(%esp) - %eax</span></span><br><span class="line"><span class="comment"> *	 4(%esp) - %ebx</span></span><br><span class="line"><span class="comment"> *	 8(%esp) - %ecx</span></span><br><span class="line"><span class="comment"> *	 C(%esp) - %edx</span></span><br><span class="line"><span class="comment"> *	10(%esp) - %fs</span></span><br><span class="line"><span class="comment"> *	14(%esp) - %es</span></span><br><span class="line"><span class="comment"> *	18(%esp) - %ds</span></span><br><span class="line"><span class="comment"> *	1C(%esp) - %eip</span></span><br><span class="line"><span class="comment"> *	20(%esp) - %cs</span></span><br><span class="line"><span class="comment"> *	24(%esp) - %eflags</span></span><br><span class="line"><span class="comment"> *	28(%esp) - %oldesp</span></span><br><span class="line"><span class="comment"> *	2C(%esp) - %oldss</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">state	= <span class="number">0</span>		# these are offsets into the task-struct.</span><br><span class="line">counter	= <span class="number">4</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">_system_call:</span><br><span class="line">	......</span><br><span class="line">	call _sys_call_table(,%eax,<span class="number">4</span>)</span><br><span class="line">	pushl %eax			# sys_fork 函数返回到这里执行。eax 保存的是 copy_process 函数返回值 last_pid</span><br><span class="line">	movl _current,%eax		# 当前进程是 <span class="number">0</span></span><br><span class="line">	cmpl $<span class="number">0</span>,state(%eax)		# state</span><br><span class="line">	jne reschedule			# 如果进程 <span class="number">0</span> 不是处于就绪态，则进行进程调度</span><br><span class="line">	cmpl $<span class="number">0</span>,counter(%eax)		# counter</span><br><span class="line">	je reschedule			# 如果进程没有时间片，则进行进程调度</span><br><span class="line">ret_from_sys_call:</span><br><span class="line">	movl _current,%eax		# task[<span class="number">0</span>] cannot have signals</span><br><span class="line">	cmpl _task,%eax			# _task 对应 include/linux/sched.h 中定义的 task[] 数组，</span><br><span class="line">					# 直接引用 _task，相当于引用 task[<span class="number">0</span>]</span><br><span class="line">	je <span class="number">3f</span>				# 如果当前进程是进程 <span class="number">0</span>，则跳转到 <span class="number">3</span> 处执行。当前进程恰好是进程 <span class="number">0</span>。f:forward; b:backword。</span><br><span class="line">	......</span><br><span class="line"><span class="number">3</span>:	popl %eax			<span class="meta"># eax 存储的是进程 1 的进程号 1（注意跟任务号的区别）</span></span><br><span class="line">	popl %ebx</span><br><span class="line">	popl %ecx</span><br><span class="line">	popl %edx</span><br><span class="line">	pop %fs</span><br><span class="line">	pop %es</span><br><span class="line">	pop %ds</span><br><span class="line">	iret	<span class="meta"># iret 将导致之前因为 int 0x80 压栈的 ss esp eflags cs eip 出栈到对应的寄存器</span></span><br><span class="line">		<span class="meta"># cs:eip 指向 _syscall0(int,fork) 中 int 0x80 的下一行 <span class="meta-keyword">if</span>(__res &gt;=0)</span></span><br></pre></td></tr></table></figure></p>
+<h2 id="返回-fork"><a href="#返回-fork" class="headerlink" title="返回 fork"></a><strong>返回 fork</strong></h2><p>system_call 返回后，cs:eip 指向 fork() 中 int 0x80 的下一行，即从 if(__res &gt;=0) 处开始执行：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// include/unistd.h ----------------------------	// unistd -&gt; unix standard</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> __NR_fork	2</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _syscall0(type,name) \</span></span><br><span class="line">type name(void) \</span><br><span class="line">&#123; \</span><br><span class="line"><span class="keyword">long</span> __res; \</span><br><span class="line">__<span class="function">asm__ <span class="title">volatile</span> <span class="params">(<span class="string">"int $0x80"</span> \		<span class="comment">// int 0x80 是所有系统调用函数的总入口，fork() 是其中之一</span></span></span></span><br><span class="line"><span class="function"><span class="params">					<span class="comment">// 它将导致 CPU 硬件自动将 ss esp eflags cs eip 按序压栈</span></span></span></span><br><span class="line"><span class="function"><span class="params">					<span class="comment">// 在这里，压栈的 eip 指向的是下一条语句 if (__res &gt;= 0)</span></span></span></span><br><span class="line"><span class="function"><span class="params">	: <span class="string">"=a"</span> (__res) \		<span class="comment">// 返回值存放到 %eax</span></span></span></span><br><span class="line"><span class="function"><span class="params">	: <span class="string">"0"</span> (__NR_##name))</span></span>; \		<span class="comment">// __NR_fork -&gt; %eax</span></span><br><span class="line"><span class="keyword">if</span> (__res &gt;= <span class="number">0</span>) \			<span class="comment">// int 0x80 中断返回后，将执行这一句</span></span><br><span class="line">	<span class="keyword">return</span> (type) __res; \</span><br><span class="line">errno = -__res; \</span><br><span class="line"><span class="keyword">return</span> <span class="number">-1</span>; \</span><br><span class="line">&#125;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">fork</span><span class="params">(<span class="keyword">void</span>)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">inline</span> _syscall0(<span class="keyword">int</span>,fork)	<span class="comment">// fork 函数。fork 是一个函数指针常量，有地址含义</span></span><br></pre></td></tr></table></figure></p>
+<p>因为 eax 保存的值是进程 1 的进程号 1，所以 __res &gt;= 0 为真，fork() 函数返回 1，并开始执行下述代码：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	sti();</span><br><span class="line">	move_to_user_mode();</span><br><span class="line">	<span class="keyword">if</span> (!fork()) &#123;		<span class="comment">/* we count on this going ok */</span></span><br><span class="line">		init();</span><br><span class="line">	&#125;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> *   NOTE!!   For any other task 'pause()' would mean we have to get a</span></span><br><span class="line"><span class="comment"> * signal to awaken, but task0 is the sole exception (see 'schedule()')</span></span><br><span class="line"><span class="comment"> * as task 0 gets activated at every idle moment (when no other tasks</span></span><br><span class="line"><span class="comment"> * can run). For task0 'pause()' just means we go check if some other</span></span><br><span class="line"><span class="comment"> * task can run, and if not we return here.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">	<span class="keyword">for</span>(;;) pause();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码可用下图表示：<br><img src="/images/os/linux-kenel-0.11/process-one/part1/操作系统如何区分进程0和进程1.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/26/linux-kenel-0-11-topic-process-one-part2/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：进程 1 的创建及执行（第 2 部分） —— 任务调度
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/02/24/linux-kenel-0-11-topic-init-part4/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：初始化程序（第 4 部分） —— 缓冲区、硬盘、软盘、特权级</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#调用-fork"><span class="toc-number">1.</span> <span class="toc-text">调用 fork</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#题外：进程的用户栈和内核栈"><span class="toc-number">2.</span> <span class="toc-text">题外：进程的用户栈和内核栈</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#调用-sys-fork"><span class="toc-number">3.</span> <span class="toc-text">调用 sys_fork</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#调用-find-empty-process"><span class="toc-number">4.</span> <span class="toc-text">调用 find_empty_process</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#调用-copy-process"><span class="toc-number">5.</span> <span class="toc-text">调用 copy_process</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#调用-get-free-page"><span class="toc-number">5.1.</span> <span class="toc-text">调用 get_free_page</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#复制父进程-task-struct"><span class="toc-number">5.2.</span> <span class="toc-text">复制父进程 task_struct</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#设置分页管理系统"><span class="toc-number">5.3.</span> <span class="toc-text">设置分页管理系统</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#设置代码、数据段基地址"><span class="toc-number">5.3.1.</span> <span class="toc-text">设置代码、数据段基地址</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#复制页表"><span class="toc-number">5.3.2.</span> <span class="toc-text">复制页表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#小结"><span class="toc-number">5.3.3.</span> <span class="toc-text">小结</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#共享文件"><span class="toc-number">5.4.</span> <span class="toc-text">共享文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#设置-TSS-及-GDT"><span class="toc-number">5.5.</span> <span class="toc-text">设置 TSS 及 GDT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#进入就绪态"><span class="toc-number">5.6.</span> <span class="toc-text">进入就绪态</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#返回-fork-函数"><span class="toc-number">6.</span> <span class="toc-text">返回 fork 函数</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#返回-sys-fork"><span class="toc-number">6.1.</span> <span class="toc-text">返回 sys_fork</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#返回-system-call"><span class="toc-number">6.2.</span> <span class="toc-text">返回 system_call</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#返回-fork"><span class="toc-number">6.3.</span> <span class="toc-text">返回 fork</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

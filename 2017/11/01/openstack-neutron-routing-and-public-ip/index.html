@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>《每天 5 分钟玩转 OpenStack》系列学习笔记：路由器及公网 IP | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="紧接上文记一次虚拟机无法获取内网 IP 问题的解决过程，我们来看一下路由及公网 IP。注意，这里的公网 IP 也称为浮动 IP（Floating IP）。 本文继续参考每天 5 分钟玩转 OpenStack系列。 路由器我们这里的路由指的是由 Neutron L3 Agent 提供的软件路由。除此之外，L3 Agent 也通过 iptables 提供防火墙和公网 IP 服务。在后台用命令行也可以看">
+<meta name="keywords" content="OpenStack,LinuxBridge,Veth,Neutron,网络,IPTables,Vlan">
+<meta property="og:type" content="article">
+<meta property="og:title" content="《每天 5 分钟玩转 OpenStack》系列学习笔记：路由器及公网 IP">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/11/01/openstack-neutron-routing-and-public-ip/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="紧接上文记一次虚拟机无法获取内网 IP 问题的解决过程，我们来看一下路由及公网 IP。注意，这里的公网 IP 也称为浮动 IP（Floating IP）。 本文继续参考每天 5 分钟玩转 OpenStack系列。 路由器我们这里的路由指的是由 Neutron L3 Agent 提供的软件路由。除此之外，L3 Agent 也通过 iptables 提供防火墙和公网 IP 服务。在后台用命令行也可以看">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/neutron-agent-list.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/controller-node-network-topology-with-eth0.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/physical-eth2-config.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/controller-node-network-topology-with-eth2.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/router-and-two-vlans.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/public-ip-ping-test.png">
+<meta property="og:updated_time" content="2019-05-01T06:21:57.252Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="《每天 5 分钟玩转 OpenStack》系列学习笔记：路由器及公网 IP">
+<meta name="twitter:description" content="紧接上文记一次虚拟机无法获取内网 IP 问题的解决过程，我们来看一下路由及公网 IP。注意，这里的公网 IP 也称为浮动 IP（Floating IP）。 本文继续参考每天 5 分钟玩转 OpenStack系列。 路由器我们这里的路由指的是由 Neutron L3 Agent 提供的软件路由。除此之外，L3 Agent 也通过 iptables 提供防火墙和公网 IP 服务。在后台用命令行也可以看">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/neutron/routing-and-public-ip/neutron-agent-list.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-openstack-neutron-routing-and-public-ip" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/11/01/openstack-neutron-routing-and-public-ip/" class="article-date">
+  	<time datetime="2017-10-31T22:49:49.000Z" itemprop="datePublished">2017-11-01</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      《每天 5 分钟玩转 OpenStack》系列学习笔记：路由器及公网 IP
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/IPTables/">IPTables</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/LinuxBridge/">LinuxBridge</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Neutron/">Neutron</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/OpenStack/">OpenStack</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Veth/">Veth</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Vlan/">Vlan</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/网络/">网络</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/云计算/">云计算</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>紧接上文<a href="http://xiehongfeng100.github.io/2017/10/29/openstack-neutron-instance-cannot-retrieve-fixed-ip/">记一次虚拟机无法获取内网 IP 问题的解决过程</a>，我们来看一下路由及公网 IP。注意，这里的公网 IP 也称为浮动 IP（Floating IP）。</p>
+<p>本文继续参考<a href="http://www.cnblogs.com/CloudMan6/tag/OpenStack/" target="_blank" rel="noopener">每天 5 分钟玩转 OpenStack</a>系列。</p>
+<h1 id="路由器"><a href="#路由器" class="headerlink" title="路由器"></a><strong>路由器</strong></h1><p>我们这里的路由指的是由 Neutron <code>L3 Agent 提供的软件路由</code>。除此之外，<code>L3 Agent 也通过 iptables 提供防火墙和公网 IP 服务。</code>在后台用命令行也可以看到该 agent 的状态：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/neutron-agent-list.png" alt>  </p>
+<h2 id="配置"><a href="#配置" class="headerlink" title="配置"></a><strong>配置</strong></h2><p>利用 devstack 部署原始生成的一些默认网络配置比较符合平常在网上看到的资料的习惯，如可以通外网的网桥 br-ex，所以下文会在原有配置进行微小变更。</p>
+<h3 id="原有配置"><a href="#原有配置" class="headerlink" title="原有配置"></a><strong>原有配置</strong></h3><p>其实，在刚部署好环境的时候，devstack 已经帮我们创建好了一个网络 public、网桥 br-ex，并且还用 iptables 做了网络 public 到网口 eth0 的 SNAT。下边我们详细看下。</p>
+<h4 id="网络及网桥"><a href="#网络及网桥" class="headerlink" title="网络及网桥"></a><strong>网络及网桥</strong></h4><p>部署后生成的配置文件 /etc/neutron/l3_agent.ini 中的相关字段如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[ml2_type_flat]</span><br><span class="line">flat_networks = default,public</span><br><span class="line"></span><br><span class="line">[linux_bridge]</span><br><span class="line">bridge_mappings = public:br-ex</span><br></pre></td></tr></table></figure></p>
+<p>也就是说，部署时会帮我们创建一个默认的 flat 类型的外部网络 public，并且该网络还映射到一个网桥 br-ex。</p>
+<a id="more"></a>
+<p>可从后台看到如下结果（已去掉不相关部分）：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ neutron net-list -F &quot;name&quot; -F &quot;subnets&quot;</span><br><span class="line">+---------+----------------------------------------------------------+</span><br><span class="line">| name    | subnets                                                  |</span><br><span class="line">+---------+----------------------------------------------------------+</span><br><span class="line">| public  | 5454d3a5-b2dc-4d40-88f3-932e24b96a6a 2001:db8::/64       |</span><br><span class="line">|         | 5c6211c4-e79f-4352-a6f9-e2e6d3584eda 172.24.4.0/24       |</span><br><span class="line">+---------+----------------------------------------------------------+</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ brctl show</span><br><span class="line">bridge name	bridge id		STP enabled	interfaces</span><br><span class="line">br-ex		8000.5ae6fc5e5728	no		tap2278c047-6a</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ ip a</span><br><span class="line">14: br-ex: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000</span><br><span class="line">    link/ether 5a:e6:fc:5e:57:28 brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.24.4.1/24 scope global br-ex</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 fe80::9037:d0ff:fed0:6a/64 scope link </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">19: tap2278c047-6a@eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue master br-ex state UP group default qlen 1000</span><br><span class="line">    link/ether 5a:e6:fc:5e:57:28 brd ff:ff:ff:ff:ff:ff</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ ip -d link</span><br><span class="line">19: tap2278c047-6a@eth1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue master br-ex state UP mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether 5a:e6:fc:5e:57:28 brd ff:ff:ff:ff:ff:ff promiscuity 1 </span><br><span class="line">    veth</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ ethtool -S tap2278c047-6a</span><br><span class="line">NIC statistics:</span><br><span class="line">     peer_ifindex: 3</span><br></pre></td></tr></table></figure></p>
+<p>可以看到，devstack 还单独给网桥 br-ex 配了一个 IP；在该网桥挂接一个虚拟网卡 tap2278c047-6a。该虚拟网卡实际会通过 veth pair 连接到默认创建的路由器的 interface，且看下文。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ neutron router-list -F &quot;id&quot; -F &quot;name&quot; -F &quot;external_gateway_info&quot;</span><br><span class="line">neutron CLI is deprecated and will be removed in the future. Use openstack CLI instead.</span><br><span class="line">+--------------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+</span><br><span class="line">| id                                   | name    | external_gateway_info                                                                                                                                         |</span><br><span class="line">+--------------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+</span><br><span class="line">| 63c5bd1f-a00f-403c-96cc-0345fcb51df5 | router1 | &#123;&quot;network_id&quot;: &quot;16c41ef1-28fc-44ae-a711-287c3662460c&quot;, &quot;enable_snat&quot;: true, &quot;external_fixed_ips&quot;: [&#123;&quot;subnet_id&quot;: &quot;5c6211c4-e79f-4352-a6f9-e2e6d3584eda&quot;,      |</span><br><span class="line">|                                      |         | &quot;ip_address&quot;: &quot;172.24.4.2&quot;&#125;, &#123;&quot;subnet_id&quot;: &quot;5454d3a5-b2dc-4d40-88f3-932e24b96a6a&quot;, &quot;ip_address&quot;: &quot;2001:db8::1&quot;&#125;]&#125;                                             |</span><br><span class="line">+--------------------------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------+</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ ip netns </span><br><span class="line">qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip a</span><br><span class="line">1: lo: ...</span><br><span class="line">2: qr-40ff7919-4f@if18: ...</span><br><span class="line">3: qg-2278c047-6a@if19: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:2d:ea:9f brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.24.4.2/24 brd 172.24.4.255 scope global qg-2278c047-6a</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 2001:db8::1/64 scope global </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 fe80::f816:3eff:fe2d:ea9f/64 scope link </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">4: qr-05c629dd-14@if20: ...</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip -d link</span><br><span class="line">3: qg-2278c047-6a@if19: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:2d:ea:9f brd ff:ff:ff:ff:ff:ff promiscuity 0 </span><br><span class="line">    veth</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ethtool -S qg-2278c047-6a</span><br><span class="line">NIC statistics:</span><br><span class="line">     peer_ifindex: 19</span><br></pre></td></tr></table></figure>
+<p>可以看出，OpenStack 会为路由器创建一个单独的 namespace（命名为<code>qrouter+router_id</code>）；而且在该 namespace 会创建一个虚拟网卡通过 veth pair 连接到 public 网络。</p>
+<h4 id="SNAT"><a href="#SNAT" class="headerlink" title="SNAT"></a><strong>SNAT</strong></h4><p>既然部署创建的是一个可以连接到外网的网络 public，那它是如何能够连接到外网的？我们只要看一下防火墙的设置就很清楚了：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo iptables -t nat -S</span><br><span class="line">-A POSTROUTING -s 172.24.4.0/24 -o eth0 -j MASQUERADE</span><br></pre></td></tr></table></figure></p>
+<p>也就是说，public 网络到外网的通信是通过 SNAT 到 eth0 来实现的。</p>
+<h4 id="网络拓扑"><a href="#网络拓扑" class="headerlink" title="网络拓扑"></a><strong>网络拓扑</strong></h4><p>至此，我们可以画出上边部署默认创建的一个网络拓扑（控制节点）：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/controller-node-network-topology-with-eth0.png" alt>  </p>
+<p>需要特别注意的是，public 网络虽然有 DHCP Agent，但并没有为该 Agent 创建独立的 namespace。</p>
+<h3 id="新的配置"><a href="#新的配置" class="headerlink" title="新的配置"></a><strong>新的配置</strong></h3><p>因为在之前<a href="http://xiehongfeng100.github.io/2017/10/29/openstack-neutron-instance-cannot-retrieve-fixed-ip/">部署</a>的时候，我们是规划 eth2 来作为 OpenStack 与外网通信的网卡的，所有在这里，我们需做一些修改，来达到该目的。</p>
+<p><strong>注意：</strong>下文不相关内容并没有展示出来</p>
+<p>首先，将控制节点的 eth2 桥接到真正物理机上的网卡（eth0 和 eth2 实际在同一个子网中）：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/physical-eth2-config.png" alt>  </p>
+<p>第二，为该网卡配置 IP：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo ip a add 192.168.0.20/24 dev eth2</span><br></pre></td></tr></table></figure></p>
+<p>第三，删除并新建新的 SNAT 规则：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo iptables -t nat -L -n --line-number</span><br><span class="line">Chain POSTROUTING (policy ACCEPT)</span><br><span class="line">num  target     prot opt source               destination         </span><br><span class="line">9    MASQUERADE  all  --  172.24.4.0/24        0.0.0.0/0 </span><br><span class="line">stack@ubuntu-controller:~$ sudo iptables -t nat -D POSTROUTING 9	# 删除规则</span><br><span class="line">stack@ubuntu-controller:~$ sudo iptables -t nat -A POSTROUTING -s 172.24.4.0/24 -o eth2 -j MASQUERADE	# 新建新的规则</span><br></pre></td></tr></table></figure></p>
+<p>第四，清除原有路由：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ ip r</span><br><span class="line">default via 192.168.0.1 dev eth0 </span><br><span class="line">192.168.0.0/24 dev eth0  proto kernel  scope link  src 192.168.0.14 # 原经 eth0 路由</span><br><span class="line">192.168.0.0/24 dev eth2  proto kernel  scope link  src 192.168.0.20 # 自动新建</span><br><span class="line">stack@ubuntu-controller:~$ sudo ip r del 192.168.0.0/24 dev eth0 # 删除经 eth0 路由</span><br></pre></td></tr></table></figure></p>
+<p>现在最新的网络拓扑如下：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/controller-node-network-topology-with-eth2.png" alt>  </p>
+<h2 id="Vlan-间通信"><a href="#Vlan-间通信" class="headerlink" title="Vlan 间通信"></a><strong>Vlan 间通信</strong></h2><p>为了让 Vlan 之间可以互相通信，我们需要为它们添加 router interface，最后添加完成后的网络拓扑如下（计算节点没有画出来）：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/router-and-two-vlans.png" alt>  </p>
+<h3 id="Veth-pair"><a href="#Veth-pair" class="headerlink" title="Veth pair"></a><strong>Veth pair</strong></h3><p>我们可以在后台看下结果：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip a</span><br><span class="line">1: lo: ...</span><br><span class="line">2: qr-40ff7919-4f@if18: ...</span><br><span class="line">3: qg-2278c047-6a@if19: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:2d:ea:9f brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.24.4.2/24 brd 172.24.4.255 scope global qg-2278c047-6a</span><br><span class="line">    ...</span><br><span class="line">4: qr-05c629dd-14@if20: ...</span><br><span class="line">5: qr-5ccf29ce-33@if29: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:ec:ac:91 brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.16.100.1/24 brd 172.16.100.255 scope global qr-5ccf29ce-33</span><br><span class="line">    ...</span><br><span class="line">6: qr-1cb11ccb-82@if30: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:88:d0:aa brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.16.101.1/24 brd 172.16.101.255 scope global qr-1cb11ccb-82</span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip -d link</span><br><span class="line">1: lo: ...</span><br><span class="line">2: qr-40ff7919-4f@if18: ... </span><br><span class="line">3: qg-2278c047-6a@if19: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:2d:ea:9f brd ff:ff:ff:ff:ff:ff promiscuity 0 </span><br><span class="line">    veth </span><br><span class="line">4: qr-05c629dd-14@if20: ...</span><br><span class="line">5: qr-5ccf29ce-33@if29: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:ec:ac:91 brd ff:ff:ff:ff:ff:ff promiscuity 0 </span><br><span class="line">    veth </span><br><span class="line">6: qr-1cb11ccb-82@if30: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000</span><br><span class="line">    link/ether fa:16:3e:88:d0:aa brd ff:ff:ff:ff:ff:ff promiscuity 0 </span><br><span class="line">    veth </span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip r</span><br><span class="line">default via 172.24.4.1 dev qg-2278c047-6a </span><br><span class="line">172.16.100.0/24 dev qr-5ccf29ce-33  proto kernel  scope link  src 172.16.100.1 </span><br><span class="line">172.16.101.0/24 dev qr-1cb11ccb-82  proto kernel  scope link  src 172.16.101.1 </span><br><span class="line">172.24.4.0/24 dev qg-2278c047-6a  proto kernel  scope link  src 172.24.4.2</span><br></pre></td></tr></table></figure></p>
+<p>从上图及后台结果可以看出一个重要的地方，就是<code>路由器上的 interface 分别与各 Vlan 网络所在的网桥之间的通信都是 veth pair 来进行的，因为路由器被单独放在了一个 namespace 里边，这样是为了支持网络重叠。</code></p>
+<p><code>对不同的网络，它们可能会存在相互重叠的子网，如果没有 namespace，不同子网之间的路由就可能会存在冲突。</code>博文 <a href="http://www.cnblogs.com/CloudMan6/p/5982534.html" target="_blank" rel="noopener">Why Namespace?</a> 举了一个很形象的例子：</p>
+<blockquote>
+<p>因为没有 namespace 隔离，router_100_101 和 router_102_103 的路由条目都只能记录到控制节点操作系统（root namespace）的路由表中，内容如下：</p>
+<p>  Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>  10.10.1.0                 <em>               255.255.255.0   U     0      0        0     tap1<br>  10.10.2.0                 </em>               255.255.255.0   U     0      0        0     tap2<br>  10.10.1.0                 <em>               255.255.255.0   U     0      0        0     tap3<br>  10.10.2.0                 </em>               255.255.255.0   U     0      0        0     tap4<br>这样的路由表是无法工作的。<br><strong>注：</strong>router_100_101 和 router_102_103 是作者用于说明问题的路由器。</p>
+</blockquote>
+<p>而<code>当路由有了 namespace，namespace 可以有自己独立的路由，这样就可以支持网络重叠了</code>：</p>
+<blockquote>
+<p>router_100_101 的路由表内容如下：<br>Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>10.10.1.0                 <em>               255.255.255.0   U     0      0        0     qr-1<br>10.10.2.0                 </em>               255.255.255.0   U     0      0        0     qr-2</p>
+<p>router_102_103 的路由表内容如下：<br>Destination     Gateway         Genmask         Flags Metric Ref    Use Iface<br>10.10.1.0                 <em>               255.255.255.0   U     0      0        0     qr-3<br>10.10.2.0                 </em>               255.255.255.0   U     0      0        0     qr-4</p>
+<p>这样的路由表是可以工作的。</p>
+</blockquote>
+<p>另外，<code>若路由器上的 veth 用于连接租户网络，命名格式为 qr-&lt;port-id前11位&gt;；若用于连接外部网络，命名格式为 qg-&lt;port-id前11位&gt;。</code></p>
+<h3 id="SNAT-1"><a href="#SNAT-1" class="headerlink" title="SNAT"></a><strong>SNAT</strong></h3><p>我们还可以看一下 iptables 规则：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 iptables -t nat -S</span><br><span class="line">-A neutron-l3-agent-snat -o qg-2278c047-6a -j SNAT --to-source 172.24.4.2</span><br></pre></td></tr></table></figure></p>
+<p>这表示<code>数据包从 router 连接外部网络接口 qg-2278c047-6a 发出的时候，都会做一次 SNAT，即将包的源地址修改为 router 的接口地址 172.24.4.2，这样就能保证目的端能够将应答的包发回给 router，然后再转发回源端虚拟机。</code></p>
+<h1 id="公网IP"><a href="#公网IP" class="headerlink" title="公网IP"></a><strong>公网IP</strong></h1><p>接下来，我们为新建的虚拟机申请并绑定一个公网 IP 172.24.4.12/24，这样它就可以跟外边的公网通信了，我们可以简单测试一下：<br><img src="/images/cloud-computation/openstack/neutron/routing-and-public-ip/public-ip-ping-test.png" alt><br><strong>注：</strong>192.168.0.3 是“物理”局域网（对于 OpenStack 来说是外网）内一台独立于 OpenStack 环境的 Windows 主机的 IP</p>
+<p>这是怎么做到的？还是要看 iptables 规则：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 ip a</span><br><span class="line">1: lo: ...</span><br><span class="line">2: qr-40ff7919-4f@if18: ...</span><br><span class="line">    link/ether fa:16:3e:2d:ea:9f brd ff:ff:ff:ff:ff:ff</span><br><span class="line">    inet 172.24.4.2/24 brd 172.24.4.255 scope global qg-2278c047-6a</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet 172.24.4.12/32 brd 172.24.4.12 scope global qg-2278c047-6a</span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 2001:db8::1/64 scope global </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">    inet6 fe80::f816:3eff:fe2d:ea9f/64 scope link </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">stack@ubuntu-controller:~$ sudo ip netns exec qrouter-63c5bd1f-a00f-403c-96cc-0345fcb51df5 iptables -t nat -S</span><br><span class="line">-A neutron-l3-agent-PREROUTING -d 172.24.4.12/32 -j DNAT --to-destination 172.16.100.11</span><br><span class="line">-A neutron-l3-agent-float-snat -s 172.16.100.11/32 -j SNAT --to-source 172.24.4.12</span><br></pre></td></tr></table></figure></p>
+<p>也就是，实际上，<code>是 DNAT+SNAT 使得虚拟机可以连接到外网。</code></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/11/09/openstack-neutron-server-startup/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          OpenStack 源码系列之 Neutron：Neutron Server 启动
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/10/29/openstack-neutron-instance-cannot-retrieve-fixed-ip/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">《每天 5 分钟玩转 OpenStack》系列学习笔记：记一次虚拟机无法获取内网 IP 问题的解决过程</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#路由器"><span class="toc-number">1.</span> <span class="toc-text">路由器</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#配置"><span class="toc-number">1.1.</span> <span class="toc-text">配置</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#原有配置"><span class="toc-number">1.1.1.</span> <span class="toc-text">原有配置</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#网络及网桥"><span class="toc-number">1.1.1.1.</span> <span class="toc-text">网络及网桥</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#SNAT"><span class="toc-number">1.1.1.2.</span> <span class="toc-text">SNAT</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#网络拓扑"><span class="toc-number">1.1.1.3.</span> <span class="toc-text">网络拓扑</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#新的配置"><span class="toc-number">1.1.2.</span> <span class="toc-text">新的配置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Vlan-间通信"><span class="toc-number">1.2.</span> <span class="toc-text">Vlan 间通信</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Veth-pair"><span class="toc-number">1.2.1.</span> <span class="toc-text">Veth pair</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SNAT-1"><span class="toc-number">1.2.2.</span> <span class="toc-text">SNAT</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#公网IP"><span class="toc-number">2.</span> <span class="toc-text">公网IP</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

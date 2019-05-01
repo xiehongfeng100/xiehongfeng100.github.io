@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“加载及虚拟地址空间” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文算是上一博文 Linux 内核学习笔记：预备知识之“目标文件”的续篇，主要说明操作系统如何将可执行目标文件加载到进程的虚拟地址空间并执行。虚拟地址空间的阐述将会穿插在这过程中。最后，还对缺页异常进行阐述。 加载在《深入理解计算机系统》中，作者给出了加载（loading）的一个定义：    将程序拷贝到存储器并运行的过程叫做加载。  接下来我们先来看一下加载器的工作概况。 加载器工作概况试想我们">
+<meta name="keywords" content="Linux,内核,微处理器,可执行目标文件,加载,虚拟地址空间">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“加载及虚拟地址空间”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/25/linux-kenel-0-11-topic-necessary-preparation-part5/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文算是上一博文 Linux 内核学习笔记：预备知识之“目标文件”的续篇，主要说明操作系统如何将可执行目标文件加载到进程的虚拟地址空间并执行。虚拟地址空间的阐述将会穿插在这过程中。最后，还对缺页异常进行阐述。 加载在《深入理解计算机系统》中，作者给出了加载（loading）的一个定义：    将程序拷贝到存储器并运行的过程叫做加载。  接下来我们先来看一下加载器的工作概况。 加载器工作概况试想我们">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/fork-sample-program-output.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/fork-pstree.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/relationship-of-the-seven-exec-functions.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/how-the-loader-maps-the-areas-of-the-user-address-space.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/process-run-time-memory-image.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/task_struct_n_mm_struct.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/memoryDescriptorAndMemoryAreas.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/vma-example.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/page-fault.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/大总结.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/how-linux-organizes-virtual-memory.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.585Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“加载及虚拟地址空间”">
+<meta name="twitter:description" content="本文算是上一博文 Linux 内核学习笔记：预备知识之“目标文件”的续篇，主要说明操作系统如何将可执行目标文件加载到进程的虚拟地址空间并执行。虚拟地址空间的阐述将会穿插在这过程中。最后，还对缺页异常进行阐述。 加载在《深入理解计算机系统》中，作者给出了加载（loading）的一个定义：    将程序拷贝到存储器并运行的过程叫做加载。  接下来我们先来看一下加载器的工作概况。 加载器工作概况试想我们">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part5/fork-sample-program-output.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part5" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/25/linux-kenel-0-11-topic-necessary-preparation-part5/" class="article-date">
+  	<time datetime="2016-01-25T06:47:48.000Z" itemprop="datePublished">2016-01-25</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“加载及虚拟地址空间”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/加载/">加载</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/可执行目标文件/">可执行目标文件</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/微处理器/">微处理器</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/虚拟地址空间/">虚拟地址空间</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文算是上一博文 <a href="http://xiehongfeng100.github.io/2016/01/24/linux-kenel-0-11-topic-necessary-preparation-part4/">Linux 内核学习笔记：预备知识之“目标文件”</a>的续篇，主要说明操作系统如何将可执行目标文件加载到进程的虚拟地址空间并执行。虚拟地址空间的阐述将会穿插在这过程中。最后，还对缺页异常进行阐述。</p>
+<h1 id="加载"><a href="#加载" class="headerlink" title="加载"></a><strong>加载</strong></h1><p>在《深入理解计算机系统》中，作者给出了加载（loading）的一个定义：  </p>
+<blockquote>
+<p>将程序拷贝到存储器并运行的过程叫做加载。</p>
+</blockquote>
+<p>接下来我们先来看一下加载器的工作概况。</p>
+<h2 id="加载器工作概况"><a href="#加载器工作概况" class="headerlink" title="加载器工作概况"></a><strong>加载器工作概况</strong></h2><p>试想我们执行这样一个可执行目标文件<code>a.out</code>:<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ./a.out</span><br></pre></td></tr></table></figure></p>
+<p>在调用应用程序的 main 函数前，操作系统私底下做了些什么工作？</p>
+<a id="more"></a>
+<p>实际上，在应用程序的 main 函数被调用前，对可执行目标文件<code>a.out</code>的加载是由操作系统的加载器来完成的。加载器的工作概况如下（摘自《深入理解计算机系统》第 7.9 节“加载可执行目标文件”）：  </p>
+<blockquote>
+<p>Unix 系统中的每个程序都运行在一个进程上下文中，有自己的虚拟地址空间。当外壳运行一个程序时，父外壳进程生成一个子进程，它是父进程的一个复制品。子进程通过 execve 系统调用启动加载器。加载器删除子进程现有的虚拟存储器段，并创建一组新的代码、数据、堆和栈段。新的栈和堆段被初始化为零。通过将虚拟地址空间中的页映射到可执行目标文件的页大小的片（chunk），新的代码和数据段被初始化为可执行目标文件的内容。最后，加载器跳转到<code>_start</code>地址，它最终会调用应用程序的 main 函数。除了一些头部信息，在加载过程中没有任何从磁盘到存储器的数据拷贝，直到 CPU 引用一个被映射的虚拟页才会进行拷贝，此时，操作系统利用它的页面调度机制自动将页面从磁盘传送到存储器。  </p>
+</blockquote>
+<p>这段描述说的非常清晰，有这么几点比较重要的：  </p>
+<ol>
+<li>父进程（外壳，即 shell）派生一个子进程。</li>
+<li>子进程通过<code>execve</code>系统调用执行可执行目标文件，并陷入内核启动加载器，开始真正的加载工作。</li>
+<li>加载器对子进程虚拟地址空间进行初始化，即删除子进程现有的虚拟存储器段，并创建一组新的代码、数据、堆和栈段，最后将新的代码和数据段初始化为可执行目标文件的内容。</li>
+<li>加载器跳转到<code>_start</code>，最终调用应用程序 main 函数。</li>
+</ol>
+<p>下文将按照这四点进行叙述。</p>
+<h2 id="进程派生"><a href="#进程派生" class="headerlink" title="进程派生"></a><strong>进程派生</strong></h2><p>这部分其实并不是加载器做的事情，但为了连贯和理解方便，特加上。《Unix 环境高级编程》（第三版）第 8 章是这部分主要参考资料。</p>
+<h3 id="fork-函数"><a href="#fork-函数" class="headerlink" title="fork 函数"></a><strong>fork 函数</strong></h3><p>在 Linux 中，进程派生需要用到函数<code>fork</code>：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="keyword">pid_t</span> fork(<span class="keyword">void</span>);</span><br><span class="line"><span class="comment">// 返回：若成功则在子进程中返回0，在父进程中返回子进程ID，若出错则返回-1</span></span><br></pre></td></tr></table></figure></p>
+<ul>
+<li><p><code>fork</code>函数调用一次，返回两次。它在调用进程（称为父进程）中返回一次，返回值是新派生进程（称为子进程）的进程ID号；在子进程中返回一次，返回值为0。因此，返回值本身告知当前进程是子进程还是父进程。</p>
+</li>
+<li><p><code>fork</code>在子进程返回 0 而不是父进程的进程 ID 的原因在于：任何子进程只有一个父进程，而且子进程总是可以通过调用 getppid 取得父进程的进程 ID。相反，父进程可以有很多子进程，而且无法获取各个子进程的进程 ID。如果父进程想要跟踪所有子进程的进程 ID，那么它必须记录每次调用<code>fork</code>的返回值。另外，进程ID  0 总是由内核交换进程使用，所以一个子进程的进程 ID 不可能为 0。</p>
+</li>
+<li><p>子进程和父进程继续执行<code>fork</code>调用之后的指令。子进程是父进程的副本。例如，子进程获得父进程数据空间、堆和栈的副本。父、子进程并不共享这些存储空间部分。父、子进程共享代码段。另外，需要注意的是，子进程并不会继承父进程的所有属性（如文件锁），详细请参考《Unix 环境高级编程》第 8.3 节“函数 fork”。</p>
+</li>
+<li><p>由于在<code>fork</code>之后经常跟随着<code>exec</code>，所以现在的很多实现并不执行一个父进程数据段、堆和栈的完全复制。作为替代，使用了<code>写时复制（Copy-On-Write, COW）</code>技术。这些区域由父、子进程共享，而且内核将它们的访问权限改变为只读的。如果父、子进程中的任一个试图修改这些区域，则内核只为修改区域的那块内存制作一个副本，通常是虚拟存储器系统的一“页”。</p>
+</li>
+<li><p>使<code>fork</code>失败的两个主要原因是：1）系统中已经有太多的进程（通常意味着某个方面出了问题）；2）实际用户的进程总数超过了系统限制。</p>
+</li>
+</ul>
+<h3 id="样例程序分析"><a href="#样例程序分析" class="headerlink" title="样例程序分析"></a><strong>样例程序分析</strong></h3><p>样例程序如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">pid_t</span> fpid;</span><br><span class="line">    fpid = fork();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span>(fpid &lt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"error in fork!"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span>(fpid == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"\n=================================================\n"</span>);</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"I am the child process, my process ID is %d\n"</span>, getpid());</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"My parent process ID is %d\n"</span>, getppid());</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"=================================================\n"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"\n=================================================\n"</span>);</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"I am the parent process, my process ID is %d\n"</span>, getpid());</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"=================================================\n"</span>);</span><br><span class="line">        sleep(<span class="number">5</span>); <span class="comment">// 让进程停留 5 秒，这样我们可以用 pstree 查看一下进程树</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>程序的运行结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/fork-sample-program-output.png" alt>  </p>
+<p>按照惯常，程序按顺序执行，最终输出应该只有 if…else if…else 中一个条件下的结果，但很明显我们这边输出了两个条件下的结果。具体原因在于通过<code>fork</code>函数创建的子进程也会（写时）复制父进程的存储空间（数据、堆、栈等，包括程序计数器），创建了属于自己的存储空间，并从<code>fork</code>函数后开始执行。利用<code>pstree</code>命令可以看到子进程（ID 18406）确实继承自父进程（ID 18405）：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/fork-pstree.png" alt>  </p>
+<p>一般来说，在 fork 之后是父进程先执行还是子进程先执行是不确定的，这取决于内核所使用的调度算法。在上述程序中，父进程先执行，子进程在其之后执行。</p>
+<p>对于子进程在刚创建时执行的是父进程，原因在于<code>子进程刚被创建时并没有自己的代码和数据，只好执行父进程的代码和利用父进程的数据；而一旦子进程加载（execve）了属于自己的代码和数据，就开始执行自己的代码。</code></p>
+<p>关于 fork 函数，还可参考陈皓的博客<a href="http://coolshell.cn/articles/7965.html" target="_blank" rel="noopener">一个 fork 的面试题</a>。</p>
+<h2 id="execve-系统调用"><a href="#execve-系统调用" class="headerlink" title="execve 系统调用"></a><strong>execve 系统调用</strong></h2><p><code>execve</code>函数是<code>exec</code>系列函数（总共 7 种）中的一种。</p>
+<p>用<code>fork</code>函数创建子进程后，子进程往往要调用一种<code>exec</code>函数以执行另一个程序（可执行目标文件）。当进程调用一种<code>exec</code>函数时，该进程执行的程序完全替换为新程序，而新程序则从其 main 函数开始执行。因为调用<code>exec</code>并不创建新进程，所以前后的进程 ID 并未改变。<code>exec</code>函数只是用磁盘上一个全新的程序替换了当前进程的正文、数据、堆和栈端。</p>
+<p>在很多 UNIX 实现中，<code>exec</code> 7 种函数中只有<code>execve</code>是系统调用，另外 6 个只是库函数，它们最终都要调用该系统调用。这 7 种函数的关系如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/relationship-of-the-seven-exec-functions.png" alt>图片来源：《Unix 环境高级编程》  </p>
+<p>利用<code>execve</code>系统调用加载并运行可执行目标文件<code>a.out</code>的步骤如下（参考自《深入理解计算机系统》第 9.8.3 节“再看 execve 函数”）：  </p>
+<ul>
+<li><strong>删除已存在的用户区域</strong>。删除当前进程虚拟地址空间的<code>用户部分</code>中的已存在的虚拟内存区域结构（即<code>vm_area_struct</code>结构体，见后文“虚拟内存区域 VMA”部分）。</li>
+<li><strong>映射私有区域</strong>。为新程序的文本、数据、bss、和栈区域创建新的虚拟内存区域结构（即<code>vm_area_struct</code>结构体）。所有这些新的区域都是私有的、写时拷贝的。文本和数据区域被映射为<code>a.out</code>中的文本和数据区。bss 区域是请求二进制零的，映射到<code>匿名文件</code>，其大小包含在<code>a.out</code>中。栈和堆也是请求二进制零的，初始长度为零。下图概括了私有区域的不同映射。</li>
+<li><strong>映射共享区域</strong>。如果<code>a.out</code>程序与共享对象（或目标）链接，比如标准 C 库 libc.so，那么这些对象都是动态链接到这个程序的，然后再映射到用户虚拟地址空间中的共享区域内。</li>
+<li><strong>设置程序计数器（PC）</strong>。execve 做的最后一件事就是设置当前进程上下文中的程序计数器，使之指向文本区域的入口点。</li>
+</ul>
+<p><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/how-the-loader-maps-the-areas-of-the-user-address-space.png" alt>进程虚拟地址空间。图片来源：《深入理解计算机系统》  </p>
+<p>关于<code>execve</code>还可参看《深入理解计算机系统》第 8.4.5 节“加载并运行程序”。</p>
+<h2 id="子进程虚拟地址空间初始化"><a href="#子进程虚拟地址空间初始化" class="headerlink" title="子进程虚拟地址空间初始化"></a><strong>子进程虚拟地址空间初始化</strong></h2><p>在开始之前，我们先看看一个进程运行时的“虚拟地址空间”是怎么样的。</p>
+<h3 id="虚拟地址空间"><a href="#虚拟地址空间" class="headerlink" title="虚拟地址空间"></a><strong>虚拟地址空间</strong></h3><p>《深入理解计算机系统》第 7.9 节“加载可执行目标文件”对进程运行时虚拟地址空间有一个大概的描述：  </p>
+<blockquote>
+<p>每个 Unix 程序都有一个运行时存储器映像，类似于下图所示的那样。在 32 位 Linux 系统中，代码段总是从地址 0x0804 8000 开始处开始。数据段是在接下来的下一个 4KB 对齐的地址处。运行时堆在读/写段之后接下来的第一个 4KB 对齐的地址处，并通过调用 malloc 库函数往上增长。还有一个段是为共享库保留的。用户栈总是从最大的合法用户地址开始向下增长的（向低存储器地址方向增长）。从栈的上部开始的段是为操作系统驻留存储器部分（也就是内核）的代码和数据保留的。</p>
+</blockquote>
+<p><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/process-run-time-memory-image.png" alt>图片来源：《深入理解计算机系统》  </p>
+<h3 id="虚拟地址空间本质"><a href="#虚拟地址空间本质" class="headerlink" title="虚拟地址空间本质"></a><strong>虚拟地址空间本质</strong></h3><h4 id="任务描述符"><a href="#任务描述符" class="headerlink" title="任务描述符"></a><strong>任务描述符</strong></h4><ul>
+<li><strong>注意：</strong>跟任务描述符段 TSS 不一样。</li>
+</ul>
+<p>在 Linux 0.11 版本内核，对进程已经有一个明确的结构体——任务描述符（Task Descriptor）来描述它，但不够完整（缺少对内存描述符结构体<code>mm_struct</code>的指向）。这里我们采用 Linux 2.4.37 版本内核的<a href="http://lxr.free-electrons.com/source/include/linux/sched.h?v=2.4.37#L283" target="_blank" rel="noopener">任务描述符结构体</a>定义：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">task_struct</span> &#123;</span></span><br><span class="line">	......</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span> *<span class="title">mm</span>;</span>	<span class="comment">/* memory management info */</span></span><br><span class="line">	...... </span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>在本文，比较重要的是该进程结构体还有一个指针<code>mm</code>指向了描述虚拟地址空间（暂不考虑内核映射）的内存描述符结构体<code>mm_struct</code>。</p>
+<h4 id="内存描述符"><a href="#内存描述符" class="headerlink" title="内存描述符"></a><strong>内存描述符</strong></h4><p>但在 Linux 0.11 版本内核，对虚拟地址空间并没有用比较明确的数据结构来表示它。不过在 Linux 2.4.37 版本内核中，对虚拟地址空间已经有很明确的数据结构——<a href="http://lxr.free-electrons.com/source/include/linux/sched.h?v=2.4.37#L206" target="_blank" rel="noopener">内存描述符（Memory Descriptor）结构体</a><code>mm_struct</code>来表示它：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> * <span class="title">mmap</span>;</span>           <span class="comment">/* list of VMAs */</span></span><br><span class="line">        <span class="keyword">rb_root_t</span> mm_rb;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> * <span class="title">mmap_cache</span>;</span>     <span class="comment">/* last find_vma result */</span></span><br><span class="line">        <span class="keyword">pgd_t</span> * pgd;</span><br><span class="line">        <span class="keyword">atomic_t</span> mm_users;                      <span class="comment">/* How many users with user space? */</span></span><br><span class="line">        <span class="keyword">atomic_t</span> mm_count;                      <span class="comment">/* How many references to "struct mm_struct" (users count as 1) */</span></span><br><span class="line">        <span class="keyword">int</span> map_count;                          <span class="comment">/* number of VMAs */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">rw_semaphore</span> <span class="title">mmap_sem</span>;</span></span><br><span class="line">        <span class="keyword">spinlock_t</span> page_table_lock;             <span class="comment">/* Protects task page tables and mm-&gt;rss */</span></span><br><span class="line"></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">list_head</span> <span class="title">mmlist</span>;</span>                <span class="comment">/* List of all active mm's.  These are globally strung</span></span><br><span class="line"><span class="comment">                                                 * together off init_mm.mmlist, and are protected</span></span><br><span class="line"><span class="comment">                                                 * by mmlist_lock</span></span><br><span class="line"><span class="comment">                                                 */</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> start_code, end_code, start_data, end_data;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> start_brk, brk, start_stack;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> arg_start, arg_end, env_start, env_end;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> rss, total_vm, locked_vm;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> def_flags;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> cpu_vm_mask;</span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> swap_address;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">unsigned</span> dumpable:<span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Architecture-specific MM context */</span></span><br><span class="line">        <span class="keyword">mm_context_t</span> context;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>任务描述符和内存描述符之间的关系可用下图表示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/task_struct_n_mm_struct.png" alt><a href="http://duartes.org/gustavo/blog/post/how-the-kernel-manages-your-memory/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p><strong>注意：</strong>进程虚拟地址空间的段跟可执行目标文件的段是不一样的。对虚拟地址空间这些段的属性描述放在可执行目标文件的 Segment header table 段，详细请参考上一<a href="http://xiehongfeng100.github.io/2016/01/24/linux-kenel-0-11-topic-necessary-preparation-part4/">博文</a>的“可执行目标文件”部分。</p>
+<p>从上图可以看出，内存描述符将进程虚拟地址空间分成了不同的段，并且对这些段的开始或结束地址进行了限定。但在这里，我们还漏了一个更加重要的<code>vm_area_struct</code>结构体指针<code>mmap</code>——建立虚拟地址空间与可执行目标文件、共享库之间的映射。</p>
+<h4 id="虚拟内存区域-VMA"><a href="#虚拟内存区域-VMA" class="headerlink" title="虚拟内存区域 VMA"></a><strong>虚拟内存区域 VMA</strong></h4><p><code>vm_area_struct</code>结构体描述了虚拟地址空间中的一块连续的区域，叫做虚拟内存区域（<code>VMA</code>, Virtual Memory Area）。<code>同一虚拟内存区域内的代码或数据共享某些特性，如特权级。</code></p>
+<p><a href="http://lxr.free-electrons.com/source/include/linux/mm.h?v=2.4.37#L44" target="_blank" rel="noopener"><code>vm_area_struct</code></a>结构体定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * This struct defines a memory VMM memory area. There is one of these</span></span><br><span class="line"><span class="comment"> * per VM-area/task.  A VM area is any part of the process virtual memory</span></span><br><span class="line"><span class="comment"> * space that has a special rule for the page-fault handlers (ie a shared</span></span><br><span class="line"><span class="comment"> * library, the executable area etc).</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> &#123;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">mm_struct</span> * <span class="title">vm_mm</span>;</span>       <span class="comment">/* The address space we belong to. */</span></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> vm_start;         <span class="comment">/* Our start address within vm_mm. */</span></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> vm_end;           <span class="comment">/* The first byte after our end address</span></span><br><span class="line"><span class="comment">                                           within vm_mm. */</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">/* linked list of VM areas per task, sorted by address */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> *<span class="title">vm_next</span>;</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">pgprot_t</span> vm_page_prot;          <span class="comment">/* Access permissions of this VMA. */</span></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> vm_flags;         <span class="comment">/* Flags, listed below. */</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">rb_node_t</span> vm_rb;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * For areas with an address space and backing store,</span></span><br><span class="line"><span class="comment">         * one of the address_space-&gt;i_mmap&#123;,shared&#125; lists,</span></span><br><span class="line"><span class="comment">         * for shm areas, the list of attaches, otherwise unused.</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> *<span class="title">vm_next_share</span>;</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_area_struct</span> **<span class="title">vm_pprev_share</span>;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Function pointers to deal with this struct. */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">vm_operations_struct</span> * <span class="title">vm_ops</span>;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Information about our backing store: */</span></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> vm_pgoff;         <span class="comment">/* Offset (within vm_file) in PAGE_SIZE</span></span><br><span class="line"><span class="comment">                                           units, *not* PAGE_CACHE_SIZE */</span></span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">file</span> * <span class="title">vm_file</span>;</span>          <span class="comment">/* File we map to (can be NULL). */</span></span><br><span class="line">        <span class="keyword">unsigned</span> <span class="keyword">long</span> vm_raend;         <span class="comment">/* <span class="doctag">XXX:</span> put full readahead info here. */</span></span><br><span class="line">        <span class="keyword">void</span> * vm_private_data;         <span class="comment">/* was vm_pte (shared mem) */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * vm_flags..</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> VM_READ         0x00000001      <span class="comment">/* currently active flags */</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> VM_WRITE        0x00000002</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> VM_EXEC         0x00000004</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> VM_SHARED       0x00000008</span></span><br><span class="line"></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * These are the virtual MM functions - opening of an area, closing and</span></span><br><span class="line"><span class="comment"> * unmapping it (needed to keep files on disk up-to-date etc), pointer</span></span><br><span class="line"><span class="comment"> * to the functions called when a no-page or a wp-page exception occurs. </span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">vm_operations_struct</span> &#123;</span></span><br><span class="line">        <span class="keyword">void</span> (*open)(struct vm_area_struct * area);</span><br><span class="line">        <span class="keyword">void</span> (*close)(struct vm_area_struct * area);</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">page</span> * (*<span class="title">nopage</span>)(<span class="title">struct</span> <span class="title">vm_area_struct</span> * <span class="title">area</span>, <span class="title">unsigned</span> <span class="title">long</span> <span class="title">address</span>, <span class="title">int</span> <span class="title">unused</span>);</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li><p>下图很好描述了该结构体的作用：它既可以将可执行目标文件的段映射到虚拟地址空间内的不同的段，也可以将共享库映射到虚拟地址空间的共享库区域；同时还负责对堆栈映射的管理。关于这部分，还可参考《深入理解计算机系统》第 9.7.2 节“Linux 虚拟存储器系统”。<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/memoryDescriptorAndMemoryAreas.png" alt><a href="http://duartes.org/gustavo/blog/post/how-the-kernel-manages-your-memory/" target="_blank" rel="noopener">图片来源</a>  </p>
+</li>
+<li><p>另外，我们在 Linux 下还可以通过查看<code>/proc/&lt;PID&gt;/maps</code>获取 ID 号为 PID 的进程的虚拟地址空间的虚拟内存区域及其映射的文件和共享库，如：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/vma-example.png" alt><br>上图各属性从左到右分别是：address perms offset dev inode pathname，详细<a href="http://stackoverflow.com/questions/1401359/understanding-linux-proc-id-maps" target="_blank" rel="noopener">解释</a>如下：  </p>
+<blockquote>
+<p><code>address</code> - This is the starting and ending address of the region in the process’s address space<br><code>permissions</code> - This describes how pages in the region can be accessed. There are four different permissions: read, write, execute, and shared. If read/write/execute are disabled, a ‘-‘ will appear instead of the ‘r’/‘w’/‘x’. If a region is not shared, it is private, so a ‘p’ will appear instead of an ‘s’. If the process attempts to access memory in a way that is not permitted, a segmentation fault is generated. Permissions can be changed using the mprotect system call.<br><code>offset</code> - If the region was mapped from a file (using mmap), this is the offset in the file where the mapping begins. If the memory was not mapped from a file, it’s just 0.<br><code>device</code> - If the region was mapped from a file, this is the major and minor device number (in hex) where the file lives.<br><code>inode</code> - If the region was mapped from a file, this is the file number.<br><code>pathname</code> - If the region was mapped from a file, this is the name of the file. This field is blank for anonymous mapped regions. There are also special regions with names like [heap], [stack], or [vdso]. [vdso] stands for virtual dynamic shared object. It’s used by system calls to switch to kernel mode. <a href="http://www.trilithium.com/johan/2005/08/linux-gate/" target="_blank" rel="noopener">Here’s a good article about it</a>.<br>You might notice a lot of <code>anonymous regions</code>. These are usually created by mmap but are not attached to any file. They are used for a lot of miscellaneous things like shared memory or buffers not allocated on the heap. For instance, I think the pthread library uses anonymous mapped regions as stacks for new threads.</p>
+</blockquote>
+</li>
+</ul>
+<ul>
+<li>到这里为止<code>mmap</code>指向的<code>vm_area_struct</code>结构体链表只保存了<code>可执行目标文件的段到虚拟地址空间和共享库到虚拟地址空间的映射关系，真正的指令和数据还没有装入内存。</code>我们把指令和数据装载放到最后“缺页异常处理”部分进行阐述。</li>
+</ul>
+<h4 id="小结"><a href="#小结" class="headerlink" title="小结"></a><strong>小结</strong></h4><p>从以上粗略的分析中，我们可以知道，<code>虚拟地址空间（暂不考虑内核映射）本质上是就是一个结构体（mm_struct），它记录的是映射关系而不是具体的代码或者数据。</code>在应用程序的 main 函数被调用前，它记录的是虚拟地址空间与可执行目标文件、共享库之间的映射关系，但此时真正的代码和数据并未加载到内存；在 main 函数被调用后，（有需要的时候）通过操作系统的页错误处理程序，将真正的代码和数据调入内存，开始建立虚拟地址空间与内存之间的映射关系。</p>
+<h2 id="跳转到-start"><a href="#跳转到-start" class="headerlink" title="跳转到 _start"></a><strong>跳转到 _start</strong></h2><p>通过前边的步骤，加载器已经加载好可执行目标文件，接下来就是将 CPU 控制权交给应用程序，让应用程序开始执行。但应用程序并不是从 main 函数开始执行的，而是从<code>_start</code>处开始执行的。《程序员的自我修养》第 11.1 节“入口函数和程序初始化”有一个比较简要的说明：  </p>
+<blockquote>
+<ul>
+<li>操作系统装载完程序之后，首先运行的代码并不是 main 的第一行，而是某些别的代码，这些代码负责准备好 main 函数执行所需要的环境，并且负责调用 main 函数，这时候你才可以在 main 函数里放心大胆第写各种代码：申请内存、使用系统调用、触发异常、访问 I/O。在 main 返回后，它会记录 main 函数的返回值，调用 atexit 注册的函数，然后结束进程。</li>
+<li>运行这些代码的函数称为入口函数或入口点（Entry Point），视平台不同而有不同的名字。程序的入口点实际上是一个程序的初始化和结束部分，它往往是运行库的一部分。一个典型的程序运行步骤大致如下：  <ul>
+<li>操作系统在创建进程后，把控制权交到了程序的入口，这个入口往往是运行库中的某个入口函数。</li>
+<li>入口函数对运行库和程序运行环境进行初始化，包括堆、I/O、线程、全局变量构造等等。</li>
+<li>入口函数在完成初始化之后，调用 main 函数，正式开始执行程序主体部分。</li>
+<li>main 函数执行完毕以后，返回到入口函数，入口函数进行清理工作，包括全局变量析构、堆销毁、关闭 I/O 等，然后进行系统调用结束进程。</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<p>在<code>_start</code>处的启动代码（startup code）是在目标文件<code>ctrl.o</code>中定义的，对所有的 C 程序都一样。<code>ctrl.o</code>伪代码如下（对 C++ 可能不一样）：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Referrence: 《深入理解计算机系统》第 7.9 节“加载可执行目标文件” */</span></span><br><span class="line"><span class="number">0x080480c0</span> &lt;_start&gt;         <span class="comment">/* Entry point in .text */</span></span><br><span class="line">	call __libc_init_first  <span class="comment">/* Startup code in .text */</span></span><br><span class="line">	call _init              <span class="comment">/* Startup code in .text */</span></span><br><span class="line">	call atexit             <span class="comment">/* Startup code in .text */</span></span><br><span class="line">	call main               <span class="comment">/* Application main routine */</span></span><br><span class="line">	call _exit              <span class="comment">/* Returns control to OS */</span></span><br><span class="line"><span class="comment">/* Control never reaches here */</span></span><br></pre></td></tr></table></figure></p>
+<p>在《程序员的自我修养》第 11.1.2 节“入口函数如何实现”对<code>_start</code>处的启动代码有详细的源码分析，值得参考。还有可参考《UNIX 环境高级编程》第 7 章“进程环境”。</p>
+<h1 id="缺页异常处理"><a href="#缺页异常处理" class="headerlink" title="缺页异常处理"></a><strong>缺页异常处理</strong></h1><p>该部分参考自《深入理解计算机系统》第 9.7.2 节“Linux 虚拟存储器系统”。</p>
+<p>当 MMU（Memory Management Unit）试图翻译某个虚拟地址 A 发生缺页时触发一个缺页异常。这个异常导致控制转移到内核的缺页处理程序，处理程序随后就执行下面的步骤：  </p>
+<ul>
+<li><strong>虚拟地址 A 是合法的吗？</strong>换句话说，A 在某个虚拟内存区域（VMA）内吗？为了回答这个问题，缺页处理程序搜索<code>vm_area_struct</code>结构体链表，把 A 和每个<code>vm_area_struct</code>结构体中的 vm_start 和 vm_end 作比较。如果这个指令不合法，那么缺页处理程序就触发一个段错误，从而结束进程。</li>
+<li><strong>试图进行的存储器访问是否合法？</strong>换句话说，进程是否可读、写或者执行这个区域内页面的权限。如果试图进行的访问不合法，将会触发一个保护异常，从而终止这个进程。</li>
+<li>此刻，内核知道了这个缺页是由于对合法的虚拟地址进行合法的操作造成的。它是这样处理这个缺页的：选择一个<code>牺牲页面</code>，如果这个牺牲页面被修改过，那么就将它交换出去，换入新的页面并更新页表。当缺页处理程序返回时，CPU 重新启动引起缺页的指令，这条指令将再次发送 A 到 MMU。这次，MMU 就能够正常地翻译 A，而不会发生缺页异常。</li>
+</ul>
+<p>上边三种情况可用例图表示如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/page-fault.png" alt>  </p>
+<h1 id="大总结"><a href="#大总结" class="headerlink" title="大总结"></a><strong>大总结</strong></h1><p>还是来张图吧，直接又形象：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/大总结.png" alt>  </p>
+<hr>
+<p>大图细节的地方不够清晰，将其中一个小图放大如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part5/how-linux-organizes-virtual-memory.png" alt>  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/27/linux-kenel-0-11-topic-necessary-preparation-part6/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“中断和异常”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/24/linux-kenel-0-11-topic-necessary-preparation-part4/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：预备知识之“目标文件”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#加载"><span class="toc-number">1.</span> <span class="toc-text">加载</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#加载器工作概况"><span class="toc-number">1.1.</span> <span class="toc-text">加载器工作概况</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#进程派生"><span class="toc-number">1.2.</span> <span class="toc-text">进程派生</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#fork-函数"><span class="toc-number">1.2.1.</span> <span class="toc-text">fork 函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#样例程序分析"><span class="toc-number">1.2.2.</span> <span class="toc-text">样例程序分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#execve-系统调用"><span class="toc-number">1.3.</span> <span class="toc-text">execve 系统调用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#子进程虚拟地址空间初始化"><span class="toc-number">1.4.</span> <span class="toc-text">子进程虚拟地址空间初始化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#虚拟地址空间"><span class="toc-number">1.4.1.</span> <span class="toc-text">虚拟地址空间</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#虚拟地址空间本质"><span class="toc-number">1.4.2.</span> <span class="toc-text">虚拟地址空间本质</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#任务描述符"><span class="toc-number">1.4.2.1.</span> <span class="toc-text">任务描述符</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#内存描述符"><span class="toc-number">1.4.2.2.</span> <span class="toc-text">内存描述符</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#虚拟内存区域-VMA"><span class="toc-number">1.4.2.3.</span> <span class="toc-text">虚拟内存区域 VMA</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#小结"><span class="toc-number">1.4.2.4.</span> <span class="toc-text">小结</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#跳转到-start"><span class="toc-number">1.5.</span> <span class="toc-text">跳转到 _start</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#缺页异常处理"><span class="toc-number">2.</span> <span class="toc-text">缺页异常处理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#大总结"><span class="toc-number">3.</span> <span class="toc-text">大总结</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

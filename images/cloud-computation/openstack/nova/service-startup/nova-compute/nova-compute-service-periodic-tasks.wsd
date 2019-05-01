@@ -1,0 +1,295 @@
+@startuml
+
+title Periodic Tasks
+
+participant ser_start as "service::Service::start"
+participant servicegroup as "servicegroup.api::API"
+participant ser_group_db_driver as "servicegroup.drivers.db::DbDriver"
+participant compute_manager as "compute.manager::ComputeManager"
+participant oslo_ser_thrgroup_for_each_service as "oslo_service.threadgroup::ThreadGroup defined in Each Service"
+participant oslo_fixedintervalloopingcall_for_each_service as "oslo_service.loopingcall::FixedIntervalLoopingCall defined in Each Service"
+participant oslo_dynamicloopingcall_for_each_service as "oslo_service.loopingcall::DynamicLoopingCall defined in Each Service"
+participant collect_periodic_tasks as "How to collect periodic tasks?"
+
+activate ser_start
+note over ser_start
+__Note__
+Periodic tasks talked below are all added to
+the **same** threadgroup defined in service::Service():
+
+```
+# oslo_service.service.py
+class Service(ServiceBase):
+    def _\_init__(self, threads=1000):
+        self.tg = threadgroup.ThreadGroup(threads)
+
+# service.py
+class Service(service.Service):
+    def _\_init__(self, host, binary, topic, manager, report_interval=None,
+                 periodic_enable=None, periodic_fuzzy_delay=None,
+                 periodic_interval_max=None, *args, **kwargs):
+        super(Service, self)._\_init__()
+        ......
+```
+end note
+
+ser_start->servicegroup: call servicegroup.api::API::join()
+
+activate servicegroup
+servicegroup->ser_group_db_driver: call nova.servicegroup.drivers.db.DbDriver::join()
+
+activate ser_group_db_driver
+ser_group_db_driver->oslo_ser_thrgroup_for_each_service: call oslo_service.threadgroup::ThreadGroup::add_timer()
+
+activate oslo_ser_thrgroup_for_each_service
+oslo_ser_thrgroup_for_each_service->oslo_fixedintervalloopingcall_for_each_service: call oslo_service.loopingcall::FixedIntervalLoopingCall._\_init__() 
+
+activate oslo_fixedintervalloopingcall_for_each_service
+note over oslo_fixedintervalloopingcall_for_each_service
+__Note__
+One important thing to note, the init operation
+will register the callback func:
+```
+class LoopingCallBase(object):
+    def _\_init__(self, f=None, *args, **kw):
+        self.f = f
+        self._running = False
+        ......
+```
+
+While the callback f here is self._report_state
+end note
+
+oslo_fixedintervalloopingcall_for_each_service-->oslo_ser_thrgroup_for_each_service: return the fixed interval timer
+deactivate oslo_fixedintervalloopingcall_for_each_service
+
+oslo_ser_thrgroup_for_each_service->oslo_fixedintervalloopingcall_for_each_service: call oslo_service.loopingcall::FixedIntervalLoopingCall.start() 
+activate oslo_fixedintervalloopingcall_for_each_service
+
+oslo_fixedintervalloopingcall_for_each_service->oslo_fixedintervalloopingcall_for_each_service: call self._start()
+activate oslo_fixedintervalloopingcall_for_each_service
+
+note over oslo_fixedintervalloopingcall_for_each_service
+```
+class LoopingCallBase(object):
+    def _start(self, idle_for, initial_delay=None, stop_on_exception=True):
+        """Start the looping
+
+        :param idle_for: Callable that takes two positional arguments, returns
+                         how long to idle for. The first positional argument is
+                         the last result from the function being looped and the
+                         second positional argument is the time it took to
+                         calculate that result.
+        :param initial_delay: How long to delay before starting the looping.
+                              Value is in seconds.
+        :param stop_on_exception: Whether to stop if an exception occurs.
+        :returns: eventlet event instance
+        """
+        if self._thread is not None:
+            raise RuntimeError(self._RUN_ONLY_ONE_MESSAGE)
+        self._running = True
+        self.done = event.Event()
+        self._thread = **greenthread.spawn**(
+            **self._run_loop**, idle_for,
+            initial_delay=initial_delay, stop_on_exception=stop_on_exception)
+        self._thread.link(self._on_done)
+        return self.done
+
+    def **_run_loop**(self, idle_for_func,
+                  initial_delay=None, stop_on_exception=True):
+        kind = self._KIND
+        func_name = reflection.get_callable_name(self.f)
+        func = self.f if stop_on_exception else _safe_wrapper(self.f, kind,
+                                                              func_name)
+        if initial_delay:
+            greenthread.sleep(initial_delay)
+        try:
+            watch = timeutils.StopWatch()
+            while self._running:
+                watch.restart()
+                result = func(*self.args, **self.kw)
+                watch.stop()
+                if not self._running:
+                    break
+                idle = idle_for_func(result, watch.elapsed())
+                LOG.trace('%(kind)s %(func_name)r sleeping '
+                          'for %(idle).02f seconds',
+                          {'func_name': func_name, 'idle': idle,
+                           'kind': kind})
+                **greenthread.sleep(idle)** # indicate how long to run this loop again
+        except ......
+        else:
+            self.done.send(True)
+ ```
+end note
+
+oslo_fixedintervalloopingcall_for_each_service-->oslo_fixedintervalloopingcall_for_each_service: return
+deactivate oslo_fixedintervalloopingcall_for_each_service
+
+oslo_fixedintervalloopingcall_for_each_service-->oslo_ser_thrgroup_for_each_service: return the fixed interval timer
+deactivate oslo_fixedintervalloopingcall_for_each_service
+
+oslo_ser_thrgroup_for_each_service-->ser_group_db_driver: return
+deactivate oslo_ser_thrgroup_for_each_service
+
+note over ser_group_db_driver
+__Note__
+**By call add_timer in ThreadGroup, the self._report_state()**
+**will be called repeatedly to report the state of the service:**
+```
+def _report_state(self, service):
+    """Update the state of this service in the datastore."""
+
+    try:
+        service.service_ref.report_count += 1
+        service.service_ref.save()
+    ......
+```
+end note
+
+ser_group_db_driver-->servicegroup: return
+deactivate ser_group_db_driver
+
+servicegroup->ser_start
+deactivate servicegroup
+
+ser_start->oslo_ser_thrgroup_for_each_service: call oslo_service.threadgroup::ThreadGroup::add_dynamic_timer()
+
+activate oslo_ser_thrgroup_for_each_service
+oslo_ser_thrgroup_for_each_service->oslo_dynamicloopingcall_for_each_service: call oslo_service.loopingcall::DynamicLoopingCall::_\_init__()
+
+activate oslo_dynamicloopingcall_for_each_service
+note over oslo_dynamicloopingcall_for_each_service
+__Note__
+The way to init (dynamic) timer, start the timer is the same with
+oslo_service.threadgroup::ThreadGroup::add_timer() stated **above**
+end note
+
+oslo_dynamicloopingcall_for_each_service-->oslo_ser_thrgroup_for_each_service: return the dynamic interval timer
+deactivate oslo_dynamicloopingcall_for_each_service
+
+oslo_ser_thrgroup_for_each_service->ser_start: call service::Service::periodic_tasks()
+
+activate ser_start
+ser_start->compute_manager: call compute.manager::ComputeManager::periodic_tasks()
+
+activate compute_manager
+compute_manager->compute_manager: call self.run_periodic_tasks()
+
+activate compute_manager
+note over compute_manager
+run tasks defined in self._periodic_tasks:
+```
+@six.add_metaclass(_PeriodicTasksMeta)
+class PeriodicTasks(object):
+    def _\_init__(self, conf):
+        super(PeriodicTasks, self)._\_init__()
+        ......
+
+    def run_periodic_tasks(self, context, raise_on_error=False):
+        """Tasks to be run at a periodic interval."""
+        idle_for = DEFAULT_INTERVAL
+        for task_name, task in **self._periodic_tasks**:
+            ......
+            try:
+                task(self, context)
+            except ......
+```
+
+!!! The most import thing is that how do we
+get the **self._periodic_tasks**.
+
+We will talk about on the **right most side**.
+end note
+
+compute_manager-->compute_manager: return
+deactivate compute_manager
+
+compute_manager-->ser_start: return
+deactivate compute_manager
+
+ser_start-->oslo_ser_thrgroup_for_each_service: return
+deactivate ser_start
+
+oslo_ser_thrgroup_for_each_service-->ser_start: return
+deactivate oslo_ser_thrgroup_for_each_service
+deactivate ser_start
+deactivate ser_start
+
+activate collect_periodic_tasks
+note over collect_periodic_tasks
+Let first see the **inheritance** sequence of the ComputeManager:
+
+compute.manager::ComputeManager -> manager.Manager
+-> db.base::Base + manager::PeriodicTasks
+-> oslo_service.periodic_task::PeriodicTasks
+-> oslo_service.periodic_task::_PeriodicTasksMeta
+
+When we init compute.manager::ComputeManager, we will init
+**oslo_service.periodic_task::_PeriodicTasksMeta** as well:
+```
+class _PeriodicTasksMeta(type):
+    def _add_periodic_task(cls, task):
+        """Add a periodic task to the list of periodic tasks.
+
+        The task should already be decorated by @periodic_task.
+
+        :return: whether task was actually enabled
+        """
+        ......
+
+        **cls._periodic_tasks.append((name, task))**
+        cls._periodic_spacing[name] = task._periodic_spacing
+        return True
+
+    def _\_init__(cls, names, bases, dict_):
+        """Metaclass that allows us to collect decorated periodic tasks."""
+        ......
+
+        for value in cls._\_dict__.values():
+            **if getattr(value, '_periodic_task', False):**
+                **cls._add_periodic_task(value)**
+```
+
+So, when we decorate a method in compute.manager::ComputeManager, for example:
+```
+&& compute.manager.py
+class ComputeManager(manager.Manager):
+    ......
+    **@periodic_task.periodic_task**
+    def _check_instance_build_time(self, context):
+        ......
+
+&& oslo_service.periodic_task.py
+**def periodic_task**(*args, **kwargs):
+    """Decorator to indicate that a method is a periodic task.
+
+    This decorator can be used in two ways:
+
+        1. Without arguments '@periodic_task', this will be run on the default
+           interval of 60 seconds.
+
+        2. With arguments:
+           @periodic_task(spacing=N [, run_immediately=[True|False]]
+           [, name=[None|"string"])
+           this will be run on approximately every N seconds. If this number is
+           negative the periodic task will be disabled. If the run_immediately
+           argument is provided and has a value of 'True', the first run of the
+           task will be shortly after task scheduler starts.  If
+           run_immediately is omitted or set to 'False', the first time the
+           task runs will be approximately N seconds after the task scheduler
+           starts. If name is not provided, __name__ of function is used.
+    """
+    def decorator(f):
+        ......
+        # Control if run at all
+        **f._periodic_task = True**
+        ......
+```
+it will be added to the **self._periodic_tasks** when we init 
+compute.manager::ComputeManager()
+end note
+
+deactivate collect_periodic_tasks
+
+@enduml

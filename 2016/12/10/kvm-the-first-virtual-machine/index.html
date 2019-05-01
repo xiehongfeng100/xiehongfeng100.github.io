@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>KVM 系列：第一个虚拟机 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="博文KVM 介绍（1）：简介及安装对 KVM 已经有一个较为详细的介绍，本文就不重复这些，而主要阐述建立第一个 KVM 虚拟机的详细步骤。另外，如果如 KVM/QEMU/Libvirt 这三者关系不清楚的，可以参考博文KVM-Qemu-Libvirt 三者之间的关系。 本文所用测试环境（CentOS 7.2）：1234$ uname -aLinux localhost.localdomain 3.">
+<meta name="keywords" content="KVM,QEMU,Libvirt,VNC">
+<meta property="og:type" content="article">
+<meta property="og:title" content="KVM 系列：第一个虚拟机">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/12/10/kvm-the-first-virtual-machine/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="博文KVM 介绍（1）：简介及安装对 KVM 已经有一个较为详细的介绍，本文就不重复这些，而主要阐述建立第一个 KVM 虚拟机的详细步骤。另外，如果如 KVM/QEMU/Libvirt 这三者关系不清楚的，可以参考博文KVM-Qemu-Libvirt 三者之间的关系。 本文所用测试环境（CentOS 7.2）：1234$ uname -aLinux localhost.localdomain 3.">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/make-one-nic-free.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/add-bridge.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/add-supervisors-nic-to-br0.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/allow-br0.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/error-if-dont-allow-bridge.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vnc_client.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/system_install.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/system_installed.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/virsh-vm.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vms-nics-from-supervisor-side.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/br0-and-tap0.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vms-nics-from-vm-side.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/config-network-in-vm.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/when-vm-poweroff.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/virsh-boot-params.png">
+<meta property="og:updated_time" content="2019-05-01T06:42:04.537Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="KVM 系列：第一个虚拟机">
+<meta name="twitter:description" content="博文KVM 介绍（1）：简介及安装对 KVM 已经有一个较为详细的介绍，本文就不重复这些，而主要阐述建立第一个 KVM 虚拟机的详细步骤。另外，如果如 KVM/QEMU/Libvirt 这三者关系不清楚的，可以参考博文KVM-Qemu-Libvirt 三者之间的关系。 本文所用测试环境（CentOS 7.2）：1234$ uname -aLinux localhost.localdomain 3.">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/cloud-computation/kvm-qemu/the-first-virtual-machine/make-one-nic-free.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-kvm-the-first-virtual-machine" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/12/10/kvm-the-first-virtual-machine/" class="article-date">
+  	<time datetime="2016-12-10T14:24:20.000Z" itemprop="datePublished">2016-12-10</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      KVM 系列：第一个虚拟机
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/KVM/">KVM</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Libvirt/">Libvirt</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/QEMU/">QEMU</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VNC/">VNC</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/云计算/">云计算</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>博文<a href="http://www.cnblogs.com/sammyliu/p/4543110.html" target="_blank" rel="noopener">KVM 介绍（1）：简介及安装</a>对 KVM 已经有一个较为详细的介绍，本文就不重复这些，而主要阐述建立第一个 KVM 虚拟机的详细步骤。另外，如果如 KVM/QEMU/Libvirt 这三者关系不清楚的，可以参考博文<a href="http://changfei.blog.51cto.com/4848258/1672147" target="_blank" rel="noopener">KVM-Qemu-Libvirt 三者之间的关系</a>。</p>
+<p>本文所用测试环境（CentOS 7.2）：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ uname -a</span><br><span class="line">Linux localhost.localdomain 3.10.0-327.el7.x86_64 #1 SMP Thu Nov 19 22:10:57 UTC 2015 x86_64 x86_64 x86_64 GNU/Linux</span><br><span class="line">$ qemu-kvm -version</span><br><span class="line">QEMU emulator version 1.5.3 (qemu-kvm-1.5.3-105.el7_2.7), Copyright (c) 2003-2008 Fabrice Bellard</span><br></pre></td></tr></table></figure></p>
+<h1 id="VNC-使用"><a href="#VNC-使用" class="headerlink" title="VNC 使用"></a><strong>VNC 使用</strong></h1><p><a href="https://zh.wikipedia.org/wiki/VNC" target="_blank" rel="noopener">VNC</a> 工作需要一个服务端和一个客户端，在本文中，服务端采用 <a href="http://tigervnc.org/" target="_blank" rel="noopener">TigerVNC</a>，客户端采用 <a href="http://www.tightvnc.com/" target="_blank" rel="noopener">TightVNC</a>。这两款工具都是免费的，用起来也比较方便。</p>
+<p>VNC 服务端直接用 yum 命令就可以安装：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo yum install tigervnc-server -y</span><br></pre></td></tr></table></figure></p>
+<p>客户端可从官网直接下载 <a href="http://www.tightvnc.com/download.php" target="_blank" rel="noopener">Windows 安装包</a>。</p>
+<p><strong>注意，</strong>如果客户端连接服务端被拒绝，很有可能是<code>防火墙</code>禁止了。这时只要开启相应的端口即可。</p>
+<a id="more"></a>
+<h1 id="启动虚拟机"><a href="#启动虚拟机" class="headerlink" title="启动虚拟机"></a><strong>启动虚拟机</strong></h1><h2 id="设置-VNC-服务端监听所有请求"><a href="#设置-VNC-服务端监听所有请求" class="headerlink" title="设置 VNC 服务端监听所有请求"></a><strong>设置 VNC 服务端监听所有请求</strong></h2><p>打开文件<code>/etc/libvirt/qemu.conf</code>，设置<code>vnc_listen</code>字段如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># VNC is configured to listen on 127.0.0.1 by default.</span><br><span class="line"># To make it listen on all public interfaces, uncomment</span><br><span class="line"># this next option.</span><br><span class="line">#</span><br><span class="line"># NB, strong recommendation to enable TLS + x509 certificate</span><br><span class="line"># verification when allowing public access</span><br><span class="line">#</span><br><span class="line">vnc_listen = &quot;0.0.0.0&quot;</span><br></pre></td></tr></table></figure></p>
+<p>这样，我们在启动虚拟机的时候也可以不用指定<code>vnclisten</code>参数（针对 virt-install 而言）。</p>
+<h2 id="宿主机网络设置"><a href="#宿主机网络设置" class="headerlink" title="宿主机网络设置"></a><strong>宿主机网络设置</strong></h2><p>这次试验所用的宿主机有两个网卡，将其中一个 IP 腾空不用，用于<code>桥接（Bridge）</code>（/etc/sysconfig/network-scripts/ifcfg-enp1s0）：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/make-one-nic-free.png" alt>  </p>
+<p>重启网络：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo /etc/init.d/network restart</span><br></pre></td></tr></table></figure></p>
+<p>创建网桥 <code>br0</code>，用于桥接虚拟机和宿主机:<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/add-bridge.png" alt>  </p>
+<p>将宿主机网卡添加到网桥，并为网桥配置 IP：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/add-supervisors-nic-to-br0.png" alt>  </p>
+<p>将网桥加入白名单：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/allow-br0.png" alt>  </p>
+<p>如果不加入白名单，则在启动虚拟机的时候会提示如下错误：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/error-if-dont-allow-bridge.png" alt>  </p>
+<h2 id="准备镜像和磁盘"><a href="#准备镜像和磁盘" class="headerlink" title="准备镜像和磁盘"></a><strong>准备镜像和磁盘</strong></h2><p>启动虚拟机必备的两个东西是镜像和磁盘。镜像我们只要从网上下载即可。磁盘的话也比较方便，可以用<code>qemu-img</code>工具来制作，或者直接用<code>dd</code>命令即可：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">qemu-img create -f qcow2 CentOS7-master.qcow2 10G</span><br><span class="line">dd if=/dev/zero of=CentOS7-master.img bs=1M count=10240</span><br><span class="line">......</span><br></pre></td></tr></table></figure></p>
+<h2 id="使用-qemu-kvm"><a href="#使用-qemu-kvm" class="headerlink" title="使用 qemu-kvm"></a><strong>使用 qemu-kvm</strong></h2><p><strong>注：</strong>用这种方法新建虚拟机，Libvirt 并不能够管理得到。</p>
+<h3 id="安装系统"><a href="#安装系统" class="headerlink" title="安装系统"></a><strong>安装系统</strong></h3><p>启动虚拟机：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">qemu-kvm -hda CentOS7-master.qcow2 -vnc :5 -m 2048 -boot order=dc -cdrom ../images/CentOS-7-x86_64-Minimal-1511.iso</span><br></pre></td></tr></table></figure></p>
+<p>用 TightVNC 客户端连接：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vnc_client.png" alt>  </p>
+<p>首次启动会进入系统安装界面：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/system_install.png" alt>  </p>
+<h3 id="网络配置"><a href="#网络配置" class="headerlink" title="网络配置"></a>网络配置</h3><p><strong>注：</strong>这一步其实可以合并到上一节“安装系统”，不过当时做实验时候没注意，分成了两步。</p>
+<p>这部分详细参数解释可参考博文<a href="http://smilejay.com/2012/08/kvm-bridge-networking/" target="_blank" rel="noopener">(KVM连载)4.4.2 使用网桥模式(BRIDGE NETWORKING MODE）</a>。</p>
+<h4 id="创建虚拟网卡脚本"><a href="#创建虚拟网卡脚本" class="headerlink" title="创建虚拟网卡脚本"></a><strong>创建虚拟网卡脚本</strong></h4><p>添加创建虚拟网卡 <code>tap0</code> 的脚本 <code>/etc/qemu-ifup</code>（尽量不要手动创建，减少错误）：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">#This is a qemu-ifup script <span class="keyword">for</span> bridging.</span><br><span class="line">#You can use it when starting a KVM guest with bridge mode network.</span><br><span class="line"></span><br><span class="line"><span class="meta">#set your bridge name</span></span><br><span class="line"><span class="keyword">switch</span>=br0</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [ -n <span class="string">"$1"</span> ]; then</span><br><span class="line"></span><br><span class="line">        <span class="meta">#create a TAP interface; qemu will handle it automatically.</span></span><br><span class="line">        <span class="meta">#tunctl -u $(whoami) -t $1</span></span><br><span class="line"></span><br><span class="line">        <span class="meta">#start up the TAP interface</span></span><br><span class="line">        ip link <span class="built_in">set</span> $<span class="number">1</span> up</span><br><span class="line">        sleep <span class="number">1</span></span><br><span class="line"></span><br><span class="line">        <span class="meta">#add TAP interface to the bridge</span></span><br><span class="line">        brctl addif $&#123;<span class="keyword">switch</span>&#125; $<span class="number">1</span></span><br><span class="line"></span><br><span class="line">        <span class="built_in">exit</span> <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">        echo “Error: no interface specified”</span><br><span class="line">        <span class="built_in">exit</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line">fi</span><br></pre></td></tr></table></figure></p>
+<h4 id="启动虚拟机-1"><a href="#启动虚拟机-1" class="headerlink" title="启动虚拟机"></a><strong>启动虚拟机</strong></h4><p>因为系统已安装，可以直接从硬盘启动虚拟机（<code>root</code> 权限）：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">qemu-kvm -hda CentOS7-master.qcow2 -net nic -net tap,ifname=tap0,script=/etc/qemu-ifup,downscript=no -vnc :5 -m 2048 -boot order=c</span><br></pre></td></tr></table></figure></p>
+<p><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/system_installed.png" alt>  </p>
+<h4 id="检查"><a href="#检查" class="headerlink" title="检查"></a>检查</h4><p>接下来的操作和检查跟本文“<a href="http://xiehongfeng100.github.io/2016/12/10/kvm-series-the-first-virtual-machine/#u4F7F_u7528_virsh">使用 virsh</a> -&gt; <a href="http://xiehongfeng100.github.io/2016/12/10/kvm-series-the-first-virtual-machine/#u7F51_u7EDC_u914D_u7F6E-1">网络配置</a>”部分是一样的，请参考之。</p>
+<h2 id="使用-virt-install"><a href="#使用-virt-install" class="headerlink" title="使用 virt-install"></a><strong>使用 virt-install</strong></h2><p>virt-install 其实是封装了 qemu-kvm 的操作（一个 <a href="https://github.com/virt-manager/virt-manager/blob/master/virt-install" target="_blank" rel="noopener">Python 脚本</a>），使得虚拟机创建更加方便。详细可参考博文<a href="http://www.361way.com/virt-install/2721.html" target="_blank" rel="noopener">KVM 虚拟化之 virt-install</a>。</p>
+<h2 id="使用-virsh"><a href="#使用-virsh" class="headerlink" title="使用 virsh"></a><strong>使用 virsh</strong></h2><h3 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a><strong>配置文件</strong></h3><p>Libvirt 使用 XML 配置文件对虚拟机进行描述。对该配置文件，<a href="https://libvirt.org/formatdomain.html" target="_blank" rel="noopener">Libvirt 官网</a>有一个非常详细的说明。在这里，我们所用的虚拟机配置文件如下：<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">domain</span> <span class="attr">type</span>=<span class="string">'kvm'</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>CentOS7<span class="tag">&lt;/<span class="name">name</span>&gt;</span>		</span><br><span class="line">  <span class="tag">&lt;<span class="name">uuid</span>&gt;</span>4dea24b3-1d52-d8f3-2516-782e98a23fa0<span class="tag">&lt;/<span class="name">uuid</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">memory</span> <span class="attr">unit</span>=<span class="string">"MiB"</span>&gt;</span>2048<span class="tag">&lt;/<span class="name">memory</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">vcpu</span>&gt;</span>2<span class="tag">&lt;/<span class="name">vcpu</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">os</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">type</span> <span class="attr">arch</span>=<span class="string">"x86_64"</span>&gt;</span>hvm<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">boot</span> <span class="attr">dev</span>=<span class="string">"hd"</span>/&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">boot</span> <span class="attr">dev</span>=<span class="string">"cdrom"</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">os</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">features</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">acpi</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">apic</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">pae</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">features</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">clock</span> <span class="attr">sync</span>=<span class="string">"localtime"</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_poweroff</span>&gt;</span>destroy<span class="tag">&lt;/<span class="name">on_poweroff</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_reboot</span>&gt;</span>restart<span class="tag">&lt;/<span class="name">on_reboot</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_crash</span>&gt;</span>destroy<span class="tag">&lt;/<span class="name">on_crash</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">devices</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">emulator</span>&gt;</span>/usr/bin/qemu-kvm<span class="tag">&lt;/<span class="name">emulator</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">disk</span> <span class="attr">type</span>=<span class="string">'file'</span> <span class="attr">device</span>=<span class="string">'disk'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">file</span>=<span class="string">'/home/xiehongfeng100/kvm/disks/CentOS7-master.img'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">target</span> <span class="attr">dev</span>=<span class="string">'hda'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">disk</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">disk</span> <span class="attr">type</span>=<span class="string">'file'</span> <span class="attr">device</span>=<span class="string">'cdrom'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">file</span>=<span class="string">'/home/xiehongfeng100/kvm/images/CentOS-7-x86_64-Minimal-1511.iso'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">target</span> <span class="attr">dev</span>=<span class="string">'hdb'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">disk</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">interface</span> <span class="attr">type</span>=<span class="string">'bridge'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">bridge</span>=<span class="string">'br0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">mac</span> <span class="attr">address</span>=<span class="string">'24:42:53:21:52:45'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">interface</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">input</span> <span class="attr">type</span>=<span class="string">'mouse'</span> <span class="attr">bus</span>=<span class="string">'ps2'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">graphics</span> <span class="attr">type</span>=<span class="string">'vnc'</span> <span class="attr">port</span>=<span class="string">'-1'</span> <span class="attr">autoport</span>=<span class="string">'yes'</span> <span class="attr">listen</span>=<span class="string">'0.0.0.0'</span> <span class="attr">keymap</span>=<span class="string">'en-us'</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">devices</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">domain</span>&gt;</span></span><br></pre></td></tr></table></figure></p>
+<p>然后按如下步骤即可启动虚拟机、通过 VNC 连接到虚拟机：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/virsh-vm.png" alt>  </p>
+<p>实际上，针对我们的配置文件，Libvirt 会帮我们补充一些<code>默认参数</code>。下边的配置文件是从 virsh 中 dump 出来的（<code>virsh domdump CentOS7</code>），大家可以对比一下：<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">domain</span> <span class="attr">type</span>=<span class="string">'kvm'</span> <span class="attr">id</span>=<span class="string">'2'</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>CentOS7<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">uuid</span>&gt;</span>4dea24b3-1d52-d8f3-2516-782e98a23fa0<span class="tag">&lt;/<span class="name">uuid</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">memory</span> <span class="attr">unit</span>=<span class="string">'KiB'</span>&gt;</span>2097152<span class="tag">&lt;/<span class="name">memory</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">currentMemory</span> <span class="attr">unit</span>=<span class="string">'KiB'</span>&gt;</span>2097152<span class="tag">&lt;/<span class="name">currentMemory</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">vcpu</span> <span class="attr">placement</span>=<span class="string">'static'</span>&gt;</span>2<span class="tag">&lt;/<span class="name">vcpu</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">os</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">type</span> <span class="attr">arch</span>=<span class="string">'x86_64'</span> <span class="attr">machine</span>=<span class="string">'pc-i440fx-rhel7.0.0'</span>&gt;</span>hvm<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">boot</span> <span class="attr">dev</span>=<span class="string">'hd'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">boot</span> <span class="attr">dev</span>=<span class="string">'cdrom'</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">os</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">features</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">acpi</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">apic</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">pae</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">features</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">clock</span> <span class="attr">offset</span>=<span class="string">'utc'</span>/&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_poweroff</span>&gt;</span>destroy<span class="tag">&lt;/<span class="name">on_poweroff</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_reboot</span>&gt;</span>restart<span class="tag">&lt;/<span class="name">on_reboot</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">on_crash</span>&gt;</span>destroy<span class="tag">&lt;/<span class="name">on_crash</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">devices</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">emulator</span>&gt;</span>/usr/bin/qemu-kvm<span class="tag">&lt;/<span class="name">emulator</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">disk</span> <span class="attr">type</span>=<span class="string">'file'</span> <span class="attr">device</span>=<span class="string">'disk'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">driver</span> <span class="attr">name</span>=<span class="string">'qemu'</span> <span class="attr">type</span>=<span class="string">'raw'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">file</span>=<span class="string">'/home/xiehongfeng100/kvm/disks/CentOS7-master.img'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">backingStore</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">target</span> <span class="attr">dev</span>=<span class="string">'hda'</span> <span class="attr">bus</span>=<span class="string">'ide'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'ide0-0-0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'drive'</span> <span class="attr">controller</span>=<span class="string">'0'</span> <span class="attr">bus</span>=<span class="string">'0'</span> <span class="attr">target</span>=<span class="string">'0'</span> <span class="attr">unit</span>=<span class="string">'0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">disk</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">disk</span> <span class="attr">type</span>=<span class="string">'file'</span> <span class="attr">device</span>=<span class="string">'cdrom'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">driver</span> <span class="attr">name</span>=<span class="string">'qemu'</span> <span class="attr">type</span>=<span class="string">'raw'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">file</span>=<span class="string">'/home/xiehongfeng100/kvm/images/CentOS-7-x86_64-Minimal-1511.iso'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">backingStore</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">target</span> <span class="attr">dev</span>=<span class="string">'hdb'</span> <span class="attr">bus</span>=<span class="string">'ide'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">readonly</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'ide0-0-1'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'drive'</span> <span class="attr">controller</span>=<span class="string">'0'</span> <span class="attr">bus</span>=<span class="string">'0'</span> <span class="attr">target</span>=<span class="string">'0'</span> <span class="attr">unit</span>=<span class="string">'1'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">disk</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">controller</span> <span class="attr">type</span>=<span class="string">'usb'</span> <span class="attr">index</span>=<span class="string">'0'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'usb'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">domain</span>=<span class="string">'0x0000'</span> <span class="attr">bus</span>=<span class="string">'0x00'</span> <span class="attr">slot</span>=<span class="string">'0x01'</span> <span class="attr">function</span>=<span class="string">'0x2'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">controller</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">controller</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">index</span>=<span class="string">'0'</span> <span class="attr">model</span>=<span class="string">'pci-root'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'pci.0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">controller</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">controller</span> <span class="attr">type</span>=<span class="string">'ide'</span> <span class="attr">index</span>=<span class="string">'0'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'ide'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">domain</span>=<span class="string">'0x0000'</span> <span class="attr">bus</span>=<span class="string">'0x00'</span> <span class="attr">slot</span>=<span class="string">'0x01'</span> <span class="attr">function</span>=<span class="string">'0x1'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">controller</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">interface</span> <span class="attr">type</span>=<span class="string">'bridge'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">mac</span> <span class="attr">address</span>=<span class="string">'24:42:53:21:52:45'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">source</span> <span class="attr">bridge</span>=<span class="string">'virbr0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">target</span> <span class="attr">dev</span>=<span class="string">'tap0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">model</span> <span class="attr">type</span>=<span class="string">'rtl8139'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'net0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">domain</span>=<span class="string">'0x0000'</span> <span class="attr">bus</span>=<span class="string">'0x00'</span> <span class="attr">slot</span>=<span class="string">'0x03'</span> <span class="attr">function</span>=<span class="string">'0x0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">interface</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">input</span> <span class="attr">type</span>=<span class="string">'mouse'</span> <span class="attr">bus</span>=<span class="string">'ps2'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">input</span> <span class="attr">type</span>=<span class="string">'keyboard'</span> <span class="attr">bus</span>=<span class="string">'ps2'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">graphics</span> <span class="attr">type</span>=<span class="string">'vnc'</span> <span class="attr">port</span>=<span class="string">'5900'</span> <span class="attr">autoport</span>=<span class="string">'yes'</span> <span class="attr">listen</span>=<span class="string">'0.0.0.0'</span> <span class="attr">keymap</span>=<span class="string">'en-us'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">listen</span> <span class="attr">type</span>=<span class="string">'address'</span> <span class="attr">address</span>=<span class="string">'0.0.0.0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">graphics</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">video</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">model</span> <span class="attr">type</span>=<span class="string">'cirrus'</span> <span class="attr">vram</span>=<span class="string">'16384'</span> <span class="attr">heads</span>=<span class="string">'1'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'video0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">domain</span>=<span class="string">'0x0000'</span> <span class="attr">bus</span>=<span class="string">'0x00'</span> <span class="attr">slot</span>=<span class="string">'0x02'</span> <span class="attr">function</span>=<span class="string">'0x0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">video</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">memballoon</span> <span class="attr">model</span>=<span class="string">'virtio'</span>&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">alias</span> <span class="attr">name</span>=<span class="string">'balloon0'</span>/&gt;</span></span><br><span class="line">      <span class="tag">&lt;<span class="name">address</span> <span class="attr">type</span>=<span class="string">'pci'</span> <span class="attr">domain</span>=<span class="string">'0x0000'</span> <span class="attr">bus</span>=<span class="string">'0x00'</span> <span class="attr">slot</span>=<span class="string">'0x04'</span> <span class="attr">function</span>=<span class="string">'0x0'</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">memballoon</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">devices</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">seclabel</span> <span class="attr">type</span>=<span class="string">'dynamic'</span> <span class="attr">model</span>=<span class="string">'selinux'</span> <span class="attr">relabel</span>=<span class="string">'yes'</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">label</span>&gt;</span>unconfined_u:unconfined_r:svirt_t:s0:c348,c397<span class="tag">&lt;/<span class="name">label</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">imagelabel</span>&gt;</span>unconfined_u:object_r:svirt_image_t:s0:c348,c397<span class="tag">&lt;/<span class="name">imagelabel</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">seclabel</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">domain</span>&gt;</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="网络配置-1"><a href="#网络配置-1" class="headerlink" title="网络配置"></a><strong>网络配置</strong></h3><p>这部分操作可参考 Libvirt 官方文档 <a href="http://wiki.libvirt.org/page/Networking" target="_blank" rel="noopener">Networking</a>。</p>
+<h4 id="查看网络设备"><a href="#查看网络设备" class="headerlink" title="查看网络设备"></a><strong>查看网络设备</strong></h4><p>可以看到宿主机中生成了两个虚拟机网络设备（一个是回环设备 lo）：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vms-nics-from-supervisor-side.png" alt>  </p>
+<p>查看网桥：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/br0-and-tap0.png" alt>  </p>
+<p>通过 VNC 进入虚拟机也可以看到其网络设备：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/vms-nics-from-vm-side.png" alt>  </p>
+<h4 id="配置虚拟机网络"><a href="#配置虚拟机网络" class="headerlink" title="配置虚拟机网络"></a><strong>配置虚拟机网络</strong></h4><p>在虚拟机中配置网络（当然也可以自己指定 IP）：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/config-network-in-vm.png" alt>  </p>
+<p>当虚拟机关机后，虚拟网卡 <code>tap0</code> 会自动消失：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/when-vm-poweroff.png" alt>  </p>
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a><strong>其他</strong></h3><p>另外，虚拟机的启动参数也可以通过命令<code>ps</code>获取得到：<br><img src="/images/cloud-computation/kvm-qemu/the-first-virtual-machine/virsh-boot-params.png" alt>  </p>
+<p>最后，用 <code>virsh shutdown 主机名</code>可以关机、<code>virsh destroy 主机名</code>可关闭虚拟机电源，<code>virsh undefine 主机名</code>可删除虚拟机（其实是取消对虚拟机的管理，原配置文件和已写入数据的磁盘都不会被删除，可继续使用）。更多命令可参考博文<a href="http://koumm.blog.51cto.com/703525/1290269" target="_blank" rel="noopener">KVM 虚拟机日常管理与配置</a>。</p>
+<h2 id="使用-virt-manager"><a href="#使用-virt-manager" class="headerlink" title="使用 virt-manager"></a><strong>使用 virt-manager</strong></h2><p><a href="https://virt-manager.org/" target="_blank" rel="noopener">virt-manager</a> 是图形化界面（<a href="https://github.com/virt-manager/virt-manager" target="_blank" rel="noopener">源码链接</a>），这里就不介绍了。</p>
+<p>另外，virt-manager 还提供了 virt-install、virt-clone、virt-viewer 三个命令行脚本。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/04/24/python-coroutines/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Python 协程
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/12/09/net-tun-tap-interface-tutorial/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">【译】 Tun/Tap 设备导论</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#VNC-使用"><span class="toc-number">1.</span> <span class="toc-text">VNC 使用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#启动虚拟机"><span class="toc-number">2.</span> <span class="toc-text">启动虚拟机</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#设置-VNC-服务端监听所有请求"><span class="toc-number">2.1.</span> <span class="toc-text">设置 VNC 服务端监听所有请求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#宿主机网络设置"><span class="toc-number">2.2.</span> <span class="toc-text">宿主机网络设置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#准备镜像和磁盘"><span class="toc-number">2.3.</span> <span class="toc-text">准备镜像和磁盘</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#使用-qemu-kvm"><span class="toc-number">2.4.</span> <span class="toc-text">使用 qemu-kvm</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#安装系统"><span class="toc-number">2.4.1.</span> <span class="toc-text">安装系统</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#网络配置"><span class="toc-number">2.4.2.</span> <span class="toc-text">网络配置</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#创建虚拟网卡脚本"><span class="toc-number">2.4.2.1.</span> <span class="toc-text">创建虚拟网卡脚本</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#启动虚拟机-1"><span class="toc-number">2.4.2.2.</span> <span class="toc-text">启动虚拟机</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#检查"><span class="toc-number">2.4.2.3.</span> <span class="toc-text">检查</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#使用-virt-install"><span class="toc-number">2.5.</span> <span class="toc-text">使用 virt-install</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#使用-virsh"><span class="toc-number">2.6.</span> <span class="toc-text">使用 virsh</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#配置文件"><span class="toc-number">2.6.1.</span> <span class="toc-text">配置文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#网络配置-1"><span class="toc-number">2.6.2.</span> <span class="toc-text">网络配置</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#查看网络设备"><span class="toc-number">2.6.2.1.</span> <span class="toc-text">查看网络设备</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#配置虚拟机网络"><span class="toc-number">2.6.2.2.</span> <span class="toc-text">配置虚拟机网络</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#其他"><span class="toc-number">2.6.3.</span> <span class="toc-text">其他</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#使用-virt-manager"><span class="toc-number">2.7.</span> <span class="toc-text">使用 virt-manager</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Yelper 之评论文本关键词搜索 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Notebook:Review_Text_Word_Similarity_Analysis  用户在查找商店的时候一般会输入关键词进行搜索，从而找到跟该关键词相似度较高的商店。具体地，基于评论文本，我们可以建立一个词汇之间的相似度模型，让用户输入关键词即可找到相似的词汇，并因此找到相对应的商店。 在实现上，本文使用了 Word2Vec 工具来构建评论文本词汇之间的相似度模型，并利用 Elastic">
+<meta name="keywords" content="Elasticsearch,Yelper,Word2Vec,CBOW,Skip-Gram">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Yelper 之评论文本关键词搜索">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2018/08/11/yelper-las-vegas-review-text-keyword-search/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="Notebook:Review_Text_Word_Similarity_Analysis  用户在查找商店的时候一般会输入关键词进行搜索，从而找到跟该关键词相似度较高的商店。具体地，基于评论文本，我们可以建立一个词汇之间的相似度模型，让用户输入关键词即可找到相似的词汇，并因此找到相对应的商店。 在实现上，本文使用了 Word2Vec 工具来构建评论文本词汇之间的相似度模型，并利用 Elastic">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/king-man+woman=queen.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/king-man+woman=queen-explaination.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-cbow-example.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-cbow-model.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-skip-gram-model.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-most-similar.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/review-text-overview.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/search-spent-time.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-dataset.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-result.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-shard-results.png">
+<meta property="og:updated_time" content="2019-05-01T06:07:45.149Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Yelper 之评论文本关键词搜索">
+<meta name="twitter:description" content="Notebook:Review_Text_Word_Similarity_Analysis  用户在查找商店的时候一般会输入关键词进行搜索，从而找到跟该关键词相似度较高的商店。具体地，基于评论文本，我们可以建立一个词汇之间的相似度模型，让用户输入关键词即可找到相似的词汇，并因此找到相对应的商店。 在实现上，本文使用了 Word2Vec 工具来构建评论文本词汇之间的相似度模型，并利用 Elastic">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/keyword-search/king-man+woman=queen.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-yelper-las-vegas-review-text-keyword-search" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2018/08/11/yelper-las-vegas-review-text-keyword-search/" class="article-date">
+  	<time datetime="2018-08-11T02:28:16.000Z" itemprop="datePublished">2018-08-11</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Yelper 之评论文本关键词搜索
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CBOW/">CBOW</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Elasticsearch/">Elasticsearch</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Skip-Gram/">Skip-Gram</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Word2Vec/">Word2Vec</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Yelper/">Yelper</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/机器学习/">机器学习</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Notebook:<br><a href="https://github.com/xiehongfeng100/yelper_dpps_and_eda/blob/master/eda/las_vegas/lv_eda04_Review_Text_Word_Similarity_Analysis.ipynb" target="_blank" rel="noopener">Review_Text_Word_Similarity_Analysis</a></p>
+<hr>
+<p>用户在查找商店的时候一般会输入关键词进行搜索，从而找到跟该关键词相似度较高的商店。具体地，基于评论文本，我们可以建立一个词汇之间的相似度模型，让用户输入关键词即可找到相似的词汇，并因此找到相对应的商店。</p>
+<p>在实现上，本文使用了 Word2Vec 工具来构建评论文本词汇之间的相似度模型，并利用 Elasticsearch 搜索引擎来查找与关键词相似的词汇。</p>
+<h1 id="词相似度模型"><a href="#词相似度模型" class="headerlink" title="词相似度模型"></a><strong>词相似度模型</strong></h1><h2 id="词向量"><a href="#词向量" class="headerlink" title="词向量"></a><strong>词向量</strong></h2><p>在自然语言处理领域，一般需要把词转换为计算机可以理解的词向量形式。</p>
+<p>一种比较简单的构造词向量的方法是 One-hot 表示法。但这种方法构造出来的词向量长度随着词汇表的增大而增大，存在维度过大的隐患；数据很稀疏（词向量只有一个位置为 1，其余都为 0）；而且每个词向量都是独立的，无法体现词与词之间的关系。</p>
+<p>另外一种构造词向量的方法是分布式表示法（Dristributed representation）。它通过某种训练将词用一个简短的词向量来表示，且词向量的长度由我们指定，不存在维度过大问题；训练出来的词向量是稠密的，不存在数据稀疏问题；另外重要的是每个词向量包含语义信息，可以通过计算词向量之间的余弦来表示词之间的相似度。谷歌推出的 <a href="https://code.google.com/archive/p/word2vec/" target="_blank" rel="noopener">Word2Vec</a> 工具就是训练此种词向量的一种方法。</p>
+<h2 id="词相似度"><a href="#词相似度" class="headerlink" title="词相似度"></a><strong>词相似度</strong></h2><p>当我们得到词向量（记得有方向）之后，我们就可以计算两个词之间的余弦距离，从而得到它们的相似程度。如对词 A、B，它们之间的相似度公式如下：<br>$$<br>similarity(A,B)=\frac{A\cdot B}{\left || A \right ||\left || B \right ||} =\frac{\sum_{n}^{i}A_{i}\times B_{i}}{\sqrt{\sum_{n}^{i}A_{i}^{2}}\times \sqrt{\sum_{n}^{i}B_{i}^{2}}}<br>$$</p>
+<p>它的意义在于，<code>如果两个词很相似，那它们词向量之间的夹角应该很小（甚至为 0），方向很一致。</code></p>
+<p>我们可以来看一个很有名的例子 <strong>King-Man+Woman=Queen</strong>：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/king-man+woman=queen.png" alt><a href="https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/" target="_blank" rel="noopener">图片来源</a>  </p>
+<a id="more"></a>
+<p>初次看到可能会觉得很奇怪 King、Man、Woman、Queen 这些怎么都可以相加减的？因为<code>上图中的词表示的是词向量，而且既然是向量，那就有大小和方向，自然可以相加减。</code>那我们再看看是怎么得到 <strong>King-Man+Woman=Queen</strong> 这个结论的：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/king-man+woman=queen-explaination.png" alt><a href="https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>从上图可以看出，<strong>King-Man+Woman</strong> 的结果向量跟 <strong>Queen</strong>（几乎）是重合的，也即是说 <strong>King-Man+Woman</strong> 跟 <strong>Queen</strong> 相似度很高，所以才有例子中的等式。</p>
+<h2 id="词向量训练"><a href="#词向量训练" class="headerlink" title="词向量训练"></a><strong>词向量训练</strong></h2><p>这里我们使用 Word2Vec 来训练词向量。</p>
+<p>Word2Vec 提供了 CBOW (Continuous Bag-of-words) 和 Skip-Gram 两种方式来训练词向量。下边我们简要介绍一下这两者。</p>
+<h3 id="CBOW"><a href="#CBOW" class="headerlink" title="CBOW"></a><strong>CBOW</strong></h3><p><code>CBOW 的训练目标是当给定上下文词汇时，最大化某个词发生的条件概率</code>，如下边例子，当输入上下文为 an, efficient, method, for, high, quality, distributed, vector 时，我们希望能够最大化 learning 词发生的条件概率：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-cbow-example.png" alt><a href="https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>具体的训练架构如下图所示：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-cbow-model.png" alt><a href="https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/" target="_blank" rel="noopener">图片来源</a>  </p>
+<h3 id="Skip-Gram"><a href="#Skip-Gram" class="headerlink" title="Skip-Gram"></a><strong>Skip-Gram</strong></h3><p><code>Skip-Gram 跟 CBOW 的过程相反，即输入一个词，预测该词的上下文。</code>如输入 learning，我们希望输出是 an, efficient, method, for, high, quality, distributed, vector。</p>
+<p><code>它的目标函数是最小化预测到的上下文的误差的总和。</code>其训练架构如下图所示：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-skip-gram-model.png" alt><a href="https://blog.acolyer.org/2016/04/21/the-amazing-power-of-word-vectors/" target="_blank" rel="noopener">图片来源</a>  </p>
+<hr>
+<p>具体训练中，我们采用了 <a href="https://radimrehurek.com/gensim/" target="_blank" rel="noopener">Gensim</a> 的 Word2Vec 库，并选择了其默认的 CBOW 训练方式。详细的训练过程可参考 Notebook <a href="https://github.com/xiehongfeng100/yelper_dpps_and_eda/blob/master/eda/las_vegas/lv_eda04_Review_Text_Word_Similarity_Analysis.ipynb" target="_blank" rel="noopener">Review_Text_Word_Similarity_Analysis</a>。</p>
+<h1 id="关键词搜索"><a href="#关键词搜索" class="headerlink" title="关键词搜索"></a><strong>关键词搜索</strong></h1><p>当我们完成了训练之后，我们就可以直接调用训练好的模型获取跟某个用户输入的关键词词最相似的 TopN 个词，如：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/word2vec-most-similar.png" alt>  </p>
+<p>接下来我们就要根据<code>关键词+相似词</code>（这里包括关键词是因为它本身也是用户关心的）对评论文本进行搜索，以找出相关的商店。</p>
+<h2 id="直接内存搜索存在的问题"><a href="#直接内存搜索存在的问题" class="headerlink" title="直接内存搜索存在的问题"></a><strong>直接内存搜索存在的问题</strong></h2><p>待搜索评论数量达到 1,604,044 条，而且每条评论的文本平均单词数也达到 57.96：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/review-text-overview.png" alt>  </p>
+<p>数据量虽说不是很大，但<code>直接在内存搜索速度很慢</code>，可看下搜索结果：<br><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/search-spent-time.png" alt>  </p>
+<p>而且，还有问题是，<code>返回结果太多（这里都返回了全部），无法做排序</code>；而且我们<code>无法在查找过程中做一些聚合</code>。这样我们就需要后期做很多的排序、聚合等工作。</p>
+<h2 id="基于-Elasticsearch-搜索"><a href="#基于-Elasticsearch-搜索" class="headerlink" title="基于 Elasticsearch 搜索"></a><strong>基于 Elasticsearch 搜索</strong></h2><p>Elasticsearch 是一个分布式的 RESTful 风格的搜索和数据分析引擎，承载数据量可达 PB 级，而且速度很快。</p>
+<p>虽然使用 Elasticsearch 来搜索我们的评论文本有点杀鸡用牛刀的意味，但为了更快更方便对数据进行分析，这样选择也是值得的。</p>
+<p>关于它的安装及更多介绍这里就不多说了，网络有很多资料可参考。</p>
+<h3 id="数据导入"><a href="#数据导入" class="headerlink" title="数据导入"></a><strong>数据导入</strong></h3><p>将 CSV 文件导入 Elasticsearch 数据库，这里使用了一个开源的脚本 <a href="https://github.com/aarreedd/CSV-to-ElasticSearch" target="_blank" rel="noopener">CSV-to-ElasticSearch</a>。</p>
+<p>具体的导入命令如下：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">python csv_to_elastic.py \</span><br><span class="line">    --elastic-address <span class="string">'localhost:9200'</span> \</span><br><span class="line">    --username <span class="string">'elastic'</span> \</span><br><span class="line">    --password <span class="string">'changeme'</span> \</span><br><span class="line">    --csv-file las_vegas_review_text_preprocessed_with_biz_id_with_db_id.csv \  <span class="comment"># 这里已经为每条评论添加了 business_db_id</span></span><br><span class="line">    --delimiter <span class="string">','</span> \</span><br><span class="line">    --elastic-index <span class="string">'review'</span> \</span><br><span class="line">    --elastic-type <span class="string">'text'</span> \</span><br><span class="line">    --json-struct <span class="string">'&#123;</span></span><br><span class="line"><span class="string">        "review_db_id" : "%review_db_id%",</span></span><br><span class="line"><span class="string">        "business_db_id" : "%business_db_id%",</span></span><br><span class="line"><span class="string">        "text_words" : "%text_words%"</span></span><br><span class="line"><span class="string">    &#125;'</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="分片存在的问题"><a href="#分片存在的问题" class="headerlink" title="分片存在的问题"></a><strong>分片存在的问题</strong></h3><p>采用以上方法直接导入的数据默认会存在在 5 个分片（Shard）中，我们可以用 Http Get 看一下结果：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">GET review</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"review"</span>: &#123;</span><br><span class="line">    <span class="string">"aliases"</span>: &#123;&#125;,</span><br><span class="line">    <span class="string">"mappings"</span>: &#123;...&#125;,</span><br><span class="line">    <span class="string">"settings"</span>: &#123;</span><br><span class="line">      <span class="string">"index"</span>: &#123;</span><br><span class="line">        ...</span><br><span class="line">        <span class="string">"number_of_shards"</span>: <span class="string">"5"</span>,</span><br><span class="line">        ...</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这样一来，<code>如果我们对查询到的数据进行聚合（Aggregation）的话，就可能会得到不正确的结果。因为 Elasticsearch 是对各分片返回的数据做聚合，这样会导致部分数据统计不准确。</code>我们由一个<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-terms-aggregation.html" target="_blank" rel="noopener">官方的例子</a>来说明一下这个问题。</p>
+<ul>
+<li><p><strong>原始数据存放在 3 个分片中</strong><br><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-dataset.png" alt>  </p>
+</li>
+<li><p><strong>查找总数最多的前 5 个产品</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">GET /_search</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"aggs"</span> : &#123;</span><br><span class="line">        <span class="string">"products"</span> : &#123;</span><br><span class="line">            <span class="string">"terms"</span> : &#123;</span><br><span class="line">                <span class="string">"field"</span> : <span class="string">"product"</span>,</span><br><span class="line">                <span class="string">"size"</span> : 5</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>结果如下：<br><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-result.png" alt>  </p>
+<ul>
+<li><strong>结果分析</strong><br>对比一下原始数据，我们会发现聚合统计的部分结果有误，例如产品 C，它在原始数据集中的总量是 6+4+44=54，但返回结果只有 50。这是因为产品的数据分布放在 3 个分片中，而聚合获取数据时是按各个分片取 5 个数量最多的产品，但在分片 2 中，产品 C 数量垫底，没被返回，从而导致最终数据统计错误。下图是 3 个分片各自返回的数据：<br><img src="/images/machine-learning/yelper/eda/recommendation/keyword-search/es-term-agg-shard-results.png" alt>  </li>
+</ul>
+<p>所以，<code>为了规避这个问题，我们这里就将评论文本数据都放在一个分片中，这样统计出来的数据就是准确的了。</code></p>
+<h3 id="重新导入数据"><a href="#重新导入数据" class="headerlink" title="重新导入数据"></a><strong>重新导入数据</strong></h3><p>首先，创建一个 Elasticsearch 索引（Index），指明分片数量：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">PUT yelp_review</span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">"settings"</span> : &#123;</span><br><span class="line">        <span class="string">"index"</span> : &#123;</span><br><span class="line">            <span class="string">"number_of_shards"</span> : 1</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>导入数据：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">python csv_to_elastic.py \</span><br><span class="line">    --elastic-address <span class="string">'localhost:9200'</span> \</span><br><span class="line">    --username <span class="string">'elastic'</span> \</span><br><span class="line">    --password <span class="string">'changeme'</span> \</span><br><span class="line">    --csv-file las_vegas_review_text_preprocessed_with_biz_id_with_db_id.csv \  <span class="comment"># 这里已经为每条评论添加了 business_db_id</span></span><br><span class="line">    --delimiter <span class="string">','</span> \</span><br><span class="line">    --elastic-index <span class="string">'yelp_review'</span> \</span><br><span class="line">    --elastic-type <span class="string">'text'</span> \</span><br><span class="line">    --json-struct <span class="string">'&#123;</span></span><br><span class="line"><span class="string">        "review_db_id" : "%review_db_id%",</span></span><br><span class="line"><span class="string">        "business_db_id" : "%business_db_id%",</span></span><br><span class="line"><span class="string">        "text_words" : "%text_words%"</span></span><br><span class="line"><span class="string">    &#125;'</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="聚合分析"><a href="#聚合分析" class="headerlink" title="聚合分析"></a><strong>聚合分析</strong></h3><p>接下来我们用<code>关键词+相似词</code>搜索 Elasticsearch 数据库，并按商店分组，最后按搜索命中的评论数量对商店进行从高到低的排序。例如，搜索结果有 50 条评论文本，其中 20 条属于对商店 A 的评论，30 属于对商店 B 的评论，那在返回结果的时候，商店 B 就会排在 A 的前头。</p>
+<p>这里之所以选择按命中的评论数量对商店进行排序，是因为<code>一个商店名下被返回（命中）的评论越多，可以认为它就越符合要求</code>。</p>
+<p>一个搜索并聚合的例子如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">GET /yelp_review/text/_search</span><br><span class="line">&#123;</span><br><span class="line">  <span class="string">"size"</span>: 0,</span><br><span class="line">  <span class="string">"query"</span>: &#123;</span><br><span class="line">    <span class="string">"match"</span>: &#123;</span><br><span class="line">      <span class="string">"text_words"</span>: <span class="string">"bbq barbecue barbeque brisket ribs korean bbqs kalbi dickey memphis riblets"</span> <span class="comment"># 指定搜索字段及内容</span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"aggs"</span>: &#123;</span><br><span class="line">    <span class="string">"by_biz"</span>: &#123;</span><br><span class="line">      <span class="string">"terms"</span>: &#123;</span><br><span class="line">        <span class="string">"field"</span>: <span class="string">"business_db_id"</span>, <span class="comment"># 按 business_db_id 分组</span></span><br><span class="line">        <span class="string">"size"</span>: 10 <span class="comment"># 返回前 10 个</span></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下边是返回结果：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="string">"took"</span>: 39, <span class="comment"># 查询消耗时间，单位毫秒，比基于内存的搜索小了两个数量级</span></span><br><span class="line">  <span class="string">"timed_out"</span>: <span class="literal">false</span>,</span><br><span class="line">  <span class="string">"_shards"</span>: &#123;</span><br><span class="line">    <span class="string">"total"</span>: 1,	<span class="comment"># 只有一个分片</span></span><br><span class="line">    <span class="string">"successful"</span>: 1,</span><br><span class="line">    <span class="string">"skipped"</span>: 0,</span><br><span class="line">    <span class="string">"failed"</span>: 0</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">"hits"</span>: &#123;</span><br><span class="line">    <span class="string">"total"</span>: 42901,	<span class="comment"># 总的搜索命中数</span></span><br><span class="line">    <span class="string">"max_score"</span>: 0,</span><br><span class="line">    <span class="string">"hits"</span>: []</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="comment"># 按商店聚合结果，也是我们想要的结果</span></span><br><span class="line">  <span class="string">"aggregations"</span>: &#123;</span><br><span class="line">    <span class="string">"by_biz"</span>: &#123;</span><br><span class="line">      <span class="string">"doc_count_error_upper_bound"</span>: 0,</span><br><span class="line">      <span class="string">"sum_other_doc_count"</span>: 35369,</span><br><span class="line">      <span class="string">"buckets"</span>: [</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 60222,	<span class="comment"># 商店 DB id</span></span><br><span class="line">          <span class="string">"doc_count"</span>: 1837 <span class="comment"># 该商店名下被返回（命中）的评论数</span></span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 70659,</span><br><span class="line">          <span class="string">"doc_count"</span>: 1446</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 124443,</span><br><span class="line">          <span class="string">"doc_count"</span>: 798</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 41956,</span><br><span class="line">          <span class="string">"doc_count"</span>: 706</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 67245,</span><br><span class="line">          <span class="string">"doc_count"</span>: 520</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 85348,</span><br><span class="line">          <span class="string">"doc_count"</span>: 504</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 108882,</span><br><span class="line">          <span class="string">"doc_count"</span>: 476</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 52896,</span><br><span class="line">          <span class="string">"doc_count"</span>: 419</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 5088,</span><br><span class="line">          <span class="string">"doc_count"</span>: 413</span><br><span class="line">        &#125;,</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="string">"key"</span>: 110410,</span><br><span class="line">          <span class="string">"doc_count"</span>: 413</span><br><span class="line">        &#125;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>从以上结果可以看出，基于 Elasticsearch 的搜索有如下特点：</p>
+<ul>
+<li>速度快，比基于内存字符串匹配的要小两个数量级</li>
+<li>可以对搜索结果进行聚合、排序，这对我们找 TopN 商店非常方便</li>
+</ul>
+<p>除了以上提到的优点，我们还可以对搜索结果做进一步的聚合，如聚合每个商店被命中的评论文本的 score 平均值（Elasticsearch 搜索到的结果都会有一个匹配度 score 值），然后按新的聚合值排序。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/08/19/yelper-demonstration/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Yelper 展示系统
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/08/09/yelper-las-vegas-review-text-sentiment-analysis/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Yelper 之评论文本情感分析</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#词相似度模型"><span class="toc-number">1.</span> <span class="toc-text">词相似度模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#词向量"><span class="toc-number">1.1.</span> <span class="toc-text">词向量</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#词相似度"><span class="toc-number">1.2.</span> <span class="toc-text">词相似度</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#词向量训练"><span class="toc-number">1.3.</span> <span class="toc-text">词向量训练</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CBOW"><span class="toc-number">1.3.1.</span> <span class="toc-text">CBOW</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Skip-Gram"><span class="toc-number">1.3.2.</span> <span class="toc-text">Skip-Gram</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#关键词搜索"><span class="toc-number">2.</span> <span class="toc-text">关键词搜索</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#直接内存搜索存在的问题"><span class="toc-number">2.1.</span> <span class="toc-text">直接内存搜索存在的问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基于-Elasticsearch-搜索"><span class="toc-number">2.2.</span> <span class="toc-text">基于 Elasticsearch 搜索</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#数据导入"><span class="toc-number">2.2.1.</span> <span class="toc-text">数据导入</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#分片存在的问题"><span class="toc-number">2.2.2.</span> <span class="toc-text">分片存在的问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#重新导入数据"><span class="toc-number">2.2.3.</span> <span class="toc-text">重新导入数据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#聚合分析"><span class="toc-number">2.2.4.</span> <span class="toc-text">聚合分析</span></a></li></ol></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

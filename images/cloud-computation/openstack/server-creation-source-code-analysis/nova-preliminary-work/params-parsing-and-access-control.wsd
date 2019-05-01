@@ -1,0 +1,233 @@
+@startuml
+
+title Server Creation Parameters Parsing and Access Control
+
+participant nova_api_create as "nova.api.openstack.compute.servers::ServersController::create"
+participant nova_context as "nova.context::RequestContext"
+participant nova_policy_authorize as "nova.policy::authorize"
+participant nova_policy_init as "nova.policy::init"
+participant oslo_policy_enforcer as "oslo_policy.policy::Enforcer"
+participant oslo_policy_cache as "oslo_policy._cache_handler"
+
+activate nova_api_create
+note over nova_api_create: get server admin password
+note over nova_api_create: normalize name
+note over nova_api_create: confirm description
+note over nova_api_create
+add **create_extension** related params to **create_kwargs**:
+```
+if list(self.create_extension_manager):
+    self.create_extension_manager.map(self._create_extension_point,
+                                      server_dict, create_kwargs, body)
+```
+for example, for the create extension **keypair** (),
+it will eventually add the **key_name** to the create_kwargs:
+```
+**#** nova.api.openstack.compute.keypairs:Keypairs.py
+class Keypairs(extensions.V21APIExtensionBase):
+    def server_create(self, server_dict, create_kwargs, body_deprecated_param):
+        create_kwargs['key_name'] = server_dict.get('key_name')
+```
+end note
+note over nova_api_create: get availability_zone
+
+note over nova_api_create
+__Note__
+
+Now it time to check the server create **policy**:
+```
+**#** nova/api/openstack/compute/servers.py
+class ServersController(wsgi.Controller):
+    def create(self, req, body):
+        ...
+        target = {
+            'project_id': context.project_id,
+            'user_id': context.user_id,
+            'availability_zone': availability_zone}
+        context.can(server_policies.SERVERS % 'create', target)
+```
+
+And we can get policy:
+```
+**#** nova/policies/servers.py
+RULE_AOO = base.**RULE_ADMIN_OR_OWNER**
+SERVERS = 'os_compute_api:servers:%s'
+
+rules = [
+    ...
+    policy.RuleDefault(SERVERS % 'create', RULE_AOO),
+    ...
+]
+```
+
+While the rule **RULE_ADMIN_OR_OWNER** is defined as follows:
+```
+**#** nova/policies/base.py
+RULE_ADMIN_OR_OWNER = 'rule:admin_or_owner'
+
+rules = [
+    ...
+    policy.RuleDefault('**admin_or_owner**', 'is_admin:True or project_id:%(project_id)s'),
+    ...
+]
+```
+
+It means that the request has to be an admin or just want to his own (not others) server.
+Lets check it for details.
+end note
+
+nova_api_create->nova_context: call nova.context::RequestContext::can()
+
+activate nova_context
+nova_context->nova_policy_authorize: call nova.policy::authorize()
+
+activate nova_policy_authorize
+nova_policy_authorize->nova_policy_init: call nova.policy::init()
+
+activate nova_policy_init
+note over nova_policy_init: **init oslo_policy.policy::Enforcer()**
+note over nova_policy_init
+register all **default** rules listed in policies._\_init__.py:
+
+```
+**#** policies._\_init__.py
+def list_rules():
+    return itertools.chain(
+        admin_actions.list_rules(),
+        admin_password.list_rules(),
+        agents.list_rules(),
+        aggregates.list_rules(),
+        assisted_volume_snapshots.list_rules(),
+        attach_interfaces.list_rules(),
+        availability_zone.list_rules(),
+        baremetal_nodes.list_rules(),
+        base.list_rules(),
+        ...
+```
+
+That is, nova has **moved these rules originally written**
+**in /etc/nova/policy.json directly into  codes (hard code):**
+```
+stack@ubuntu-controller:~$ ls /etc/nova/ | grep policy.json
+stack@ubuntu-controller:~$
+```
+
+But we can still use the policy.json to custome our rules,
+as nova will try to load the file every time a request comes.
+end note
+
+nova_policy_init->oslo_policy_enforcer: call oslo_policy.policy::Enforcer::load_rules()
+
+activate oslo_policy_enforcer
+note over oslo_policy_enforcer
+if user_conf or force_reload was True,
+load rules from config file (YAML/JSON file)
+
+Then, if the policy path can be found, load it as follows:
+end note
+
+oslo_policy_enforcer->oslo_policy_enforcer: call self._load_policy_file()
+
+activate oslo_policy_enforcer
+oslo_policy_enforcer->oslo_policy_cache: call oslo_policy._cache_handler::read_cached_file()
+
+activate oslo_policy_cache
+note over oslo_policy_cache
+reload config file if the files modify time
+is newer than cache or force_reload is True.
+end note
+
+oslo_policy_cache-->oslo_policy_enforcer: return
+deactivate oslo_policy_cache
+
+note over oslo_policy_enforcer
+if reloaded or not self.rules, load rules as Object.
+end note
+
+oslo_policy_enforcer-->oslo_policy_enforcer: return
+deactivate oslo_policy_enforcer
+
+note over oslo_policy_enforcer
+walk through policy directories if it is configured.
+end note
+
+note over oslo_policy_enforcer: check incorrect rules
+
+oslo_policy_enforcer-->nova_policy_init: return
+deactivate oslo_policy_enforcer
+
+nova_policy_init-->nova_policy_authorize: return
+deactivate nova_policy_init
+
+nova_policy_authorize->oslo_policy_enforcer: call oslo_policy.policy::Enforcer::authorize()
+
+activate oslo_policy_enforcer
+oslo_policy_enforcer->oslo_policy_enforcer: call self.enforce
+
+activate oslo_policy_enforcer
+note over oslo_policy_enforcer #EB9898
+**enforce** func will check authorization of a rule
+against the target and credentials:
+````
+* oslo_policy/policy.py
+class Enforcer(object):
+    def enforce(self, rule, target, creds, do_raise=False,
+                exc=None, *args, **kwargs):
+        """Checks authorization of a rule against the target and credentials.
+        """
+
+        self.load_rules()
+
+        # Allow the rule to be a Check tree
+        if isinstance(rule, _checks.BaseCheck):
+            result = rule(target, creds, self)
+        elif not self.rules:
+            # No rules to reference means we're going to fail closed
+            result = False
+        else:
+            try:
+                # Evaluate the rule
+                result = self.rules[rule](target, creds, self)
+            except KeyError:
+                LOG.debug('Rule [%s] does not exist', rule)
+                # If the rule doesn't exist, fail closed
+                result = False
+
+        # If it is False, raise the exception if requested
+        if do_raise and not result:
+            if exc:
+                raise exc(*args, **kwargs)
+
+            raise PolicyNotAuthorized(rule, target, creds)
+
+        return result
+````
+end note
+oslo_policy_enforcer-->oslo_policy_enforcer: return
+deactivate oslo_policy_enforcer
+
+oslo_policy_enforcer-->nova_policy_authorize: return
+deactivate oslo_policy_enforcer
+
+
+nova_policy_authorize-->nova_context: return
+deactivate nova_policy_authorize
+
+nova_context-->nova_api_create: return
+deactivate nova_context
+
+note over nova_api_create: check nova compute service version
+note over nova_api_create: get block_device_mapping and check the policy to attach volume
+note over nova_api_create: get image uuid from request
+note over nova_api_create: get reservation id
+note over nova_api_create: get requested networks and check the policy to attach network
+note over nova_api_create: get flavor id from request
+note over nova_api_create: get instance type
+
+note over nova_api_create #EB9898
+__Note__
+
+**Now its time to create the server with compute api.**
+end note
+
+@enduml

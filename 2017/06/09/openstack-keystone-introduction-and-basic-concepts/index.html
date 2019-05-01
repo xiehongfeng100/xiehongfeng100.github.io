@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>OpenStack 源码系列之 Keystone：简介及基本概念介绍 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Keystone 作为 OpenStack 的身份（Identity）、认证（Authentication）及访问管理（授权，Authorization）模块，是所有其他模块都要使用的模块，其重要性不言而喻。 下文主要参考自书籍 《Identity, Authentication and Access Management in OpenStack》。 对于身份，指的是访问者的身份信息。在 Ope">
+<meta name="keywords" content="OpenStack,Keystone,Token,RBAC,Policy">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenStack 源码系列之 Keystone：简介及基本概念介绍">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/06/09/openstack-keystone-introduction-and-basic-concepts/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="Keystone 作为 OpenStack 的身份（Identity）、认证（Authentication）及访问管理（授权，Authorization）模块，是所有其他模块都要使用的模块，其重要性不言而喻。 下文主要参考自书籍 《Identity, Authentication and Access Management in OpenStack》。 对于身份，指的是访问者的身份信息。在 Ope">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/domain-project-user-usergroup-relationship.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/login-to-get-token.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/req-with-token.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/identity-backends.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/keystone-services-and-backends.png">
+<meta property="og:updated_time" content="2019-05-01T06:21:57.262Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OpenStack 源码系列之 Keystone：简介及基本概念介绍">
+<meta name="twitter:description" content="Keystone 作为 OpenStack 的身份（Identity）、认证（Authentication）及访问管理（授权，Authorization）模块，是所有其他模块都要使用的模块，其重要性不言而喻。 下文主要参考自书籍 《Identity, Authentication and Access Management in OpenStack》。 对于身份，指的是访问者的身份信息。在 Ope">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/keystone/keystone-introduction/domain-project-user-usergroup-relationship.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-openstack-keystone-introduction-and-basic-concepts" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/06/09/openstack-keystone-introduction-and-basic-concepts/" class="article-date">
+  	<time datetime="2017-06-08T22:07:23.000Z" itemprop="datePublished">2017-06-09</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      OpenStack 源码系列之 Keystone：简介及基本概念介绍
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Keystone/">Keystone</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/OpenStack/">OpenStack</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Policy/">Policy</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/RBAC/">RBAC</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Token/">Token</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/云计算/">云计算</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Keystone 作为 OpenStack 的身份（Identity）、认证（Authentication）及访问管理（授权，Authorization）模块，是所有其他模块都要使用的模块，其重要性不言而喻。</p>
+<p>下文主要参考自书籍 <a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">《Identity, Authentication and Access Management in OpenStack》</a>。</p>
+<p>对于<strong>身份</strong>，指的是访问者的身份信息。在 OpenStack 中，身份用用户来表示。这些用户信息可以存在 Keystone 自己的数据库，也可以存在外部。</p>
+<p>对于<strong>认证</strong>，指的是对访问者身份的验证（validate），确认访问者是否合法。认证可通过密码或者 Token 进行。</p>
+<p>对于<strong>授权</strong>，指的是 OpenStack 通过角色（Role），再结合具体模块（如 Nova）的策略（Policy）机制，来限定访问者可以访问的资源（如查看、新建虚拟机）。</p>
+<h1 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a><strong>基本概念</strong></h1><h2 id="租户（Project-Tenant）"><a href="#租户（Project-Tenant）" class="headerlink" title="租户（Project/Tenant）"></a><strong>租户（Project/Tenant）</strong></h2><p>在 Keystone 中，租户是对资源（如虚拟机、镜像）的集合（group）和隔离(isolate)的抽象（abstraction）。从这个定义，我们可以看出两点：</p>
+<ul>
+<li>租户是一种抽象，它的出现只是为了方便对资源进行管理</li>
+<li>一个租户表示一个隔离的资源集合，不与其他租户共享资源</li>
+</ul>
+<p>那谁来使用租户的资源呢？用户和用户组。通过角色赋予（role assignment），用户或用户组就可以访问或操作租户的一些资源。具体能访问或操作的资源类型取决于他们被赋予的角色。</p>
+<h2 id="域（Domain）"><a href="#域（Domain）" class="headerlink" title="域（Domain）"></a><strong>域（Domain）</strong></h2><p>域是租户、用户及用户组的集合，是为了跟其他租户、用户及用户组隔离开来而提出来的抽象。这样一来，不同的域就可以有名字相同的租户、用户或用户组而不用担心冲突（不过 UUID 跨域唯一）。例如，一个云可以有多个域，每个域可以代表一个公司，也可以代表一个部门。</p>
+<p>因为租户和域都是角色赋予（<em>assigned on</em>）的实体，因此统称为 Targets。</p>
+<h2 id="用户和用户组（Actor）"><a href="#用户和用户组（Actor）" class="headerlink" title="用户和用户组（Actor）"></a><strong>用户和用户组（Actor）</strong></h2><p>用户和用户组是访问由租户和域隔离开来的资源的实体（entity）。用户组是用户的集合，而用户是最终使用云资源的个体。用户和用户组统称为 Actors，表示它们是<em>被</em>赋予（<em>assigned to</em>）角色的实体。</p>
+<p>域、租户及用户和用户组的关系如下图所示：<br><img src="/images/cloud-computation/openstack/keystone/keystone-introduction/domain-project-user-usergroup-relationship.png" alt><br><a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">图片来源</a></p>
+<a id="more"></a>
+<h2 id="角色（Role）"><a href="#角色（Role）" class="headerlink" title="角色（Role）"></a><strong>角色（Role）</strong></h2><p>角色用于表示授权。一个 Actor 可以有多个角色。</p>
+<h2 id="凭证（Credidential）"><a href="#凭证（Credidential）" class="headerlink" title="凭证（Credidential）"></a><strong>凭证（Credidential）</strong></h2><p>用户身份的确认数据，例如，用户名和密码，或者是一个由 Identity（身份）服务提供的授权令牌。</p>
+<h2 id="令牌（Token）"><a href="#令牌（Token）" class="headerlink" title="令牌（Token）"></a><strong>令牌（Token）</strong></h2><p>令牌（Token）用于认证和授权。当用户认证成功后就可以得到一个 Token，接下来的请求就可以直接使用该 Token 而不是用户名密码进行认证；同时，Token 也包含了用户在云上的授权信息（如用户能访问的的租户、域）。一个 Token 拥有一个 ID 和一个载体（payload）。不过，随请求一起发送的一般只有 Token ID，然后 OpenStack 在认证 Token 的时候再把 Token 载体取出来。一个 Identity V3 的 Token 例子为：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="string">"token"</span>: &#123;</span><br><span class="line">		<span class="string">"issued_at"</span>: <span class="string">"201406-10T20:55:16.806027Z"</span>,</span><br><span class="line">		<span class="string">"expires_at"</span>: <span class="string">"2014-06-10T2:55:16.806001Z"</span>,</span><br><span class="line">		<span class="string">"roles"</span>: [&#123;</span><br><span class="line">			<span class="string">"id"</span>: <span class="string">"c703057be878458588961ce9a0ce686b"</span>,</span><br><span class="line">			<span class="string">"name"</span>: <span class="string">"admin"</span></span><br><span class="line">		&#125;],</span><br><span class="line">		<span class="string">"project"</span>: &#123;</span><br><span class="line">			<span class="string">"domain"</span>: &#123;</span><br><span class="line">				<span class="string">"id"</span>: <span class="string">"default"</span>,</span><br><span class="line">				<span class="string">"name"</span>: <span class="string">"Default"</span></span><br><span class="line">			&#125;,</span><br><span class="line">			<span class="string">"id"</span>: <span class="string">"8538a3f13f9541b28c2620eb19065e45"</span>,</span><br><span class="line">			<span class="string">"name"</span>: <span class="string">"admin"</span></span><br><span class="line">		&#125;,</span><br><span class="line">		<span class="string">"user"</span>: &#123;</span><br><span class="line">			<span class="string">"domain"</span>: &#123;</span><br><span class="line">				<span class="string">"id"</span>: <span class="string">"default"</span>,</span><br><span class="line">				<span class="string">"name"</span>: <span class="string">"Default"</span></span><br><span class="line">			&#125;,</span><br><span class="line">			<span class="string">"id"</span>: <span class="string">"3ec3164f750146be97f21559ee4d9c51"</span>,</span><br><span class="line">			<span class="string">"name"</span>: <span class="string">"admin"</span></span><br><span class="line">		&#125;,</span><br><span class="line">		<span class="string">"catalog"</span>: [&#123;</span><br><span class="line">			<span class="string">"endpoints"</span>: [...],</span><br><span class="line">			<span class="string">"type"</span>: <span class="string">"identity"</span>,</span><br><span class="line">			<span class="string">"id"</span>: <span class="string">"bd73972c0e14fb69bae8ff76e112a90"</span>,</span><br><span class="line">			<span class="string">"name"</span>: <span class="string">"keystone"</span></span><br><span class="line">		&#125;]</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>对于 Token，如果想再进一步了解，一定要看<a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">《Identity, Authentication and Access Management in OpenStack》</a>第 3 章“Token Formats”，里边除了介绍各种各样的 Token （UUID Token、PKI Token 及 Fernet Token），还介绍了遇到问题时的处理（如性能下降）。</p>
+<p>另外，博文<a href="http://www.cnblogs.com/xiekeli/p/5607107.html" target="_blank" rel="noopener">基于 Token 的 WEB 后台认证机制</a>真的是写的太好了，工作原理、过程都很详细，特别摘录文中的认证和请求过程的两张图（看懂了就理解了 OpenStack 的用户名密码和 Token 认证过程。应该说，OpenStack 的认证就是参照已有 Web 认证写的。）：<br><img src="/images/cloud-computation/openstack/keystone/keystone-introduction/login-to-get-token.png" alt><br><a href="http://www.cnblogs.com/xiekeli/p/5607107.html" target="_blank" rel="noopener">图片来源</a></p>
+<p><img src="/images/cloud-computation/openstack/keystone/keystone-introduction/req-with-token.png" alt><br><a href="http://www.cnblogs.com/xiekeli/p/5607107.html" target="_blank" rel="noopener">图片来源</a></p>
+<h2 id="服务目录（Service-Catalog）"><a href="#服务目录（Service-Catalog）" class="headerlink" title="服务目录（Service Catalog）"></a><strong>服务目录（Service Catalog）</strong></h2><p>在 OpenStack 服务目录尤其重要，它包含了不同云服务（如 Nova）的 URLs 和端点（Endpoints）。没有服务目录，用户和应用不知道如果路由请求到正确的服务。服务目录可以拆分成端点列表，每一个端点能够进一步拆分成 admin URL，internal URL 和 public URL。这些 URL 可以相同。一个拥有 Identity 和对象存储（Object Storage）服务的服务目录例子如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="string">"serviceCatalog"</span>: [&#123;</span><br><span class="line">		<span class="string">"endpoints"</span>: [&#123;</span><br><span class="line">			<span class="string">"adminURL"</span>: <span class="string">"http: //swift.admin-nets.local: 8080/"</span>,</span><br><span class="line">			<span class="string">"region"</span>: <span class="string">"RegionOne"</span>,</span><br><span class="line">			<span class="string">"internalURL"</span>: <span class="string">"http: //127.0.0.1: 8080/v1/AUTH_1"</span>,</span><br><span class="line">			<span class="string">"publicURL"</span>: <span class="string">"http: //swift.publicinternets.com/v1/AUTH_1"</span></span><br><span class="line">		&#125;],</span><br><span class="line">		<span class="string">"type"</span>: <span class="string">"object-store"</span>,</span><br><span class="line">		<span class="string">"name"</span>: <span class="string">"swift"</span></span><br><span class="line">	&#125;,</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="string">"endpoints"</span>: [&#123;</span><br><span class="line">			<span class="string">"adminURL"</span>: <span class="string">"http: //cdn.admin-nets.local:35357/v2.0"</span>,</span><br><span class="line">			<span class="string">"region"</span>: <span class="string">"RegionOne"</span>,</span><br><span class="line">			<span class="string">"internalURL"</span>: <span class="string">" http: //cdn.admin-nets.local:5000/v2.0 "</span>,</span><br><span class="line">			<span class="string">"publicURL"</span>: <span class="string">" http: //cdn.admin-nets.local:5000/v2.0 "</span></span><br><span class="line">		&#125;],</span><br><span class="line">		<span class="string">"type"</span>: <span class="string">"identity"</span>,</span><br><span class="line">		<span class="string">"name"</span>: <span class="string">"keystone"</span></span><br><span class="line">	&#125;]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h1 id="身份"><a href="#身份" class="headerlink" title="身份"></a><strong>身份</strong></h1><p>Identity 服务提供了 Actors（用户和用户组）（当然还有其他的功能）。Actors 可以存储在不同后端上，如下图。比较常用的是 SQL。<br><img src="/images/cloud-computation/openstack/keystone/keystone-introduction/identity-backends.png" alt><br><a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">图片来源</a></p>
+<h1 id="认证"><a href="#认证" class="headerlink" title="认证"></a><strong>认证</strong></h1><p>我们前文多多少少也提到，Keystone 有两种认证方式，用户名密码和 Token。前者主要是在登录的时候使用，后者则更多地跟请求一起使用。</p>
+<p>例如，我们可以在 POST 请求主体中添加上用户名密码：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="string">"auth"</span>: &#123;</span><br><span class="line">		<span class="string">"identity"</span>: &#123;</span><br><span class="line">			<span class="string">"methods"</span>: [<span class="string">"password"</span>],</span><br><span class="line">			<span class="string">"password"</span>: &#123;</span><br><span class="line">				<span class="string">"user"</span>: &#123;</span><br><span class="line">					<span class="string">"domain"</span>: &#123;</span><br><span class="line">						<span class="string">"name"</span>: <span class="string">"example.com"</span></span><br><span class="line">					&#125;,</span><br><span class="line">					<span class="string">"name"</span>: <span class="string">"Joe"</span>,</span><br><span class="line">					<span class="string">"password"</span>: <span class="string">"secretsecret"</span></span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;,</span><br><span class="line">		<span class="string">"scope"</span>: &#123;</span><br><span class="line">			<span class="string">"project"</span>: &#123;</span><br><span class="line">				<span class="string">"domain"</span>: &#123;</span><br><span class="line">					<span class="string">"name"</span>: <span class="string">"example.com"</span></span><br><span class="line">				&#125;,</span><br><span class="line">				<span class="string">"name"</span>: <span class="string">"project-x"</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>Token 的例子我们前边已经举过，这里就不重复了。</p>
+<h1 id="访问管理和授权"><a href="#访问管理和授权" class="headerlink" title="访问管理和授权"></a><strong>访问管理和授权</strong></h1><p>Keystone 授权分成两个部分，一个是 Token，限制的是相对较大的范围，如用户可以访问的租户、域、服务目录；另一个是基于角色的访问控制机制（Role-Based Access Control, RBAC），限制的范围可以具体到 API，一般用一个 policy.json 配置文件来配置 API 的访问权限，用于在 API 调用的时候实时读取并确定请求者是否有权限操作某一个 API。一个 policy.json 文件样例如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">	<span class="string">"admin_required"</span>: <span class="string">"role:admin or is_admin:1"</span>,</span><br><span class="line">	<span class="string">"owner"</span>: <span class="string">"user_id:%(user_id)s"</span>,</span><br><span class="line">	<span class="string">"admin_or_owner"</span>: <span class="string">"rule:admin_required or rule:owner"</span>,</span><br><span class="line"></span><br><span class="line">	<span class="string">"identity:list_projects"</span>: <span class="string">"rule:admin_required"</span>,</span><br><span class="line">	<span class="string">"identity:create_project"</span>: <span class="string">"rule:admin_required"</span>,</span><br><span class="line">	<span class="string">"identity:delete_project"</span>: <span class="string">"rule:admin_required"</span>,</span><br><span class="line"></span><br><span class="line">	<span class="string">"identity:list_user_projects"</span>: <span class="string">"rule:admin_or_owner"</span></span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>下边有几点说明：</p>
+<ul>
+<li>对于 policy.json 文件，<a href="https://docs.openstack.org/newton/config-reference/policy-json-file.html" target="_blank" rel="noopener">官方</a>有提供了样例和语法说明。</li>
+</ul>
+<ul>
+<li><p>该文件的 API 的映射源码文档有详细说明：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># doc/source/policy_mapping.rst</span></span><br><span class="line"></span><br><span class="line">===============================</span><br><span class="line">Mapping of policy target to API</span><br><span class="line">===============================</span><br><span class="line"></span><br><span class="line">The following table shows the target <span class="keyword">in</span> the policy.json file <span class="keyword">for</span> each API.</span><br><span class="line"></span><br><span class="line">=========================================================  ===</span><br><span class="line">Target                                                     API</span><br><span class="line">=========================================================  ===</span><br><span class="line">identity:get_region                                        GET /v3/regions/&#123;region_id&#125;</span><br><span class="line">identity:list_regions                                      GET /v3/regions</span><br><span class="line">identity:create_region                                     POST /v3/regions</span><br><span class="line">identity:update_region                                     PATCH /v3/regions/&#123;region_id&#125;</span><br><span class="line">identity:delete_region                                     DELETE /v3/regions/&#123;region_id&#125;</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>关于 Policy 工作原理，可参考如下博文：<br><a href="http://lynnkong.iteye.com/blog/1722172" target="_blank" rel="noopener">Nova 中的 policy</a><br><a href="http://blog.csdn.net/hackerain/article/details/8241691" target="_blank" rel="noopener">OpenStack Nova 基础知识——policy</a><br><a href="http://bingotree.cn/?p=132" target="_blank" rel="noopener">Havana Keystone 中 policy.json 的解析过程</a></p>
+</li>
+<li><p>最后，关于 RBAC，可以参考以下两篇文章：<br><a href="https://prosuncsedu.wordpress.com/2014/02/13/authorization-model-in-openstack/" target="_blank" rel="noopener">Authorization Model in OpenStack (keystone API V2.0)</a><br><a href="https://prosuncsedu.wordpress.com/2014/02/19/authorization-model-in-openstack-keystone-api-v3-0/" target="_blank" rel="noopener">Authorization Model in OpenStack (keystone API V3.0)</a></p>
+</li>
+</ul>
+<h1 id="总结及答疑"><a href="#总结及答疑" class="headerlink" title="总结及答疑"></a><strong>总结及答疑</strong></h1><p>对于我们上边提到的各个模块或服务，下图很简洁明了地介绍了它们的用途及后端（绿色表示后端一般是 SQL，红色表示一般是 LDAP 或 SQL，蓝色表示 SQL 或 Memcache，而 policy 是通过文件形式体现的）：<br><img src="/images/cloud-computation/openstack/keystone/keystone-introduction/keystone-services-and-backends.png" alt><br><a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">图片来源</a></p>
+<p>为了便于大家解疑，<a href="https://www-01.ibm.com/common/ssi/cgi-bin/ssialias?htmlfid=KUM12358USEN" target="_blank" rel="noopener">《Identity, Authentication and Access Management in OpenStack》</a>作者还专门开辟了一个 FAQ 条目，真是太贴心了，现总结如下：</p>
+<ul>
+<li><strong>域（Domain）和区域（Region）区别</strong><br>区域是从地理角度上来说的，如东南区、西北区；而域则是逻辑上对租户、用户资源的划分。</li>
+<li><strong>用户是否可以同时存在于多个域？</strong><br>不可以。在不同域，可以有同名的用户，但他们的 ID 是不一样的。</li>
+<li><strong>为什么 OpenStack 文档中有时候提到 tenant，有时候提到 project，或者同时提到两者？</strong><br>早期的 OpenStack 用 tenant 表示对资源的集合和隔离，但后期大家认为用单词 project 来表示资源的集合和隔离相较于 tenant 更加直观（intuitive），所以后来就改用 project 来表示租户了。但是，并不是所有的 OpenStack 项目都已经将 tenant 改动为 project，所以，好多时候，我们还是会看到两者混用。</li>
+<li><strong>Scoped Token 和 Unscoped Token 的区别</strong><br>Unscoped Token 表示用户已认证，但并没有绑定具体的租户或域。这种类型的 Token 可应用于一些查询中，如确定用户有访问权限的租户。Scoped Token 就是我们最常见的 Token，除了表示用户已认证，还会跟具体的租户和域绑定在一起，详细可参照前文有关 Token 说明。</li>
+</ul>
+<p>另外，<em>Unscoped Token 里边不会包含用户的角色（Role）信息</em>。</p>
+<h1 id="额外资料"><a href="#额外资料" class="headerlink" title="额外资料"></a><strong>额外资料</strong></h1><ul>
+<li>!!!源码文档 doc/source 目录</li>
+<li>!!!官方 <a href="https://docs.openstack.org/keystone/latest/getting-started/architecture.html" target="_blank" rel="noopener">Keystone Architecture</a></li>
+<li>!!!官方 <a href="https://docs.openstack.org/keystone/latest/configuration.html#config-files" target="_blank" rel="noopener">Keystone Configuration</a></li>
+<li><a href="http://www.cnblogs.com/sammyliu/p/4277178.html" target="_blank" rel="noopener">探索 OpenStack 之（13）：研究 Keystone</a></li>
+</ul>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/06/09/openstack-keystone-service-startup/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          OpenStack 源码系列之 Keystone：服务启动
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/06/08/openstack-source-code-series-preface/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">OpenStack 源码系列前言</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#基本概念"><span class="toc-number">1.</span> <span class="toc-text">基本概念</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#租户（Project-Tenant）"><span class="toc-number">1.1.</span> <span class="toc-text">租户（Project/Tenant）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#域（Domain）"><span class="toc-number">1.2.</span> <span class="toc-text">域（Domain）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#用户和用户组（Actor）"><span class="toc-number">1.3.</span> <span class="toc-text">用户和用户组（Actor）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#角色（Role）"><span class="toc-number">1.4.</span> <span class="toc-text">角色（Role）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#凭证（Credidential）"><span class="toc-number">1.5.</span> <span class="toc-text">凭证（Credidential）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#令牌（Token）"><span class="toc-number">1.6.</span> <span class="toc-text">令牌（Token）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#服务目录（Service-Catalog）"><span class="toc-number">1.7.</span> <span class="toc-text">服务目录（Service Catalog）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#身份"><span class="toc-number">2.</span> <span class="toc-text">身份</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#认证"><span class="toc-number">3.</span> <span class="toc-text">认证</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#访问管理和授权"><span class="toc-number">4.</span> <span class="toc-text">访问管理和授权</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#总结及答疑"><span class="toc-number">5.</span> <span class="toc-text">总结及答疑</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#额外资料"><span class="toc-number">6.</span> <span class="toc-text">额外资料</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

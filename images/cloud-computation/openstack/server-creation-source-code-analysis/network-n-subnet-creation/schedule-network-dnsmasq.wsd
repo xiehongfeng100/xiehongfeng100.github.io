@@ -1,0 +1,258 @@
+@startuml
+
+participant dnsmasq as "neutron.agent.linux.dhcp::Dnsmasq"
+participant device_manager as "neutron.agent.linux.dhcp::DeviceManager"
+participant dhcp_rpc_callback as "neutron.api.rpc.handlers.dhcp_rpc::DhcpRpcCallback"
+participant ip_wrapper as "neutron.agent.linux.ip_lib::IPWrapper"
+participant bridge_interface_driver as "neutron.agent.linux.interface:BridgeInterfaceDriver"
+
+activate dnsmasq
+note over dnsmasq
+我们先来看一下 **Dnsmasq::enable 函数**的定义：
+````
+* neutron/agent/linux/dhcp.py
+class Dnsmasq(DhcpLocalProcess):
+    def enable(self):
+        """Enables DHCP for this network by spawning a local process."""
+        if self.active:
+            self.restart()
+        elif self._enable_dhcp():
+            # 确保 /opt/stack/data/neutron/dhcp/network.id 目录已创建
+            fileutils.ensure_tree(self.network_conf_dir, mode=0o755)
+            # **!!! 1. 初始化 DHCP 相关设备（如 port、namespace、tap 网卡）**
+            interface_name = self.device_manager.setup(self.network)
+            self.interface_name = interface_name
+            # **!!! 2. 初始化 Dnsmasq 所需各种文件（如 dhcp 目录下的**
+            # **leases、host 等文件）；启动 Dnsmasq 进程**
+            self.spawn_process()
+````
+
+下边就从这两步入手。
+end note
+
+dnsmasq->device_manager: call neutron.agent.linux.dhcp::DeviceManager::setup()
+
+activate device_manager
+device_manager->device_manager: call self.setup_dhcp_port()
+
+activate device_manager
+device_manager->device_manager: call self._setup_new_dhcp_port()
+
+activate device_manager
+device_manager->dhcp_rpc_callback: **rpc call** neutron.api.rpc.handlers.dhcp_rpc::DhcpRpcCallback::create_dhcp_port()
+
+activate dhcp_rpc_callback
+note over dhcp_rpc_callback #6EDF64
+注意：这里创建的 port（最后生成 tap 网卡）最后会
+挂载到 bridge 上，是用来和 Dnsmasq 进程监听的网卡
+（ns+11位port.id）通信（Veth Pair）的。
+
+**这部分涉及到 Port 的创建，比较重要，**
+**也有点复杂，放在本文最后再讲。**
+end note
+dhcp_rpc_callback-->device_manager: return the dhcp port
+deactivate dhcp_rpc_callback
+
+device_manager-->device_manager: return the dhcp port
+deactivate device_manager
+
+device_manager-->device_manager: return the dhcp port
+deactivate device_manager
+
+note over device_manager
+self._update_dhcp_port：添加返回的 port 信息到 network 信息中
+end note
+
+note over device_manager: 生成 interface_name（**ns-11位port.**）
+device_manager->ip_wrapper: call neutron.agent.linux.ip_lib::IPWrapper::ensure_namespace()
+
+activate ip_wrapper
+note over ip_wrapper
+**ensure_namespace 函数**主要做了两件事：
+1. 添加 network namespace (qdhcp+network.id)
+2. 在该 namespace 下添加 lo 虚拟网卡
+````
+* neutron/agent/linux/ip_lib.py
+class IPWrapper(SubProcessBase):
+    def ensure_namespace(self, name):
+        if not self.netns.exists(name):
+            ip = self.netns.add(name)
+            lo = ip.device(LOOPBACK_DEVNAME)
+            lo.link.set_up()
+        else:
+            ip = IPWrapper(namespace=name)
+        return ip
+````
+end note
+ip_wrapper-->device_manager: return
+deactivate ip_wrapper
+
+device_manager->device_manager: call self.**plug()**
+
+activate device_manager
+note over device_manager
+**plug 函数**的定义如下：
+````
+* neutron/agent/linux/dhcp.py
+class DeviceManager(object):
+    def plug(self, network, port, interface_name):
+        """Plug device settings for the network's DHCP on this host."""
+        self.driver.plug(network.id,
+                         port.id,
+                         interface_name,
+                         port.mac_address,
+                         namespace=network.namespace,
+                         mtu=network.get('mtu'))
+````
+
+其中的 driver 是在初始化 DeviceManager 的时候导入的：
+````
+* neutron/agent/linux/dhcp.py
+class DeviceManager(object):
+    def _\_init__(self, conf, plugin):
+        ...
+        self.driver = agent_common_utils.load_interface_driver(conf)
+
+* neutron/agent/common/utils.py
+INTERFACE_NAMESPACE = 'neutron.interface_drivers'
+
+def load_interface_driver(conf):
+    """Load interface driver for agents like DHCP or L3 agent.
+
+    :param conf: driver configuration object
+    :raises SystemExit of 1 if driver cannot be loaded
+    """
+
+    try:
+        loaded_class = neutron_utils.load_class_by_alias_or_classname(
+                INTERFACE_NAMESPACE, conf.interface_driver)
+        return loaded_class(conf)
+
+* setup.cfg
+neutron.interface_drivers =
+    linuxbridge = neutron.agent.linux.interface:BridgeInterfaceDriver
+    ...
+
+* /etc/neutron/dhcp_agent.ini
+[DEFAULT]
+interface_driver = linuxbridge
+````
+
+也就是说，目前我们所用的 interface driver 是：
+**neutron.agent.linux.interface:BridgeInterfaceDriver**
+end note
+
+device_manager->bridge_interface_driver: call neutron.agent.linux.interface:**BridgeInterfaceDriver::plug()**
+
+activate bridge_interface_driver
+bridge_interface_driver->bridge_interface_driver: call self.plug_new()
+
+activate bridge_interface_driver
+note over bridge_interface_driver
+**plug_new 函数**定义如下：
+````
+class BridgeInterfaceDriver(LinuxInterfaceDriver):
+    """Driver for creating bridge interfaces."""
+
+    DEV_NAME_PREFIX = 'ns-'
+
+    def plug_new(self, network_id, port_id, device_name, mac_address,
+                 bridge=None, namespace=None, prefix=None, mtu=None):
+        """Plugin the interface."""
+        ip = ip_lib.IPWrapper()
+
+        # 将 “ns-11位port.id” 替换为 “tap11位port.id”
+        tap_name = device_name.replace(prefix or self.DEV_NAME_PREFIX,
+                                       constants.TAP_DEVICE_PREFIX)
+        # Create ns_veth in a namespace if one is configured.
+        # add_veth 实际就是添加一个 veth pair，具体执行的命令如下：
+        # ip link add tapXXX type veth peer name ns-XXX netns qdhcp-XXXXXX
+        # 
+        # 还有一点要注意的是：
+        # 1. root_veth 指的是宿主机 root namespace Veth Pair 端
+        # 2. ns_veth 指的是 qdhcp-XXXXXX namespace Veth Pair 另一端
+        #
+        # 最终把在两个 namespace 的 tapXXX 和 ns-XXX 用一个 Veth Pair 连接起来
+        root_veth, ns_veth = ip.add_veth(tap_name, device_name,
+                                         namespace2=namespace)
+        root_veth.disable_ipv6()
+        # 设置 ns-XXX 网卡 Mac 地址（tapXXX 就用自动生成的）
+        ns_veth.link.set_address(mac_address)
+
+        # 设置 MTU
+        if mtu:
+            self.set_mtu(device_name, mtu, namespace=namespace, prefix=prefix)
+        else:
+            LOG.warning(_LW("No MTU configured for port %s"), port_id)
+
+        # 拉起这两张网卡：ip link set ns-XXX/tapXXX up
+        root_veth.link.set_up()
+        ns_veth.link.set_up()
+````
+end note
+
+bridge_interface_driver-->bridge_interface_driver: return
+deactivate bridge_interface_driver
+
+bridge_interface_driver-->device_manager: return
+deactivate bridge_interface_driver
+
+device_manager-->device_manager: return
+deactivate device_manager
+
+device_manager->device_manager: call self.fill_dhcp_udp_checksums()
+activate device_manager
+note over device_manager
+添加 IPTables 规则，以
+确保 Dnsmasq 回复给虚拟机的 DHCP 包（UDP:68）的 CHECKSUM 正确：
+````
+* neutron/agent/linux/dhcp.py
+class DeviceManager(object):
+    def fill_dhcp_udp_checksums(self, namespace):
+        """Ensure DHCP reply packets always have correct UDP checksums."""
+        iptables_mgr = iptables_manager.IptablesManager(use_ipv6=False,
+                                                        namespace=namespace)
+        ipv4_rule = ('-p udp -m udp -\-dport %d -j CHECKSUM --checksum-fill'
+                     % constants.DHCP_RESPONSE_PORT)	# PORT 为 68
+        iptables_mgr.ipv4['mangle'].add_rule('POSTROUTING', ipv4_rule)
+        iptables_mgr.apply()
+````
+end note
+device_manager-->device_manager: return
+deactivate device_manager
+
+note over device_manager
+接下来做的一些就比较琐碎了，主要做的事情是：
+1. 如何设置了 DHCP 提供 **Metadata** 服务(conf.force_metadata & 
+   conf.enable_isolated_metadata)，进行 Metadata 相关设置。
+   跟 Metadata 相关的我们以后再详细分析。
+2. **给网卡 ns-XXX 设置 IP（如 172.16.100.2/24）**
+3. **在 namespace qdhcp-XXXXX 添加默认路由**
+   **（如 default via 172.16.100.1 dev ns-XXX）**
+end note
+
+device_manager-->dnsmasq: return interface_name (**ns-11位port.id**)
+deactivate device_manager
+
+note over dnsmasq #EB9898
+初始化完 DHCP 相关设备完后，我们就来到**Dnsmasq::enable 函数**
+的第 2 步。也就初始化 Dnsmasq 所需各种文件（如 dhcp 目录下的 
+leases、host 等文件），并启动 Dnsmasq 进程。
+
+这部分代码相对简单一点，我们就不过多分析了，直接看代码就可以了：
+````
+* neutron/agent/linux/dhcp.py
+class Dnsmasq(DhcpLocalProcess):
+    def spawn_process(self):
+        """Spawn the process, if it's not spawned already."""
+        # we only need to generate the lease file the first time dnsmasq starts
+        # rather than on every reload since dnsmasq will keep the file current
+        # 生成 leases 文件
+        self._output_init_lease_file()
+        # 1. 生成 host、addn_hosts、opts 配置文件
+        # 2. 启动 Dnsmasq 进程：ps -elf | grep dnsmasq 可以看到
+        self._spawn_or_reload_process(reload_with_HUP=False)
+````
+end note
+
+@enduml

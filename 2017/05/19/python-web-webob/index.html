@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Webob | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="在上一篇文章 WSGI 中我们提到的例子都是自己处理请求和响应、提供应用程序入口给服务端调用等。这样对我们学习 WSGI 本身是很好的，但如果我们每次在写应用逻辑的时候还要处理这些东西，就显得没有必要了，而且我们的处理方式不一定正确。这时 Webob 这类包的出现就很有意义了——让我们专注应用逻辑。 Webob 也是 OpenStack 里边用的比较多的包。本文主要介绍其 Request、Resp">
+<meta name="keywords" content="Python,WSGI,Webob">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Webob">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/05/19/python-web-webob/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="在上一篇文章 WSGI 中我们提到的例子都是自己处理请求和响应、提供应用程序入口给服务端调用等。这样对我们学习 WSGI 本身是很好的，但如果我们每次在写应用逻辑的时候还要处理这些东西，就显得没有必要了，而且我们的处理方式不一定正确。这时 Webob 这类包的出现就很有意义了——让我们专注应用逻辑。 Webob 也是 OpenStack 里边用的比较多的包。本文主要介绍其 Request、Resp">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-01T05:13:17.415Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Webob">
+<meta name="twitter:description" content="在上一篇文章 WSGI 中我们提到的例子都是自己处理请求和响应、提供应用程序入口给服务端调用等。这样对我们学习 WSGI 本身是很好的，但如果我们每次在写应用逻辑的时候还要处理这些东西，就显得没有必要了，而且我们的处理方式不一定正确。这时 Webob 这类包的出现就很有意义了——让我们专注应用逻辑。 Webob 也是 OpenStack 里边用的比较多的包。本文主要介绍其 Request、Resp">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-python-web-webob" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/05/19/python-web-webob/" class="article-date">
+  	<time datetime="2017-05-19T13:18:38.000Z" itemprop="datePublished">2017-05-19</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Webob
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Python/">Python</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/WSGI/">WSGI</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Webob/">Webob</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/编程语言/">编程语言</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>在上一篇文章 <a href="http://xiehongfeng100.github.io/2017/05/09/python-web-wsgi/">WSGI</a> 中我们提到的例子都是自己处理请求和响应、提供应用程序入口给服务端调用等。这样对我们学习 WSGI 本身是很好的，但如果我们每次在写应用逻辑的时候还要处理这些东西，就显得没有必要了，而且我们的处理方式不一定正确。这时 Webob 这类包的出现就很有意义了——让我们专注应用逻辑。</p>
+<p>Webob 也是 OpenStack 里边用的比较多的包。本文主要介绍其 Request、Response、异常（webob.exc）及 WSGIfy  装饰器（webob.dec.wsgify）。</p>
+<h1 id="基本对象"><a href="#基本对象" class="headerlink" title="基本对象"></a><strong>基本对象</strong></h1><h2 id="Request"><a href="#Request" class="headerlink" title="Request"></a><strong>Request</strong></h2><h3 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a><strong>基本概念</strong></h3><p><a href="http://docs.webob.org/en/stable/#request" target="_blank" rel="noopener">官方</a>对 Request 有一个简要的定义：</p>
+<blockquote>
+<p>The request object is a wrapper around the WSGI environ dictionary.</p>
+</blockquote>
+<p>也即，Request 是对 WSGI 中环境变量 environ 的一个封装。我们可以通过 req.environ 查看这些环境变量：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> webob <span class="keyword">import</span> Request</span><br><span class="line"><span class="keyword">from</span> pprint <span class="keyword">import</span> pprint</span><br><span class="line"></span><br><span class="line">req = Request.blank(<span class="string">'/'</span>)</span><br><span class="line">pprint(req.environ)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Results</span></span><br><span class="line"><span class="comment"># &#123;'HTTP_HOST': 'localhost:80',</span></span><br><span class="line"><span class="comment">#  'PATH_INFO': '/',</span></span><br><span class="line"><span class="comment">#  'QUERY_STRING': '',</span></span><br><span class="line"><span class="comment">#  'REQUEST_METHOD': 'GET',</span></span><br><span class="line"><span class="comment">#  'SCRIPT_NAME': '',</span></span><br><span class="line"><span class="comment">#  'SERVER_NAME': 'localhost',</span></span><br><span class="line"><span class="comment">#  'SERVER_PORT': '80',</span></span><br><span class="line"><span class="comment">#  'SERVER_PROTOCOL': 'HTTP/1.0',</span></span><br><span class="line"><span class="comment">#  'wsgi.errors': &lt;open file '&lt;stderr&gt;', mode 'w' at 0x030CD0D0&gt;,</span></span><br><span class="line"><span class="comment">#  'wsgi.input': &lt;_io.BytesIO object at 0x036A3F30&gt;,</span></span><br><span class="line"><span class="comment">#  'wsgi.multiprocess': False,</span></span><br><span class="line"><span class="comment">#  'wsgi.multithread': False,</span></span><br><span class="line"><span class="comment">#  'wsgi.run_once': False,</span></span><br><span class="line"><span class="comment">#  'wsgi.url_scheme': 'http',</span></span><br><span class="line"><span class="comment">#  'wsgi.version': (1, 0)&#125;</span></span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p>除此之外，它还有几个比较有用的成员变量：</p>
+<ul>
+<li>req.method：如 GET、POST 等。</li>
+<li>req.GET：包含查询字符串（query string）中的所有变量。注意要和 req.method 中的 GET 区分开来。</li>
+<li>req.POST：包含请求主体（body）中的所有变量。这里只有当请求是 POST 并且是表单提交时才有值。</li>
+<li>req.params：包含 req.GET 和 req.POST 的所有内容。</li>
+<li>req.body：请求的主体（string）。这对请求是 POST 但不是表单提交，或当请求是 PUT 时，是比较有用的。也可以通过 req.body_file 获得一个类似文件的对象。</li>
+<li>req.cookies：Cookies。</li>
+<li>req.headers：请求头部，注意这里大小写敏感。</li>
+<li>req.urlvars 和 req.urlargs：req.urlvars 是请求 url 中的关键字参数，req.urlargs 是位置参数（positional parameters）。它们由 <a href="http://routes.readthedocs.io/en/latest/" target="_blank" rel="noopener">Routes</a> 和 <a href="https://github.com/lukearno/selector" target="_blank" rel="noopener">Selector</a> 这类工具来设定。</li>
+</ul>
+<h3 id="传递给-WSGI-应用"><a href="#传递给-WSGI-应用" class="headerlink" title="传递给 WSGI 应用"></a><strong>传递给 WSGI 应用</strong></h3><p>下边的例子摘自官方<a href="http://docs.webob.org/en/stable/reference.html#calling-wsgi-applications" target="_blank" rel="noopener">样例</a>：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>req = Request.blank(<span class="string">'/'</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="function"><span class="keyword">def</span> <span class="title">wsgi_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line"><span class="meta">... </span>    start_response(<span class="string">'200 OK'</span>, [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>)])</span><br><span class="line"><span class="meta">... </span>    <span class="keyword">return</span> [<span class="string">'Hi!'</span>]</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>req.call_application(wsgi_app)</span><br><span class="line">(<span class="string">'200 OK'</span>, [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>)], [<span class="string">'Hi!'</span>])</span><br></pre></td></tr></table></figure></p>
+<h2 id="Response"><a href="#Response" class="headerlink" title="Response"></a><strong>Response</strong></h2><h3 id="基本概念-1"><a href="#基本概念-1" class="headerlink" title="基本概念"></a><strong>基本概念</strong></h3><p>Response 跟 Request 很相似，虽然有一些不同点。Request 是对 environ 的封装；Response 则有 3 个根本的部分（基于 WSGI）：</p>
+<ul>
+<li><code>response.status</code>：对应 WSGI 中 start_response 函数中的 status 参数</li>
+<li><code>response.headerlist</code>：对应 WSGI 中 start_response 函数中的 response_headers 参数</li>
+<li><code>response.app_iter</code>：对应应用程序返回值（body），需为<code>可迭代</code>对象。可通过 response.body、response.unicode_body 或 response.body_file 获取。</li>
+</ul>
+<p>我们看下例子：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> webob <span class="keyword">import</span> Response</span><br><span class="line"></span><br><span class="line">res = Response(<span class="string">'hey there'</span>)</span><br><span class="line"><span class="keyword">print</span> res.status</span><br><span class="line"><span class="keyword">print</span> res.headerlist</span><br><span class="line"><span class="keyword">print</span> res.body</span><br><span class="line"></span><br><span class="line"><span class="comment"># Results</span></span><br><span class="line"><span class="comment"># 200 OK</span></span><br><span class="line"><span class="comment"># [('Content-Type', 'text/html; charset=UTF-8'), ('Content-Length', '9')]</span></span><br><span class="line"><span class="comment"># hey there</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="Response-也是一个-WSGI-应用"><a href="#Response-也是一个-WSGI-应用" class="headerlink" title="Response 也是一个 WSGI 应用"></a><strong>Response 也是一个 WSGI 应用</strong></h3><p>Response 本身也是一个 WSGI 应用，通过<a href="https://github.com/Pylons/webob/blob/master/webob/response.py" target="_blank" rel="noopener">源码</a>就可以看得出来：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Response</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">        Represents a WSGI response</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, environ, start_response)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        WSGI application interface</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> self.conditional_response:</span><br><span class="line">            <span class="keyword">return</span> self.conditional_response_app(environ, start_response)</span><br><span class="line">        headerlist = self._abs_headerlist(environ)</span><br><span class="line">        start_response(self.status, headerlist)</span><br><span class="line">        <span class="keyword">if</span> environ[<span class="string">'REQUEST_METHOD'</span>] == <span class="string">'HEAD'</span>:</span><br><span class="line">            <span class="comment"># Special case here...</span></span><br><span class="line">            <span class="keyword">return</span> EmptyResponse(self._app_iter)</span><br><span class="line">        <span class="keyword">return</span> self._app_iter</span><br></pre></td></tr></table></figure></p>
+<p>所以我们用 Request 来直接调用 Response 对象：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">req = Request.blank(<span class="string">'/'</span>)</span><br><span class="line">status, headers, app_iter = req.call_application(res)</span><br></pre></td></tr></table></figure></p>
+<p>官方提供了一个<a href="http://docs.webob.org/en/stable/reference.html#response-as-a-wsgi-application" target="_blank" rel="noopener">样例</a>如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="function"><span class="keyword">def</span> <span class="title">my_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line"><span class="meta">... </span>    req = Request(environ)</span><br><span class="line"><span class="meta">... </span>    res = Response()</span><br><span class="line"><span class="meta">... </span>    res.content_type = <span class="string">'text/plain'</span></span><br><span class="line"><span class="meta">... </span>    parts = []</span><br><span class="line"><span class="meta">... </span>    <span class="keyword">for</span> name, value <span class="keyword">in</span> sorted(req.environ.items()):</span><br><span class="line"><span class="meta">... </span>        parts.append(<span class="string">'%s: %r'</span> % (name, value))</span><br><span class="line"><span class="meta">... </span>    res.body = <span class="string">'\n'</span>.join(parts)</span><br><span class="line"><span class="meta">... </span>    <span class="keyword">return</span> res(environ, start_response)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>req = Request.blank(<span class="string">'/'</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>res = req.get_response(my_app)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">print</span> res</span><br><span class="line"><span class="number">200</span> OK</span><br><span class="line">Content-Type: text/plain; charset=UTF<span class="number">-8</span></span><br><span class="line">Content-Length: ...</span><br><span class="line"></span><br><span class="line">HTTP_HOST: <span class="string">'localhost:80'</span></span><br><span class="line">PATH_INFO: <span class="string">'/'</span></span><br><span class="line">QUERY_STRING: <span class="string">''</span></span><br><span class="line">REQUEST_METHOD: <span class="string">'GET'</span></span><br><span class="line">SCRIPT_NAME: <span class="string">''</span></span><br><span class="line">SERVER_NAME: <span class="string">'localhost'</span></span><br><span class="line">SERVER_PORT: <span class="string">'80'</span></span><br><span class="line">SERVER_PROTOCOL: <span class="string">'HTTP/1.0'</span></span><br><span class="line">wsgi.errors: &lt;open file <span class="string">'&lt;stderr&gt;'</span>, mode <span class="string">'w'</span> at ...&gt;</span><br><span class="line">wsgi.input: &lt;...IO... object at ...&gt;</span><br><span class="line">wsgi.multiprocess: <span class="literal">False</span></span><br><span class="line">wsgi.multithread: <span class="literal">False</span></span><br><span class="line">wsgi.run_once: <span class="literal">False</span></span><br><span class="line">wsgi.url_scheme: <span class="string">'http'</span></span><br><span class="line">wsgi.version: (<span class="number">1</span>, <span class="number">0</span>)</span><br></pre></td></tr></table></figure></p>
+<h2 id="异常"><a href="#异常" class="headerlink" title="异常"></a><strong>异常</strong></h2><p>Webob 异常（web.exc.WSGIHTTPException）本身既是一个 WSGI 应用也是一个 Response 对象，<a href="https://github.com/Pylons/webob/blob/master/webob/exc.py" target="_blank" rel="noopener">源码</a>如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">WSGIHTTPException</span><span class="params">(Response, HTTPException)</span>:</span></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, environ, start_response)</span>:</span></span><br><span class="line">        is_head = environ[<span class="string">'REQUEST_METHOD'</span>] == <span class="string">'HEAD'</span></span><br><span class="line">        <span class="keyword">if</span> self.has_body <span class="keyword">or</span> self.empty_body <span class="keyword">or</span> is_head:</span><br><span class="line">            app_iter = Response.__call__(self, environ, start_response)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            app_iter = self.generate_response(environ, start_response)</span><br><span class="line">        <span class="keyword">if</span> is_head:</span><br><span class="line">            app_iter = []</span><br><span class="line">        <span class="keyword">return</span> app_iter</span><br></pre></td></tr></table></figure></p>
+<p>常见的<a href="http://docs.webob.org/en/stable/api/exceptions.html" target="_blank" rel="noopener">异常</a>如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">Exception</span><br><span class="line">	HTTPException</span><br><span class="line">		HTTPOk</span><br><span class="line">			<span class="number">200</span> - HTTPOk</span><br><span class="line">			<span class="number">201</span> - HTTPCreated</span><br><span class="line">			<span class="number">202</span> - HTTPAccepted</span><br><span class="line">			<span class="number">203</span> - HTTPNonAuthoritativeInformation</span><br><span class="line">			<span class="number">204</span> - HTTPNoContent</span><br><span class="line">			<span class="number">205</span> - HTTPResetContent</span><br><span class="line">			<span class="number">206</span> - HTTPPartialContent</span><br><span class="line">		HTTPRedirection</span><br><span class="line">			<span class="number">300</span> - HTTPMultipleChoices</span><br><span class="line">			<span class="number">301</span> - HTTPMovedPermanently</span><br><span class="line">			<span class="number">302</span> - HTTPFound</span><br><span class="line">			<span class="number">303</span> - HTTPSeeOther</span><br><span class="line">			<span class="number">304</span> - HTTPNotModified</span><br><span class="line">			<span class="number">305</span> - HTTPUseProxy</span><br><span class="line">			<span class="number">307</span> - HTTPTemporaryRedirect</span><br><span class="line">			<span class="number">308</span> - HTTPPermanentRedirect</span><br><span class="line">		HTTPError</span><br><span class="line">			HTTPClientError</span><br><span class="line">				<span class="number">400</span> - HTTPBadRequest</span><br><span class="line">				<span class="number">401</span> - HTTPUnauthorized</span><br><span class="line">				<span class="number">402</span> - HTTPPaymentRequired</span><br><span class="line">				<span class="number">403</span> - HTTPForbidden</span><br><span class="line">				<span class="number">404</span> - HTTPNotFound</span><br><span class="line">				<span class="number">405</span> - HTTPMethodNotAllowed</span><br><span class="line">				<span class="number">406</span> - HTTPNotAcceptable</span><br><span class="line">				<span class="number">407</span> - HTTPProxyAuthenticationRequired</span><br><span class="line">				<span class="number">408</span> - HTTPRequestTimeout</span><br><span class="line">				<span class="number">409</span> - HTTPConflict</span><br><span class="line">				<span class="number">410</span> - HTTPGone</span><br><span class="line">				<span class="number">411</span> - HTTPLengthRequired</span><br><span class="line">				<span class="number">412</span> - HTTPPreconditionFailed</span><br><span class="line">				<span class="number">413</span> - HTTPRequestEntityTooLarge</span><br><span class="line">				<span class="number">414</span> - HTTPRequestURITooLong</span><br><span class="line">				<span class="number">415</span> - HTTPUnsupportedMediaType</span><br><span class="line">				<span class="number">416</span> - HTTPRequestRangeNotSatisfiable</span><br><span class="line">				<span class="number">417</span> - HTTPExpectationFailed</span><br><span class="line">				<span class="number">422</span> - HTTPUnprocessableEntity</span><br><span class="line">				<span class="number">423</span> - HTTPLocked</span><br><span class="line">				<span class="number">424</span> - HTTPFailedDependency</span><br><span class="line">				<span class="number">428</span> - HTTPPreconditionRequired</span><br><span class="line">				<span class="number">429</span> - HTTPTooManyRequests</span><br><span class="line">				<span class="number">431</span> - HTTPRequestHeaderFieldsTooLarge</span><br><span class="line">				<span class="number">451</span> - HTTPUnavailableForLegalReasons</span><br><span class="line">			HTTPServerError</span><br><span class="line">				<span class="number">500</span> - HTTPInternalServerError</span><br><span class="line">				<span class="number">501</span> - HTTPNotImplemented</span><br><span class="line">				<span class="number">502</span> - HTTPBadGateway</span><br><span class="line">				<span class="number">503</span> - HTTPServiceUnavailable</span><br><span class="line">				<span class="number">504</span> - HTTPGatewayTimeout</span><br><span class="line">				<span class="number">505</span> - HTTPVersionNotSupported</span><br><span class="line">				<span class="number">511</span> - HTTPNetworkAuthenticationRequired</span><br></pre></td></tr></table></figure></p>
+<h1 id="WSGIfy-装饰器"><a href="#WSGIfy-装饰器" class="headerlink" title="WSGIfy 装饰器"></a><strong>WSGIfy 装饰器</strong></h1><h2 id="WSGIfy"><a href="#WSGIfy" class="headerlink" title="WSGIfy"></a><strong>WSGIfy</strong></h2><p>相比较前文中的 Request、Response，个人感觉 wsgify 的作用显得更大，它让我们不用再多考虑 WSGI 接口，而是专注应用逻辑。例如，现在我们写一个 WSGI 应用就很简单了：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> webob</span><br><span class="line"><span class="keyword">from</span> webob.dec <span class="keyword">import</span> wsgify  <span class="comment"># webob 包的 __init__.py 文件没有导入 dec.py 文件，所以需要我们指明导入 dec 文件</span></span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@wsgify</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">myfunc</span><span class="params">(req)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> webob.Response(<span class="string">'hey there'</span>)</span><br><span class="line"></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    myfunc</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>另外，我们还可以对 wsgify 装饰器进行定制，如官网提供的<a href="http://docs.webob.org/en/latest/api/dec.html?highlight=wsgify#webob.dec.wsgify" target="_blank" rel="noopener">样例</a>：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MyRequest</span><span class="params">(webob.Request)</span>:</span></span><br><span class="line"><span class="meta">    @property</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">is_local</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.remote_addr == <span class="string">'127.0.0.1'</span></span><br><span class="line"><span class="meta">@wsgify(RequestClass=MyRequest)</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">myfunc</span><span class="params">(req)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> req.is_local:</span><br><span class="line">        <span class="keyword">return</span> Response(<span class="string">'hi!'</span>)</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">raise</span> webob.exc.HTTPForbidden</span><br></pre></td></tr></table></figure></p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a><strong>实现原理</strong></h2><p>对于装饰器基础，可参考之前博文<a href="http://xiehongfeng100.github.io/2016/12/02/python-basics-decorator/">【译】 Python 基础知识：装饰器（Decorator）</a>。这里我们主要来看一下 wsgify 这个类是如何装饰函数的。直接看代码吧：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># webob/dec.py</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">wsgify</span><span class="params">(object)</span>:</span></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, func=None, RequestClass=None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 args=<span class="params">()</span>, kwargs=None, middleware_wraps=None)</span>:</span></span><br><span class="line">        self.func = func</span><br><span class="line">        <span class="keyword">if</span> (RequestClass <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span></span><br><span class="line">            <span class="keyword">and</span> RequestClass <span class="keyword">is</span> <span class="keyword">not</span> self.RequestClass):</span><br><span class="line">            self.RequestClass = RequestClass</span><br><span class="line">        self.args = tuple(args)</span><br><span class="line">        <span class="keyword">if</span> kwargs <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            kwargs = &#123;&#125;</span><br><span class="line">        self.kwargs = kwargs</span><br><span class="line">        self.middleware_wraps = middleware_wraps</span><br><span class="line"></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, req, *args, **kw)</span>:</span></span><br><span class="line">        <span class="string">"""Call this as a WSGI application or with a request"""</span></span><br><span class="line">        func = self.func</span><br><span class="line">        <span class="keyword">if</span> func <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">if</span> args <span class="keyword">or</span> kw:</span><br><span class="line">                <span class="keyword">raise</span> TypeError(</span><br><span class="line">                    <span class="string">"Unbound %s can only be called with the function it "</span></span><br><span class="line">                    <span class="string">"will wrap"</span> % self.__class__.__name__)</span><br><span class="line">            func = req</span><br><span class="line">            <span class="keyword">return</span> self.clone(func)</span><br><span class="line">        <span class="keyword">if</span> isinstance(req, dict):</span><br><span class="line">            <span class="keyword">if</span> len(args) != <span class="number">1</span> <span class="keyword">or</span> kw:</span><br><span class="line">                <span class="keyword">raise</span> TypeError(</span><br><span class="line">                    <span class="string">"Calling %r as a WSGI app with the wrong signature"</span> %</span><br><span class="line">                    self.func)</span><br><span class="line">            environ = req</span><br><span class="line">            start_response = args[<span class="number">0</span>]</span><br><span class="line">            req = self.RequestClass(environ)</span><br><span class="line">            req.response = req.ResponseClass()</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                args = self.args</span><br><span class="line">                <span class="keyword">if</span> self.middleware_wraps:</span><br><span class="line">                    args = (self.middleware_wraps,) + args</span><br><span class="line">                resp = self.call_func(req, *args, **self.kwargs)</span><br><span class="line">            <span class="keyword">except</span> HTTPException <span class="keyword">as</span> exc:</span><br><span class="line">                resp = exc</span><br><span class="line">            <span class="keyword">if</span> resp <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">                <span class="comment">## <span class="doctag">FIXME:</span> I'm not sure what this should be?</span></span><br><span class="line">                resp = req.response</span><br><span class="line">            <span class="keyword">if</span> isinstance(resp, text_type):</span><br><span class="line">                resp = bytes_(resp, req.charset)</span><br><span class="line">            <span class="keyword">if</span> isinstance(resp, bytes):</span><br><span class="line">                body = resp</span><br><span class="line">                resp = req.response</span><br><span class="line">                resp.write(body)</span><br><span class="line">            <span class="keyword">if</span> resp <span class="keyword">is</span> <span class="keyword">not</span> req.response:</span><br><span class="line">                resp = req.response.merge_cookies(resp)</span><br><span class="line">            <span class="keyword">return</span> resp(environ, start_response)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">if</span> self.middleware_wraps:</span><br><span class="line">                args = (self.middleware_wraps,) + args</span><br><span class="line">            <span class="keyword">return</span> self.func(req, *args, **kw)</span><br><span class="line"></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">call_func</span><span class="params">(self, req, *args, **kwargs)</span>:</span></span><br><span class="line">        <span class="string">"""Call the wrapped function; override this in a subclass to</span></span><br><span class="line"><span class="string">        change how the function is called."""</span></span><br><span class="line">        <span class="keyword">return</span> self.func(req, *args, **kwargs)</span><br></pre></td></tr></table></figure></p>
+<p>上边的 self.__call__ 函数是核心，除了表明该类 wsgify 可调用，还包装调用了真正的应用（第 35~43 行）。上边代码中的 resp 变量本身是一个 Response 对象，同时也是一个应用，所以最后传入 environ 和 start_response 向服务器返回结果。</p>
+<h2 id="wsgify-middleware"><a href="#wsgify-middleware" class="headerlink" title="wsgify.middleware"></a><strong>wsgify.middleware</strong></h2><p>wsgify 除了作为一个装饰器，它还提供了中间件装饰器。如官方提供的一个<a href="http://docs.webob.org/en/latest/api/dec.html?highlight=wsgify#webob.dec.wsgify" target="_blank" rel="noopener">样例</a>（简单改造过）：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> webob</span><br><span class="line"><span class="keyword">import</span> webob.exc</span><br><span class="line"><span class="keyword">from</span> webob.dec <span class="keyword">import</span> wsgify</span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@wsgify.middleware</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">restrict_ip</span><span class="params">(req, app, ips)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> req.remote_addr <span class="keyword">not</span> <span class="keyword">in</span> ips:</span><br><span class="line">        <span class="keyword">raise</span> webob.exc.HTTPForbidden(<span class="string">'Bad IP: %s'</span> % req.remote_addr)</span><br><span class="line">    <span class="keyword">return</span> app</span><br><span class="line"></span><br><span class="line"><span class="meta">@wsgify</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">app</span><span class="params">(req)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">'hi'</span></span><br><span class="line"></span><br><span class="line">wrapped = restrict_ip(app, ips=[<span class="string">'127.0.0.1'</span>])</span><br><span class="line"></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    wrapped</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>对于实现原理，理解起来有点绕。我们先来看一下 middleware 这个函数：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># webob/dec.py</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">wsgify</span><span class="params">(object)</span>:</span></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">middleware</span><span class="params">(cls, middle_func=None, app=None, **kw)</span>:</span></span><br><span class="line">        <span class="string">"""Creates middleware</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        Use this like::</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            @wsgify.middleware</span></span><br><span class="line"><span class="string">            def restrict_ip(req, app, ips):</span></span><br><span class="line"><span class="string">                if req.remote_addr not in ips:</span></span><br><span class="line"><span class="string">                    raise webob.exc.HTTPForbidden('Bad IP: %s' % req.remote_addr)</span></span><br><span class="line"><span class="string">                return app</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            @wsgify</span></span><br><span class="line"><span class="string">            def app(req):</span></span><br><span class="line"><span class="string">                return 'hi'</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            wrapped = restrict_ip(app, ips=['127.0.0.1'])</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        Or as a decorator::</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            @restrict_ip(ips=['127.0.0.1'])</span></span><br><span class="line"><span class="string">            @wsgify</span></span><br><span class="line"><span class="string">            def wrapped_app(req):</span></span><br><span class="line"><span class="string">                return 'hi'</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        Or if you want to write output-rewriting middleware::</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            @wsgify.middleware</span></span><br><span class="line"><span class="string">            def all_caps(req, app):</span></span><br><span class="line"><span class="string">                resp = req.get_response(app)</span></span><br><span class="line"><span class="string">                resp.body = resp.body.upper()</span></span><br><span class="line"><span class="string">                return resp</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">            wrapped = all_caps(app)</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        Note that you must call ``req.get_response(app)`` to get a WebOb</span></span><br><span class="line"><span class="string">        response object.  If you are not modifying the output, you can just</span></span><br><span class="line"><span class="string">        return the app.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        As you can see, this method doesn't actually create an application, but</span></span><br><span class="line"><span class="string">        creates "middleware" that can be bound to an application, along with</span></span><br><span class="line"><span class="string">        "configuration" (that is, any other keyword arguments you pass when</span></span><br><span class="line"><span class="string">        binding the application).</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> middle_func <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">return</span> _UnboundMiddleware(cls, app, kw)</span><br><span class="line">        <span class="keyword">if</span> app <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">return</span> _MiddlewareFactory(cls, middle_func, kw)</span><br><span class="line">        <span class="keyword">return</span> cls(middle_func, middleware_wraps=app, kwargs=kw)</span><br></pre></td></tr></table></figure></p>
+<p>其中，_MiddlewareFactory 定义如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># webob/dec.py</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">_MiddlewareFactory</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="string">"""A middleware that has not yet been bound to an application or</span></span><br><span class="line"><span class="string">    configured.</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, wrapper_class, middleware, kw)</span>:</span></span><br><span class="line">        self.wrapper_class = wrapper_class</span><br><span class="line">        self.middleware = middleware</span><br><span class="line">        self.kw = kw</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__repr__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> <span class="string">'&lt;%s at %s wrapping %r&gt;'</span> % (self.__class__.__name__, id(self),</span><br><span class="line">                                           self.middleware)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, app=None, **config)</span>:</span></span><br><span class="line">        kw = self.kw.copy()</span><br><span class="line">        kw.update(config)</span><br><span class="line">        <span class="keyword">return</span> self.wrapper_class.middleware(self.middleware, app, **kw)</span><br></pre></td></tr></table></figure></p>
+<p>这里，我们本小结开头的中间件样例为例，来说明 wsgify.middleware 如何工作。</p>
+<ol>
+<li>初始化 restrict_ip 函数：restrict_ip = wsgify.middleware(restrict_ip)，返回一个 _MiddlewareFactory 对象。</li>
+<li>初始化 app 函数：app = wsgify(app)，返回一个<code>应用 wsgify 对象</code>。</li>
+<li>wrapped = restrict_ip(app, ips=[‘127.0.0.1’])：调用 _MiddlewareFactory 对象（__call__），将 app 和 ips 传入该对象 __call__(self, app=None, **config) 函数，因为此时 _MiddlewareFactory 对象中的 self.wrapper_class 就是 wsgify，所以最终重新调用 wsgify.middleware。需要注意的是，此时传入该函数的参数跟之前的不一样，param:middle_func 还是 restrict_ip，但 param:app 和 param:kw 已经不为 None，分别为 app 和 ips。</li>
+<li>最后 wsgify.middleware 返回 cls(middle_func, middleware_wraps=app, kwargs=kw)，也即<code>中间件 wsgify 对象</code>，但需要注意的是此时 middleware_wraps 和 kwargs 已经不为 None。</li>
+<li>当有请求到达的时候，服务端开始调用（详细过程请参考之前博文 <a href="http://xiehongfeng100.github.io/2017/05/15/python-web-wsgiref/">WSGIRef</a>）该<code>中间件 wsgify 对象</code>，进入该对象的 __call__(self, req, *args, **kw) 函数，此时重点的地方在于以下：<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># webob/dec.py</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">wsgify</span><span class="params">(object)</span>:</span></span><br><span class="line">    ......</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, req, *args, **kw)</span>:</span></span><br><span class="line">        <span class="string">"""Call this as a WSGI application or with a request"""</span></span><br><span class="line">        ......</span><br><span class="line">        <span class="keyword">if</span> isinstance(req, dict):</span><br><span class="line">            ......</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                args = self.args</span><br><span class="line">                <span class="keyword">if</span> self.middleware_wraps:</span><br><span class="line">                    args = (self.middleware_wraps,) + args	<span class="comment"># 此时 args = (app,)，self.kwargs = ips</span></span><br><span class="line">                resp = self.call_func(req, *args, **self.kwargs)</span><br><span class="line"></span><br><span class="line">                            |</span><br><span class="line">                            |</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">call_func</span><span class="params">(self, req, *args, **kwargs)</span>:</span></span><br><span class="line">        <span class="string">"""Call the wrapped function; override this in a subclass to</span></span><br><span class="line"><span class="string">        change how the function is called."""</span></span><br><span class="line">        <span class="keyword">return</span> self.func(req, *args, **kwargs)</span><br><span class="line"></span><br><span class="line">                    |</span><br><span class="line">                    |</span><br><span class="line"></span><br><span class="line"><span class="comment"># 中间件函数（不是应用，单纯地执行函数）</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">restrict_ip</span><span class="params">(req, app, ips)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> req.remote_addr <span class="keyword">not</span> <span class="keyword">in</span> ips:</span><br><span class="line">        <span class="keyword">raise</span> webob.exc.HTTPForbidden(<span class="string">'Bad IP: %s'</span> % req.remote_addr)</span><br><span class="line">    <span class="keyword">return</span> app</span><br><span class="line"></span><br><span class="line">            |</span><br><span class="line">            |</span><br><span class="line"></span><br><span class="line"><span class="comment"># app 应用（wsgify 对象，注意跟中间件 wsgify 对象区分开来）</span></span><br><span class="line"><span class="meta">@wsgify</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">app</span><span class="params">(req)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">'hi'</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 接下来的执行就比较简单了，调用 wsgify 对象的 __call__ 函数，最终返回 app 处理结果。注意，此时的 wsgify 对象的 self.middleware_wraps 为 None，因为 app 已经是最后一个应用。</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/05/20/python-web-paste-deploy/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          PasteDeploy
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/05/15/python-web-wsgiref/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">WSGIRef</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#基本对象"><span class="toc-number">1.</span> <span class="toc-text">基本对象</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Request"><span class="toc-number">1.1.</span> <span class="toc-text">Request</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#基本概念"><span class="toc-number">1.1.1.</span> <span class="toc-text">基本概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#传递给-WSGI-应用"><span class="toc-number">1.1.2.</span> <span class="toc-text">传递给 WSGI 应用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Response"><span class="toc-number">1.2.</span> <span class="toc-text">Response</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#基本概念-1"><span class="toc-number">1.2.1.</span> <span class="toc-text">基本概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Response-也是一个-WSGI-应用"><span class="toc-number">1.2.2.</span> <span class="toc-text">Response 也是一个 WSGI 应用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#异常"><span class="toc-number">1.3.</span> <span class="toc-text">异常</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#WSGIfy-装饰器"><span class="toc-number">2.</span> <span class="toc-text">WSGIfy 装饰器</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#WSGIfy"><span class="toc-number">2.1.</span> <span class="toc-text">WSGIfy</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#实现原理"><span class="toc-number">2.2.</span> <span class="toc-text">实现原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#wsgify-middleware"><span class="toc-number">2.3.</span> <span class="toc-text">wsgify.middleware</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

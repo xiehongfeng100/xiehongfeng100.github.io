@@ -1,0 +1,145 @@
+@startuml
+
+participant plug_interface as "plug_interface"
+participant add_tap_interface as "add_tap_interface"
+participant _add_tap_interface as "_add_tap_interface"
+participant get_bridge_name as "get_bridge_name"
+participant ensure_physical_in_bridge as "ensure_physical_in_bridge"
+participant ensure_vlan_bridge as "ensure_vlan_bridge"
+participant ensure_vlan as "ensure_vlan"
+participant ensure_bridge as "ensure_bridge"
+
+activate plug_interface
+plug_interface->add_tap_interface
+
+activate add_tap_interface
+add_tap_interface->_add_tap_interface
+
+activate _add_tap_interface
+note over _add_tap_interface
+**_add_tap_interface 函数**定义如下：
+````
+* neutron/plugins/ml2/drivers/linuxbridge/agent/linuxbridge_neutron_agent.py
+class LinuxBridgeManager(amb.CommonAgentManagerBase):
+    def _add_tap_interface(self, network_id, network_type, physical_network,
+                          segmentation_id, tap_device_name, device_owner, mtu):
+        ...
+        # **1. 生成 Bridge name：brd+11位network_id**
+        bridge_name = self.get_existing_bridge_name(physical_network)
+        if not bridge_name:
+            bridge_name = self.get_bridge_name(network_id)
+
+        if ...
+        # **2. 新建 Vlan interface & Bridge，并添加 Vlan interface 到 bridge**
+        elif not self.ensure_physical_in_bridge(network_id,
+                                                network_type,
+                                                physical_network,
+                                                segmentation_id):
+            return False
+        ...
+        if not device_owner.startswith(constants.DEVICE_OWNER_COMPUTE_PREFIX):
+            # 判断是否存在 /sys/class/net/tapXXX/brport/bridge 软连接，来确定
+            # 该 interface 是否已经挂接到了 Bridge 上
+            if not bridge_lib.BridgeDevice.get_interface_bridge(
+                tap_device_name):
+                ...
+                # **3. 挂载 tapXXX 到 Bridge**
+                if bridge_lib.BridgeDevice(bridge_name).addif(tap_device_name):
+                    return False
+````
+end note
+
+_add_tap_interface->get_bridge_name
+activate get_bridge_name
+note over get_bridge_name
+**生成 Bridge name：brd+11位network_id**
+end note
+get_bridge_name-->_add_tap_interface: return bridge name
+deactivate get_bridge_name
+
+_add_tap_interface->ensure_physical_in_bridge
+
+activate ensure_physical_in_bridge
+note over ensure_physical_in_bridge
+**ensure_physical_in_bridge 函数**的定义：
+````
+* neutron/plugins/ml2/drivers/linuxbridge/agent/linuxbridge_neutron_agent.py
+class LinuxBridgeManager(amb.CommonAgentManagerBase):
+    def ensure_physical_in_bridge(self, network_id,
+                                  network_type,
+                                  physical_network,
+                                  segmentation_id):
+        ...
+
+        # NOTE(nick-ma-z): Obtain mappings of physical bridge and interfaces
+        # /etc/neutron/plugins/ml2/ml2_conf.ini 中配置的内容为
+        #   [linux_bridge]
+        #   physical_interface_mappings = default:eth1
+        #   bridge_mappings = public:br-ex
+        physical_bridge = self.get_existing_bridge_name(physical_network) # None
+        physical_interface = self.interface_mappings.get(physical_network) # eth1
+        ...
+        if ...
+        elif network_type == p_const.TYPE_VLAN:
+            return self.ensure_vlan_bridge(network_id, physical_bridge,
+                                           physical_interface,
+                                           segmentation_id)
+        ...
+````
+end note
+
+ensure_physical_in_bridge->ensure_vlan_bridge
+activate ensure_vlan_bridge
+
+ensure_vlan_bridge->ensure_vlan
+activate ensure_vlan
+note over ensure_vlan
+**ensure_vlan 函数**其实就是在宿主机执行如下命令：
+1. **添加 vlan interface**：
+   ip link add link eth1 name eth1.100 type vlan id 100
+2. 激活该 vlan interface：
+   ip link set eth1.100 up
+end note
+ensure_vlan-->ensure_vlan_bridge: return vlan interface
+deactivate ensure_vlan
+
+ensure_vlan_bridge->ensure_bridge
+activate ensure_bridge
+note over ensure_bridge
+**ensure_bridge 函数**主要做了 4 件事：
+1. **添加 bridge (brctl addbr bridge_name)**
+2. 激活 bridge (ip link set bridge_name up)
+3. !!! 调用 update_interface_ip_details 函数**：
+   将原有 vlan interface eth1.100 上的
+   “ip、(经过它的 default)路由” 删除
+   并迁移到 bridge 上。
+4. **添加 vlan interface eth1.100 到该 bridge**
+  （brctl addif bridge_name eth1.100）
+end note
+ensure_bridge-->ensure_vlan_bridge
+deactivate ensure_bridge
+
+ensure_vlan_bridge-->ensure_physical_in_bridge: return the vlan interface
+deactivate ensure_vlan_bridge
+
+ensure_physical_in_bridge-->_add_tap_interface
+deactivate ensure_physical_in_bridge
+
+note over _add_tap_interface
+**添加 interface tapXXX 到 bridge**：
+brctl addif bridge_name tapXXX
+end note
+
+note over _add_tap_interface
+至此，就：
+**完成了 vlan interface/bridge/tapXXX 的关系绑定！**
+end note
+
+_add_tap_interface-->add_tap_interface
+deactivate _add_tap_interface
+
+add_tap_interface-->plug_interface
+deactivate add_tap_interface
+
+
+@enduml

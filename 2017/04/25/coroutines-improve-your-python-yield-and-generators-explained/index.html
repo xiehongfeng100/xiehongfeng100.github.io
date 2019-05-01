@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>【译】祥析 Yield 关键字和生成器 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="原文：Improve Your Python: ‘yield’ and Generators Explained译注：该文对 Python 关键字 yield 和生成器写的好好！文笔也很好！特译之。部分地方有意译。 在开始辅导学生之前，我请新学生填写对 Python 中各种各样的概念的理解的简短自测表。对一些主题（如 if/else 控制流或定义和使用函数），大部分学生甚至在开始辅导之前就已经理解">
+<meta name="keywords" content="Python,yield,生成器,迭代器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【译】祥析 Yield 关键字和生成器">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/04/25/coroutines-improve-your-python-yield-and-generators-explained/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="原文：Improve Your Python: ‘yield’ and Generators Explained译注：该文对 Python 关键字 yield 和生成器写的好好！文笔也很好！特译之。部分地方有意译。 在开始辅导学生之前，我请新学生填写对 Python 中各种各样的概念的理解的简短自测表。对一些主题（如 if/else 控制流或定义和使用函数），大部分学生甚至在开始辅导之前就已经理解">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-01T05:49:25.132Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="【译】祥析 Yield 关键字和生成器">
+<meta name="twitter:description" content="原文：Improve Your Python: ‘yield’ and Generators Explained译注：该文对 Python 关键字 yield 和生成器写的好好！文笔也很好！特译之。部分地方有意译。 在开始辅导学生之前，我请新学生填写对 Python 中各种各样的概念的理解的简短自测表。对一些主题（如 if/else 控制流或定义和使用函数），大部分学生甚至在开始辅导之前就已经理解">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-coroutines-improve-your-python-yield-and-generators-explained" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/04/25/coroutines-improve-your-python-yield-and-generators-explained/" class="article-date">
+  	<time datetime="2017-04-24T22:04:00.000Z" itemprop="datePublished">2017-04-25</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      【译】祥析 Yield 关键字和生成器
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Python/">Python</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/yield/">yield</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/生成器/">生成器</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/迭代器/">迭代器</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/并发/">并发</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><strong>原文：</strong><a href="https://jeffknupp.com/blog/2013/04/07/improve-your-python-yield-and-generators-explained/" target="_blank" rel="noopener">Improve Your Python: ‘yield’ and Generators Explained</a><br><strong>译注：</strong>该文对 Python 关键字 yield 和生成器写的好好！文笔也很好！特译之。部分地方有意译。</p>
+<p>在开始辅导学生之前，我请新学生填写对 Python 中各种各样的概念的理解的简短自测表。对一些主题（如 if/else 控制流或定义和使用函数），大部分学生甚至在开始辅导之前就已经理解。然而，还是有几乎所有学生都不知道或者知道的特别少的主题。在这些主题中，<code>生成器（generators）</code>和 <code>yield</code> 关键字是其中最难的一点。我猜测，大部分 Python 编程新手也会存在这个问题。</p>
+<p>有很多文章（report）的作者在理解生成器和关键字 yield 的时候有困难，即使他们已经很努力地学习这个主题。我想要改变这个现状。在这篇文章中，我将会解释 yield 关键字是什么，为什么它很有用和如何使用它。</p>
+<h1 id="什么是生成器（书本定义）"><a href="#什么是生成器（书本定义）" class="headerlink" title="什么是生成器（书本定义）"></a><strong>什么是生成器（书本定义）</strong></h1><p><code>Python 生成器是指通过调用 yield 来返回一个生成器迭代器（可以迭代的对象）的函数。</code>yield 可能会连同值来一起调用（译注：如 yield <em>value</em>），而这个值会被当成一个“生成（generated）”的值。<code>当下一次生成器的 next() 函数被调用时（例如，for 循环的下一轮），生成器从上次调用 yield 的地方而不是函数的开头恢复（resumes）执行。所有的状态，例如局部变量的值，会被恢复，而生成器会继续执行，直到对 yield 的下一次调用。</code></p>
+<p>如果你不能理解这些，不用担心。我会用其他方式来解释书本上的定义。</p>
+<p><em>注：最近几年，作为通过 PEPs 添加的功能，生成器变得越加强大。在我的下一篇文章，我会探索 yield 在协程（coroutines）、协同多任务（cooperative multitasking）和异步 I/O （asynchronous I/O）（特别是它们在 tulip 原型的实现 GvR 上的应用）。在此之前，我们需要对 yield 和生成器是如何工作的有一个深入的理解。</em></p>
+<a id="more"></a>
+<h1 id="协程（Coroutines）和子例程（Subroutines）"><a href="#协程（Coroutines）和子例程（Subroutines）" class="headerlink" title="协程（Coroutines）和子例程（Subroutines）"></a><strong>协程（Coroutines）和子例程（Subroutines）</strong></h1><p><strong>译注</strong>：关于协程和子协程详细概念，请参考上一博文 <a href="http://xiehongfeng100.github.io/2017/04/24/python-coroutines/">Python 协程</a>。</p>
+<p>当我们调用一个普通函数时，会从该函数的第一行开始执行，直到遇到 <code>return</code> 语句、异常或函数末尾（相当于隐含的 <code>return None</code>）。一旦该函数返回控制权给它的调用者，整个调用流程就结束了。所有该函数做的工作（译注：注意这里强调的是“该函数”所做的）和其局部变量都会丢失。对该函数新的调用会从头创建所有东西。</p>
+<p>在计算机编程中，当我们讨论函数（更普遍地称为子程序）时，以上所说的是一个非常标准的流程。然而，有时候，拥有创建一个能够生成（yield）一系列的值（a series of values）而不单单是返回单个值的函数的能力是非常有用的。为了达到这点，这个函数需要能够“保存它的工作”。</p>
+<p>我说到“生成（yield）一系列的值”，是因为这个假定的函数并不像常规函数一样“返回（return）”。return 意味着返回执行控制权给调用该函数的调用者。然而，<code>“yield” 则隐含控制权的转移是暂时和自发的，而且我们的函数期望在未来重新获得控制权。</code></p>
+<p>在 Python，拥有该能力的函数称为生成器，而且它们非常有用。生成器（和 yield 语句）一开始就是用于提供一种编写生成序列的代码的更加简要的方法。以前的时候，编写如随机数生成器这样的代码需要一个类或模块同时能够生成数据和保持调用之间的状态。引进生成器后，这就变得非常简单了。</p>
+<p>为了更好理解生成器所要解决的问题，让我们一起来看看一个例子。贯穿这个例子，请牢牢记住所要解决的核心问题：<code>生成（generate）一系列的值</code>。</p>
+<p><em>注：Python 之外，除了（all but）最简单的生成器，生成器可以称为协程（coroutines）。在本文后边，我会使用这个术语。需要记住的重要事情是，本文所提到的协程都是生成器。Pyhon 对生成器有正式定义，而对协程，只用于讨论中而没有正式的定义。</em></p>
+<h2 id="例子：素数"><a href="#例子：素数" class="headerlink" title="例子：素数"></a><strong>例子：素数</strong></h2><p>假设我们的老板让我们写一个函数，该函数的输入是一个整数列表，输出是一些包含了素数的可迭代对象。</p>
+<p>记住，<code>一个可迭代对象只是一个能够一次返回一个值的对象。</code></p>
+<p>“这很简单”，我们会说，然后写出如下代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(input_list)</span>:</span></span><br><span class="line">    result_list = list()</span><br><span class="line">    <span class="keyword">for</span> element <span class="keyword">in</span> input_list:</span><br><span class="line">        <span class="keyword">if</span> is_prime(element):</span><br><span class="line">            result_list.append()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> result_list</span><br><span class="line"></span><br><span class="line"><span class="comment"># or better yet...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(input_list)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> (element <span class="keyword">for</span> element <span class="keyword">in</span> input_list <span class="keyword">if</span> is_prime(element))</span><br><span class="line"></span><br><span class="line"><span class="comment"># not germane to the example, but here's a possible implementation of</span></span><br><span class="line"><span class="comment"># is_prime...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">is_prime</span><span class="params">(number)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> number &gt; <span class="number">1</span>:</span><br><span class="line">        <span class="keyword">if</span> number == <span class="number">2</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line">        <span class="keyword">if</span> number % <span class="number">2</span> == <span class="number">0</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line">        <span class="keyword">for</span> current <span class="keyword">in</span> range(<span class="number">3</span>, int(math.sqrt(number) + <span class="number">1</span>), <span class="number">2</span>):</span><br><span class="line">            <span class="keyword">if</span> number % current == <span class="number">0</span>: </span><br><span class="line">                <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">False</span></span><br></pre></td></tr></table></figure>
+<p>这个 get_primes 满足要求，所以我们告诉老板已经做的工作。她告诉我们这个函数工作的很好，正是她所需要的。</p>
+<h2 id="处理无穷序列"><a href="#处理无穷序列" class="headerlink" title="处理无穷序列"></a><strong>处理无穷序列</strong></h2><p>好吧，几天之后，我们的老板告诉我们她遇到了一个小问题：她想让 get_primes 函数能够接受非常大的列表输入。实际上，这个列表大到如果我们简单用他们创建素数会消耗掉系统的所有内存。为了解决这个问题，她想要 get_primes 函数能够接受一个起始值（start），然后返回所有大于该值的所有素数（可能她正在解决问题 <a href="https://projecteuler.net/problem=10" target="_blank" rel="noopener">Project Euler problem 10</a>）</p>
+<p>一旦我们考虑这个新的需求，我们就会很清楚不能只对 get_primes 函数作简单改进。很明显，我们不能返回从 start 到无穷大的所有素数列表（虽然生成无穷序列有很广泛的应用）。利用常规方法解决该问题貌似不可行。</p>
+<p>在我们放弃之前，让我们确定阻止我们写出满足老板需求的代码的阻碍。想一想，就会得到如下结论：<strong>函数只有一次机会可以返回结果，因此必须一次性返回所有结果。</strong>我们想，说“函数就是这样子工作的”貌似没有什么意义。真正的价值在于提问：如果它们不这样子工作呢？</p>
+<p>想象一下，如果 get_primes 函数只是简单返回下一个值而不是所有值一起，那就不需要去创建一个列表了。没有列表，就没有内存问题。因为老板告诉我们她只需要迭代地获取结果，她不会知道不同实现之间的区别的。</p>
+<p>不幸的是，这看起来貌似不可行。即使我们有一个魔法函数，允许我们从 n 迭代到无穷大，但我们在其返回第一个值后就会被困住：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(start)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> element <span class="keyword">in</span> magical_infinite_range(start):</span><br><span class="line">        <span class="keyword">if</span> is_prime(element):</span><br><span class="line">            <span class="keyword">return</span> element</span><br></pre></td></tr></table></figure>
+<p>想象一下，我们这样子调用 get_primes 函数：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">solve_number_10</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="comment"># She *is* working on Project Euler #10, I knew it!</span></span><br><span class="line">    total = <span class="number">2</span></span><br><span class="line">    <span class="keyword">for</span> next_prime <span class="keyword">in</span> get_primes(<span class="number">3</span>):</span><br><span class="line">        <span class="keyword">if</span> next_prime &lt; <span class="number">2000000</span>:</span><br><span class="line">            total += next_prime</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            print(total)</span><br><span class="line">            <span class="keyword">return</span></span><br></pre></td></tr></table></figure>
+<p>很明显，在 get_primes 函数中，我们立即就会执行到 number = 3 的地方，从第 4 行返回（return），我们需要找到<code>一个生成值的方法，且当我们要获得下一个值的时候，直接从上次调用时离开的地方开始执行</code>。</p>
+<p>然而函数并不能做到这一点。当它们返回的时候，就已经完成了它们的任务。即使我们可以保证该函数会被再一次调用，我们也做不到让函数从上次调用离开的第 4 行而不是第 1 行开始。<em>函数只有单一的入口：第一行代码。</em></p>
+<h1 id="深入生成器"><a href="#深入生成器" class="headerlink" title="深入生成器"></a><strong>深入生成器</strong></h1><p>这一类问题如此常见以至于一个新的概念被添加到 Python 中以解决该问题：生成器。生成器<code>生成</code>数据。通过同时引入的生成器函数（generator functions）概念，生成器创建过程被设计的尽量简单。</p>
+<p>生成器函数的定义类似于普通函数，但无论何时它要生成一个数值的时候，它是通过 yield 关键字而不是 return 来做到。<code>如果函数定义（def）中含有 yield 关键字，那这个函数就自动转变为生成器函数（即使同时含有 return 语句）。除此之外，我们不需要做其他工作。</code></p>
+<p>生成器函数会创建生成器迭代器。然而，这将是你最后一次看到生成器迭代器这个术语，因为它们几乎总是被当作“生成器”。只需记住<code>生成器是一种特殊的迭代器</code>。要被认为是迭代器，生成器必须定义几个方法（methods），其中一个是 <code>__next__()</code>。为了获得生成器的下一个值，我们使用跟迭代器内建的相同的函数 <code>iterators:next()</code>。</p>
+<p>再次重复：<strong>为了获得生成器的下一个值，我们使用跟迭代器内建的相同的函数 </strong><code>iterators:next()</code>。<br>（next() 函数会调用生成器的 <strong>next</strong>() 方法）</p>
+<p>因为生成器是一种特殊的迭代器，所以它能够被用于 <code>for</code> 循环中。</p>
+<p>所以<code>无论何时 next() 函数调用生成器，生成器负责返回一个值给调用 next() 函数的人。生成器是通过调用带返回值的 yield 关键字做到的（如 yield 7）。</code>最容易记住 yield 所做的就是把它当成生成器函数的 return。</p>
+<p>再一次：<code>yield 只是生成器函数的 return（多了一点魔法）。</code></p>
+<p>这是一个简单的生成器函数：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="function"><span class="keyword">def</span> <span class="title">simple_generator_function</span><span class="params">()</span>:</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>   <span class="keyword">yield</span> <span class="number">1</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>   <span class="keyword">yield</span> <span class="number">2</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>   <span class="keyword">yield</span> <span class="number">3</span></span><br></pre></td></tr></table></figure>
+<p>两种使用该函数的简单方法：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">for</span> value <span class="keyword">in</span> simple_generator_function():</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>    print(value)</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="number">3</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>our_generator = simple_generator_function()</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>next(our_generator)</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>next(our_generator)</span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>next(our_generator)</span><br><span class="line"><span class="number">3</span></span><br></pre></td></tr></table></figure>
+<h1 id="魔法？"><a href="#魔法？" class="headerlink" title="魔法？"></a><strong>魔法？</strong></h1><p>魔法部分在哪里？很高兴你问了！<code>当一个生成器函数调用了 yield，该函数的状态会被冻结住；直到 next() 函数被调用之前，该函数的所有变量值都会被保存起来，下一行即将执行的代码也会被记录下来。一旦再次调用，生成器函数会从上次调用时离开的地方开始执行。如果 next() 函数再也没有被调用，所有在调用 yield 时记录的所有状态最后都会被遗弃。</code></p>
+<p>让我们把 get_primes 重写为生成器函数。注意我们再也不需要 magical_infinite_range 函数。利用简单的 While 循环，我们可以创建一个无限序列：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(number)</span>:</span></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        <span class="keyword">if</span> is_prime(number):</span><br><span class="line">            <span class="keyword">yield</span> number</span><br><span class="line">        number += <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<p>当一个生成器函数调用 return 或者到达了定义末尾，<code>StopIteration</code> 异常会被抛出。这会向调用 next() 函数的人发出信号，生成器已经穷尽了（这是迭代器正常行为）。这也是我们为什么要在 get_primes 函数中添加 <code>while True:</code> 循环。如果不这样子做，第一次调用 next() 函数的时候回检查 number 是否为素数，并可能生成（yield）该数；当再次调用 next() 函数时，我们会把 number 累加 1，然后运行到该生成器函数末尾（导致 StopIteration 异常抛出）。一旦生成器穷尽时，调用 next() 函数会导致错误，所以你只能有一次机会消费所有生成器的值。下边代码不能工作：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>our_generator = simple_generator_function()</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">for</span> value <span class="keyword">in</span> our_generator:</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>    print(value)</span><br><span class="line"></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="comment"># our_generator has been exhausted...</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>print(next(our_generator))</span><br><span class="line">Traceback (most recent call last):</span><br><span class="line">  File <span class="string">"&lt;ipython-input-13-7e48a609051a&gt;"</span>, line <span class="number">1</span>, <span class="keyword">in</span> &lt;module&gt;</span><br><span class="line">    next(our_generator)</span><br><span class="line">StopIteration</span><br><span class="line"></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="comment"># however, we can always create a new generator</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="comment"># by calling the generator function again...</span></span><br><span class="line"></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>new_generator = simple_generator_function()</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>print(next(new_generator)) <span class="comment"># perfectly valid</span></span><br><span class="line"><span class="number">1</span></span><br></pre></td></tr></table></figure>
+<p>因此，<code>while 循环保证了我们永远不会到达 get_primes 函数结束点。它允许我们只要调用 next() 函数就会生成一个数值。这是一种处理无限序列（和生成器，通常情况下）的通用方法。</code></p>
+<h1 id="详细工作流程"><a href="#详细工作流程" class="headerlink" title="详细工作流程"></a><strong>详细工作流程</strong></h1><p>让我们回到调用 get_primes 的函数 solve_number_10：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">solve_number_10</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="comment"># She *is* working on Project Euler #10, I knew it!</span></span><br><span class="line">    total = <span class="number">2</span></span><br><span class="line">    <span class="keyword">for</span> next_prime <span class="keyword">in</span> get_primes(<span class="number">3</span>):</span><br><span class="line">        <span class="keyword">if</span> next_prime &lt; <span class="number">2000000</span>:</span><br><span class="line">            total += next_prime</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            print(total)</span><br><span class="line">            <span class="keyword">return</span></span><br></pre></td></tr></table></figure></p>
+<p>详述当我们在 solve_number_10 函数 for 循环中调用 get_primes 时最初的几个元素是如何创建的，非常有帮助。当这个 for 循环第一次调用 get_primes 时，我们就像进入一般函数一样进入该函数：</p>
+<ol>
+<li>进入第 3 行的 while 循环</li>
+<li>进入 if 分支（3 是素数）</li>
+<li>生成（yield）并返回值 3，并把控制权切换回 solve_number_10 函数</li>
+</ol>
+<p>然后，回到 solve_number_10 函数：</p>
+<ol>
+<li>值 3 传回到 for 循环</li>
+<li>for 循环将该值赋予 next_prime</li>
+<li>next_prime 的值被累加到 total</li>
+<li>for 循环请求 get_primes 的下一个值</li>
+</ol>
+<p><code>这一次，不是从 get_primes 函数的顶部开始执行，而是从上次调用离开的第 5 行开始执行</code>：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(number)</span>:</span></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        <span class="keyword">if</span> is_prime(number):</span><br><span class="line">            <span class="keyword">yield</span> number</span><br><span class="line">        number += <span class="number">1</span> <span class="comment"># &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span></span><br></pre></td></tr></table></figure></p>
+<p>更重要的是，<code>number 的值仍然为上次我们调用 yild 时的值（也即 3）</code>。记住，yield 同时传回值给 next() 调用者和保存生成器的“状态”。很明显，number 累加至 4，然后程序运行至 while 循环顶部，number 继续累加，直到下一个素数 5。再一次，我们生成（yield）并返回 number 的值给 solve_number_10 中的 for 循环。这样一直循环，直到 for 循环停止（在第一个大于 2,000,000 的素数时）。</p>
+<h1 id="更多功能"><a href="#更多功能" class="headerlink" title="更多功能"></a><strong>更多功能</strong></h1><p>在 <a href="https://www.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a>，支持向生成器传递值。<code>PEP 342 让生成器能够生成（yield）值（跟之前一样）、接收值，或者在单个语句中同时生成和接收值。</code></p>
+<p>为了说明数值是怎么发送给生成器的，然我们回到那个素数例子。这一次，不是简单打印每个大于 number 的素数，我们要找出大于 number 连续乘方的最小素数（例如，对于 10，我们想要找到依次大于 10、100、1000 的最小素数）。代码如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">print_successive_primes</span><span class="params">(iterations, base=<span class="number">10</span>)</span>:</span></span><br><span class="line">    <span class="comment"># like normal functions, a generator function</span></span><br><span class="line">    <span class="comment"># can be assigned to a variable</span></span><br><span class="line"></span><br><span class="line">    prime_generator = get_primes(base)</span><br><span class="line">    <span class="comment"># missing code...</span></span><br><span class="line">    <span class="keyword">for</span> power <span class="keyword">in</span> range(iterations):</span><br><span class="line">        <span class="comment"># missing code...</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(number)</span>:</span></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        <span class="keyword">if</span> is_prime(number):</span><br><span class="line">        <span class="comment"># ... what goes here?</span></span><br></pre></td></tr></table></figure></p>
+<p>对 get_primes 的下一行需要稍加解释。yield number 在生成（yield）并返回 number 的值的同时，<code>other = yield foo 形式的语句还意味着“生成（yield）并返回 foo，同时当有数据发送给我时，将其赋予 other”</code>。你可以利用生成器的 <code>send</code> 方法向其发送数值。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_primes</span><span class="params">(number)</span>:</span></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        <span class="keyword">if</span> is_prime(number):</span><br><span class="line">            number = <span class="keyword">yield</span> number</span><br><span class="line">        number += <span class="number">1</span></span><br></pre></td></tr></table></figure></p>
+<p>这样，我们就能够设定生成器的 number 为不同的值。现在我们可以填充 print_successive_primes 函数中缺失部分：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">print_successive_primes</span><span class="params">(iterations, base=<span class="number">10</span>)</span>:</span></span><br><span class="line">    prime_generator = get_primes(base)</span><br><span class="line">    prime_generator.send(<span class="literal">None</span>)</span><br><span class="line">    <span class="keyword">for</span> power <span class="keyword">in</span> range(iterations):</span><br><span class="line">        print(prime_generator.send(base ** power))</span><br></pre></td></tr></table></figure></p>
+<p>有两件事需要注意：第一，我们打印了 generator.send 的结果，这是可以的，因为 <code>send 函数向生成器发送数值的时候也接收生成器生成（yield）的数据</code>（与 yield 在生成器函数如何工作相对应）。</p>
+<p>第二，注意 prime_generator.send(None) 这一行。当你使用 send 来<code>“启动”一个生成器</code>时（也即，执行生成器函数的第一行代码到第一个 yield 语句中间的代码），你必须发送 None（译注：还可以调用生成器的 next() 方法开启动）。这讲得通，因为按定义，生成器还没有执行到第一个 yield 语句，所以如果我们发送一个真实数据过去，没有东西可以接收它。一旦生成器启动，我们就可以像以上做的一样给它发数据。</p>
+<h1 id="进阶（Round-up）"><a href="#进阶（Round-up）" class="headerlink" title="进阶（Round up）"></a><strong>进阶（Round up）</strong></h1><p>在本文第二部分，我们讨论了生成器提升的各个方面和因此获得的能力。yield 已经变成 Python 中最强大的关键字之一。因为我们已经对 yield 如何工作有了一个深入的理解，所有我们现在有足够知识来理解 yield 所能够应用的更费脑的事情。</p>
+<p>信或不信，我们也仅仅是了解了 yield 的表层能力。例如，虽然 send 确实如前文描述那样工作，但它几乎从不会用于生成简单序列，如我们的例子。下边，我展示了 send 的一个常用方式。我不会说太多，因为关于它如何工作以及为什么可以工作将会是第二部分的一个很好的热身。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> random</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_data</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""Return 3 random integers between 0 and 9"""</span></span><br><span class="line">    <span class="keyword">return</span> random.sample(range(<span class="number">10</span>), <span class="number">3</span>)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">consume</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""Displays a running average across lists of integers sent to it"""</span></span><br><span class="line">    running_sum = <span class="number">0</span></span><br><span class="line">    data_items_seen = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        data = <span class="keyword">yield</span></span><br><span class="line">        data_items_seen += len(data)</span><br><span class="line">        running_sum += sum(data)</span><br><span class="line">        print(<span class="string">'The running average is &#123;&#125;'</span>.format(running_sum / float(data_items_seen)))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">produce</span><span class="params">(consumer)</span>:</span></span><br><span class="line">    <span class="string">"""Produces a set of values and forwards them to the pre-defined consumer</span></span><br><span class="line"><span class="string">    function"""</span></span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        data = get_data()</span><br><span class="line">        print(<span class="string">'Produced &#123;&#125;'</span>.format(data))</span><br><span class="line">        consumer.send(data)</span><br><span class="line">        <span class="keyword">yield</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    consumer = consume()</span><br><span class="line">    consumer.send(<span class="literal">None</span>)</span><br><span class="line">    producer = produce(consumer)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> _ <span class="keyword">in</span> range(<span class="number">10</span>):</span><br><span class="line">        print(<span class="string">'Producing...'</span>)</span><br><span class="line">        next(producer)</span><br></pre></td></tr></table></figure>
+<h1 id="请记住…"><a href="#请记住…" class="headerlink" title="请记住…"></a><strong>请记住…</strong></h1><p>这里有几个希望你从本文学习到的关键点：</p>
+<ul>
+<li>生成器用于生成一系列的值</li>
+<li>yield 就像是生成器函数的 return</li>
+<li>yield 做的唯一一件事就是保存生成器函数的“状态”</li>
+<li>生成器只是一种特殊的迭代器</li>
+<li>向迭代器一样，我们可以使用 next() 函数来获得生成器的下一个值<ul>
+<li>for 通过隐含调用 next() 函数来获取值</li>
+</ul>
+</li>
+</ul>
+<p>我希望这篇文章对你有帮助。如果你从来没有听说过生成器，我希望你现在知道它们是什么、为什么它们很有用，以及如何使用它们；如果你对生成器有点熟悉，我希望本文能够解决你的困惑。</p>
+<p>如前，如果本文有哪些地方不清晰（或者更重要，隐含错误），请通过各种方法告诉我。你可以在本文下边评论，发邮件到 <a href="mailto:jeff@jeffknupp.com" target="_blank" rel="noopener">jeff@jeffknupp.com</a>，或者直接 @ 我的 Twitter <a href="https://twitter.com/jeffknupp" target="_blank" rel="noopener">jeffknupp</a>。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/04/28/coroutines-and-cocurrency-course-part-1-to-2/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          协程和并发课程【部分一~二】
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/04/24/python-coroutines/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Python 协程</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#什么是生成器（书本定义）"><span class="toc-number">1.</span> <span class="toc-text">什么是生成器（书本定义）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#协程（Coroutines）和子例程（Subroutines）"><span class="toc-number">2.</span> <span class="toc-text">协程（Coroutines）和子例程（Subroutines）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#例子：素数"><span class="toc-number">2.1.</span> <span class="toc-text">例子：素数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#处理无穷序列"><span class="toc-number">2.2.</span> <span class="toc-text">处理无穷序列</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#深入生成器"><span class="toc-number">3.</span> <span class="toc-text">深入生成器</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#魔法？"><span class="toc-number">4.</span> <span class="toc-text">魔法？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#详细工作流程"><span class="toc-number">5.</span> <span class="toc-text">详细工作流程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#更多功能"><span class="toc-number">6.</span> <span class="toc-text">更多功能</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#进阶（Round-up）"><span class="toc-number">7.</span> <span class="toc-text">进阶（Round up）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#请记住…"><span class="toc-number">8.</span> <span class="toc-text">请记住…</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,382 @@
+@startuml
+
+title Instance Scheduling
+
+participant compute_task_manager as "nova.conductor.manager::ComputeTaskManager"
+participant scheduler_rpcapi as "nova.scheduler.rpcapi::SchedulerAPI"
+participant scheduler_manager as "nova.scheduler.manager::SchedulerManager"
+participant filter_scheduler as "nova.scheduler.filter_scheduler::FilterScheduler"
+participant host_manager as "nova.scheduler.host_manager:HostManager"
+participant host_filter_handler as "nova.scheduler.filters._\_init__::HostFilterHandler"
+
+activate compute_task_manager
+note over compute_task_manager: Lets start from \nnova.conductor.manager::\nComputeTaskManager::**schedule_and_build_instances**
+note over compute_task_manager
+class ComputeTaskManager(base.Base):
+    def schedule_and_build_instances(...)
+            try:
+                # **1. Instance Scheduling** 本 UML 重点
+                hosts = self._schedule_instances(...)
+            with obj_target_cell(instance, cell):
+                # 2. Build and run instance
+                self.compute_rpcapi.build_and_run_instance(...)
+end note
+
+note over compute_task_manager
+__Note__
+
+**Parameters** in the schedule_and_build_instances
+are **passed from** nova.conductor.rpcapi.py::
+ComputeTaskAPI::schedule_and_build_instances through rpc:
+```
+class ComputeTaskAPI(object):
+	...
+    def schedule_and_build_instances(...):
+    	...
+        kw = {*'build_requests': build_requests,
+              *'request_specs': request_specs,
+              *'image': jsonutils.to_primitive(image),
+              *'admin_password': admin_password,
+              *'injected_files': injected_files,
+              *'requested_networks': requested_networks,
+              *'block_device_mapping': block_device_mapping}
+        ...
+```
+end note
+
+note over compute_task_manager
+convert the request_specs to legacy one for 
+backwards compatibility and rolling upgrades within RPC API
+end note
+
+compute_task_manager->compute_task_manager: call self._schedule_instances()
+
+activate compute_task_manager
+note over compute_task_manager: params conversion
+note over compute_task_manager
+call self.scheduler_client.select_destinations()
+
+We will skip the **SchedulerQueryClient** part and
+go directly to the final function
+end note
+
+compute_task_manager->scheduler_rpcapi: call nova.scheduler.rpcapi::\nSchedulerAPI::select_destinations()
+
+activate scheduler_rpcapi
+note over scheduler_rpcapi
+__Note__
+
+As we are familiar with rpc call, so we will
+go directly to rpc destination function
+**nova.scheduler.manager::**
+**SchedulerManager::select_destinations()**
+end note
+
+scheduler_rpcapi->scheduler_manager: call nova.scheduler.manager::\nSchedulerManager::select_destinations()
+
+activate scheduler_manager
+note over scheduler_manager
+__Note__
+
+Before we move on, we need to talk about the SchedulerManager initiation:
+```
+* nova/scheduler/manager.py
+class SchedulerManager(manager.Manager):
+    """Chooses a host to run instances on."""
+    ...
+    def _\_init__(self, scheduler_driver=None, *args, **kwargs):
+        if not scheduler_driver:
+            **scheduler_driver = CONF.scheduler.driver**
+        self.driver = driver.DriverManager(
+                **"nova.scheduler.driver"**,
+                **scheduler_driver**,
+                invoke_on_load=True).driver
+        ...
+```
+
+And the default driver is defined in:
+```
+* nova/conf/scheduler.py
+scheduler_opts = [
+	...
+    cfg.StrOpt("driver",
+        **default="filter_scheduler"**,
+        ....
+        **This value may be overwritten in /etc/nova/nova.conf**
+]
+```
+
+While the nova.scheduler.driver.filter_scheduler entry point is defined in:
+```
+* setup.cfg
+nova.scheduler.driver =
+    **filter_scheduler = nova.scheduler.filter_scheduler:FilterScheduler**
+    ...
+```
+
+That is, the driver is finally
+**the nova.scheduler.filter_scheduler:FilterScheduler**.
+end note
+
+note over scheduler_manager: params conversion
+scheduler_manager->filter_scheduler: call nova.scheduler.filter_scheduler::\nFilterScheduler::select_destinations()
+
+activate filter_scheduler
+note over filter_scheduler: **notify** that the scheduling is started
+
+filter_scheduler->filter_scheduler: call self._schedule()
+
+activate filter_scheduler
+note over filter_scheduler: elevate context to be admin
+note over filter_scheduler: get all host states
+note over filter_scheduler
+__Note__
+
+Before we go on, we need to check
+the **host manager** initiation.
+```
+* nova/scheduler/driver.py
+class Scheduler(object):
+    """The base class that all Scheduler 
+    classes should inherit from."""
+
+    def _\_init__(self):
+        self.host_manager = driver.DriverManager(
+                "nova.scheduler.host_manager",
+                CONF.scheduler.host_manager,
+                invoke_on_load=True).driver
+    ...
+```
+
+And the **CONF.scheduler.host_manager** is defined in:
+```
+* nova/conf/scheduler.py
+scheduler_opts = [
+    cfg.StrOpt("host_manager",
+        default="host_manager",
+        ...
+]
+```
+
+While the **nova.scheduler.host_manager.host_manager**
+entry point is defined in:
+```
+* setup.cfg
+nova.scheduler.host_manager =
+    host_manager = **nova.scheduler.host_manager:HostManager**
+    ...
+```
+end note
+
+filter_scheduler->host_manager: call nova.scheduler.host_manager::\nHostManager::get_filtered_hosts()
+
+activate host_manager
+note over host_manager: handle some special cases \n(ignored hosts, forced hosts, etc.) 
+note over host_manager
+__Note__
+
+Before we move on, we need to know how **all** filters are loaded:
+```
+* nova/scheduler/host_manager.py
+class HostManager(object):
+    def _\_init__(self):
+        ...
+        self.filter_handler = filters.HostFilterHandler()
+        filter_classes = self.filter_handler.get_matching_classes(
+                CONF.filter_scheduler.available_filters)
+        ...
+
+* nova/conf/scheduler.py
+filter_scheduler_opts = [
+	...
+    cfg.MultiStrOpt("available_filters",
+        default=["nova.scheduler.filters.all_filters"],
+        ...
+    ...
+]
+
+* nova/loadables.py
+class BaseLoader(object):
+    def get_matching_classes(self, loadable_class_names):
+        """Get loadable classes from a list of names.  Each name can be
+        a full module path or the full path to a method that returns
+        classes to use.  The latter behavior is useful to specify a method
+        that returns a list of classes to use in a default case.
+        """
+        classes = []
+        for cls_name in loadable_class_names:
+            obj = **importutils.import_class(cls_name)**
+            ...
+
+        return classes
+
+While the **loadable_class_names** is got through the **all_filters()** method:
+* nova/scheduler/filters/_\_init__.py
+def all_filters():
+    """Return a list of filter classes found in this directory.
+
+    This method is used as the default for available scheduler filters
+    and should return a list of all filter classes available.
+    """
+    return HostFilterHandler().get_all_classes()
+
+* nova/loadables.py
+class BaseLoader(object):
+    def get_all_classes(self):
+        """Get the classes of the type we want from all modules found
+        in the directory that defines this class.
+        """
+        classes = []
+        for dirpath, dirnames, filenames in os.walk(self.path):
+            relpath = os.path.relpath(dirpath, self.path)
+            if relpath == '.':
+                relpkg = ''
+            else:
+                relpkg = '.%s' % '.'.join(relpath.split(os.sep))
+            for fname in filenames:
+                root, ext = os.path.splitext(fname)
+                if ext != '.py' or root == '_\_init__':
+                    continue
+                **module_name = "%s%s.%s" % (self.package, relpkg, root)**
+                **mod_classes = self._get_classes_from_module(module_name)**
+                **classes.extend(mod_classes)**
+        return classes
+
+That is, **!!!all the filters under nova/scheduler/filters will be loaded**.
+```
+end note
+
+note over host_manager
+Then we need to know which kinds of filters are enabled.
+
+* nova/scheduler/host_manager.py
+class HostManager(object):
+    def _\_init__(self):
+        ....
+        filter_classes = self.filter_handler.get_matching_classes(
+                CONF.filter_scheduler.available_filters)
+        **self.filter_cls_map** = {cls._\_name__: cls for cls in filter_classes}
+        **self.filter_obj_map** = {}
+        ...
+        self.enabled_filters = self._choose_host_filters(self._load_filters())
+        ...
+
+    def _load_filters(self):
+        return CONF.filter_scheduler.enabled_filters
+
+    def _choose_host_filters(self, filter_cls_names):
+        """Since the caller may specify which filters to use we need
+        to have an authoritative list of what is permissible. This
+        function checks the filter names against a predefined set
+        of acceptable filters.
+        """
+        if not isinstance(filter_cls_names, (list, tuple)):
+            filter_cls_names = [filter_cls_names]
+
+        **good_filters** = []
+        bad_filters = []
+        for filter_name in filter_cls_names:
+            **if filter_name not in self.filter_obj_map**:
+                **if filter_name not in self.filter_cls_map**:
+                    bad_filters.append(filter_name)
+                    continue
+                filter_cls = self.filter_cls_map[filter_name]
+                **self.filter_obj_map[filter_name] = filter_cls()**
+            good_filters.append(**self.filter_obj_map[filter_name]**)
+        if bad_filters:
+            msg = ", ".join(bad_filters)
+            raise exception.SchedulerHostFilterNotFound(filter_name=msg)
+        return good_filters
+
+* nova/conf/scheduler.py
+filter_scheduler_opts = [
+    cfg.ListOpt("enabled_filters",
+        default=[
+          "**RetryFilter**",
+          "**AvailabilityZoneFilter**",
+          "**RamFilter**",
+          "**DiskFilter**",
+          "**ComputeFilter**",
+          "**ComputeCapabilitiesFilter**",
+          "**ImagePropertiesFilter**",
+          "**ServerGroupAntiAffinityFilter**",
+          "**ServerGroupAffinityFilter**",`
+          ],
+          ...
+    	  **This value may be ovewritten in /etc/nova/nova.conf**
+]
+end note
+
+host_manager->host_filter_handler: call nova.scheduler.filters._\_init__.py::\nHostFilterHandler::get_filtered_objects()
+
+activate host_filter_handler
+note over host_filter_handler
+The method get_filtered_objects is defined as follows:
+```
+* nova/filters.py
+class BaseFilterHandler(loadables.BaseLoader):
+    """Base class to handle loading filter classes.
+
+    This class should be subclassed where one needs to use filters.
+    """
+    def get_filtered_objects(self, filters, objs, spec_obj, index=0):
+        list_objs = list(objs)
+        ...
+        for filter_ in filters:
+            ...
+                objs = filter_.**filter_all**(list_objs, spec_obj)
+```
+
+And the **filter_all** function will eventually
+call each filters **host_passes** method.
+For example, the retry_filter has the method:
+```
+* nova/scheduler/filters/retry_filter.py
+class RetryFilter(filters.BaseHostFilter):
+    """Filter out nodes that have already 
+    been attempted for scheduling purposes
+    """
+    def **host_passes**(self, host_state, spec_obj):
+    	...(**one by one**)
+```
+end note
+
+note over host_filter_handler: Filter hosts by filter by filter ...
+
+host_filter_handler-->host_manager: return filtered hosts
+deactivate host_filter_handler
+
+host_manager-->filter_scheduler: return filtered hosts
+deactivate host_manager
+
+filter_scheduler->host_manager: call nova.scheduler.host_manager::\nHostManager::get_weighed_hosts()
+
+activate host_manager
+note over host_manager
+The way to load **weigh classes**
+is the same as filter.
+And the way to weigh hosts is similar.
+So we will not talk details about it here.
+end note
+
+host_manager-->filter_scheduler: return weighed hosts
+deactivate host_manager
+
+filter_scheduler-->filter_scheduler: return selected hosts
+deactivate filter_scheduler
+
+note over filter_scheduler: **notify** that the scheduling is ended
+
+filter_scheduler-->scheduler_manager: return selected hosts
+deactivate filter_scheduler
+
+scheduler_manager-->scheduler_rpcapi: return selected hosts
+deactivate scheduler_manager
+
+scheduler_rpcapi-->compute_task_manager: return selected hosts
+deactivate scheduler_rpcapi
+
+compute_task_manager-->compute_task_manager: return selected hosts
+deactivate compute_task_manager
+
+@enduml

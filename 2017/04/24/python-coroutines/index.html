@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Python 协程 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="最近在研究协程，但到最后发现对其概念其实还是理解的肤浅，所以专门写一文章，详细说明协程相关内容。 进入协程主题之前，先来看一下子例程（subroutine）概念。 子例程按照维基的定义，：  In computer programming, a subroutine is a sequence of program instructions that perform a specific task">
+<meta name="keywords" content="Python,yield,生成器,协程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python 协程">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/04/24/python-coroutines/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="最近在研究协程，但到最后发现对其概念其实还是理解的肤浅，所以专门写一文章，详细说明协程相关内容。 进入协程主题之前，先来看一下子例程（subroutine）概念。 子例程按照维基的定义，：  In computer programming, a subroutine is a sequence of program instructions that perform a specific task">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-01T05:50:53.925Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python 协程">
+<meta name="twitter:description" content="最近在研究协程，但到最后发现对其概念其实还是理解的肤浅，所以专门写一文章，详细说明协程相关内容。 进入协程主题之前，先来看一下子例程（subroutine）概念。 子例程按照维基的定义，：  In computer programming, a subroutine is a sequence of program instructions that perform a specific task">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-python-coroutines" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/04/24/python-coroutines/" class="article-date">
+  	<time datetime="2017-04-24T04:35:35.000Z" itemprop="datePublished">2017-04-24</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Python 协程
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Python/">Python</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/yield/">yield</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/协程/">协程</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/生成器/">生成器</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/并发/">并发</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>最近在研究协程，但到最后发现对其概念其实还是理解的肤浅，所以专门写一文章，详细说明协程相关内容。</p>
+<p>进入协程主题之前，先来看一下子例程（subroutine）概念。</p>
+<h1 id="子例程"><a href="#子例程" class="headerlink" title="子例程"></a><strong>子例程</strong></h1><p>按照<a href="https://en.wikipedia.org/wiki/Subroutine" target="_blank" rel="noopener">维基</a>的定义，：</p>
+<blockquote>
+<p>In computer programming, a subroutine is a sequence of program instructions that perform a specific task, packaged as a unit.</p>
+</blockquote>
+<p>也就是说，一个子例程就是一个执行具体任务的代码指令单元，说白了就是一个函数（function）。对于 Subroutine 和 function 等概念，<a href="https://en.wikipedia.org/wiki/Subroutine" target="_blank" rel="noopener">维基</a>已经说的很清楚了，是一样的东西：</p>
+<blockquote>
+<p>In different programming languages, a subroutine may be called a procedure, a function, a routine, a method, or a subprogram. </p>
+</blockquote>
+<h1 id="协程"><a href="#协程" class="headerlink" title="协程"></a><strong>协程</strong></h1><h2 id="协程定义"><a href="#协程定义" class="headerlink" title="协程定义"></a><strong>协程定义</strong></h2><p>对于 协程（Coroutine），维基上解释的挺好的：</p>
+<blockquote>
+<p>Coroutines are computer program components that <code>generalize subroutines</code> for <code>non-preemptive multitasking</code>, by allowing <code>multiple entry points</code> for <code>suspending and resuming execution at certain locations</code>. </p>
+</blockquote>
+<a id="more"></a>
+<p>这个定义有几点特别重要：</p>
+<ol>
+<li><p>协程是对子例程的泛化（generalize），也就是协程是子例程的抽象。其实 <a href="https://en.wikipedia.org/wiki/Coroutine" target="_blank" rel="noopener">Donald Knuth</a> 早就说过：</p>
+<blockquote>
+<p>Subroutines are special cases of coroutines.<br>也就是说，<code>子协程其实是协程的特例。</code></p>
+</blockquote>
+</li>
+<li><p>协程用于非抢占式多任务（non-preemptive multitasking）。对这点，个人的理解不足，暂就不多加说明了，以后理解深入了，再多加说明。</p>
+</li>
+<li>协程有<code>多个入口（entry point）</code>，可以从某个地方挂起和恢复执行。这点是跟子例程区别开来最重要的一点：<code>子例程只有一个入口，也即第一行代码；而协程却有多个入口，可以是第一行代码，也可以是其他地方。</code>这个也可以用来补充说明上边提到的“子协程其实是协程的特例”。</li>
+</ol>
+<h2 id="协程本质"><a href="#协程本质" class="headerlink" title="协程本质"></a><strong>协程本质</strong></h2><p>不过这个定义没提到的一点，就是协程的“本质”是<code>执行权的转移（yield）是由“程序”自身来负责的</code>，这跟一般由操作系统来负责是非常不一样的。<code>操作系统的调度单位的是线程，而协程本身是在一个线程内部，自然由程序自身来调度。</code>而这个协程调度是通过调用 yield 来做到的。<code>yield 本身有放弃、让出的意思，也就是说，如果我们在一个函数中调用了 yield，就意味着当执行到该关键字所在的地方时，返回（值）并让出执行权给其他协程。</code>这种调度其实很依赖于每个协程的<code>自觉性</code>，如果其中一个协程永远不让出执行权（同时也因为协程不由操作系统调度），那其它协程就得不到执行的机会。</p>
+<p>博文<a href="http://bingotree.cn/?p=63" target="_blank" rel="noopener">对 Python 中 yield 和协程的理解</a>举了一个通俗易懂的例子，可以用来加深理解：</p>
+<blockquote>
+<p>假设说有十个人去食堂打饭，这个食堂比较穷，只有一个打饭的窗口，并且也只有一个打饭阿姨，那么打饭就只能一个一个排队来打咯。这十个人胃口很大，每个人都要点5个菜，但这十个人又有个毛病就是做事情都犹豫不决，所以点菜的时候就会站在那里，每点一个菜后都会想下一个菜点啥，因此后面的人等的很着急呀。这样一直站着也不是个事情吧，所以打菜的阿姨看到某个人犹豫5秒后就开始吼一声，会让他排到队伍最后去，先让别人打菜，等轮到他的时候他也差不多想好吃啥了。这确实是个不错的方法，但也有一个缺点，那就是打菜的阿姨会的等每个人5秒钟，如果那个人在5秒内没有做出决定吃啥，其实这5秒就是浪费了。一个人点一个菜就是浪费5秒，十个人每个人点5个菜可就浪费的多啦（菜都凉了要）。那咋办呢？这个时候阿姨发话了：大家都是学生，学生就要<code>自觉</code>，我以后也不主动让你们排到最后去了，如果你们觉得自己会犹豫不决，就自己主动点直接点一个菜就站后面去，等下次排到的时候也差不多想好吃啥了。这个方法果然有效，大家点了菜后想的第一件事情不是下一个菜吃啥，而是自己会不会犹豫，如果会犹豫那直接排到队伍后面去，如果不会的话就直接接着点菜就行了。这样一来整个队伍没有任何时间是浪费的，效率自然就高了。</p>
+</blockquote>
+<h2 id="调度器"><a href="#调度器" class="headerlink" title="调度器"></a><strong>调度器</strong></h2><p>上边的例子我们提到协程调度依赖于协程的<code>自觉性</code>，但这里还有一个问题，就是但某一个协程让出执行权之后，哪一个协程可以获得执行权呢？这就涉及到调度器了。</p>
+<p>在 <a href="http://legacy.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a> 上有一个调度器样例：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> collections</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Trampoline</span>:</span></span><br><span class="line">    <span class="string">"""Manage communications between coroutines"""</span></span><br><span class="line"></span><br><span class="line">    running = <span class="literal">False</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.queue = collections.deque()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">add</span><span class="params">(self, coroutine)</span>:</span></span><br><span class="line">        <span class="string">"""Request that a coroutine be executed"""</span></span><br><span class="line">        self.schedule(coroutine)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self)</span>:</span></span><br><span class="line">        result = <span class="literal">None</span></span><br><span class="line">        self.running = <span class="literal">True</span></span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            <span class="keyword">while</span> self.running <span class="keyword">and</span> self.queue:</span><br><span class="line">                func = self.queue.popleft()</span><br><span class="line">                result = func()</span><br><span class="line">            <span class="keyword">return</span> result</span><br><span class="line">        <span class="keyword">finally</span>:</span><br><span class="line">            self.running = <span class="literal">False</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">stop</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.running = <span class="literal">False</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">schedule</span><span class="params">(self, coroutine, stack=<span class="params">()</span>, val=None, *exc)</span>:</span></span><br><span class="line">        <span class="function"><span class="keyword">def</span> <span class="title">resume</span><span class="params">()</span>:</span></span><br><span class="line">            value = val</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">if</span> exc:</span><br><span class="line">                    value = coroutine.throw(value, *exc)</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    value = coroutine.send(value)</span><br><span class="line">            <span class="keyword">except</span>:</span><br><span class="line">                <span class="keyword">if</span> stack:</span><br><span class="line">                    <span class="comment"># send the error back to the "caller"</span></span><br><span class="line">                    self.schedule(</span><br><span class="line">                        stack[<span class="number">0</span>], stack[<span class="number">1</span>], *sys.exc_info()</span><br><span class="line">                    )</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="comment"># Nothing left in this pseudothread to</span></span><br><span class="line">                    <span class="comment"># handle it, let it propagate to the</span></span><br><span class="line">                    <span class="comment"># run loop</span></span><br><span class="line">                    <span class="keyword">raise</span></span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> isinstance(value, types.GeneratorType):</span><br><span class="line">                <span class="comment"># Yielded to a specific coroutine, push the</span></span><br><span class="line">                <span class="comment"># current one on the stack, and call the new</span></span><br><span class="line">                <span class="comment"># one with no args</span></span><br><span class="line">                self.schedule(value, (coroutine, stack))</span><br><span class="line"></span><br><span class="line">            <span class="keyword">elif</span> stack:</span><br><span class="line">                <span class="comment"># Yielded a result, pop the stack and send the</span></span><br><span class="line">                <span class="comment"># value to the caller</span></span><br><span class="line">                self.schedule(stack[<span class="number">0</span>], stack[<span class="number">1</span>], value)</span><br><span class="line"></span><br><span class="line">                <span class="comment"># else: this pseudothread has ended</span></span><br><span class="line"></span><br><span class="line">        self.queue.append(resume)</span><br></pre></td></tr></table></figure></p>
+<p>其他复杂的可参考 <a href="https://people.gnome.org/~gjc/gtasklet/gtasklets.html" target="_blank" rel="noopener">GTasklet</a>、<a href="http://peak.telecommunity.com/" target="_blank" rel="noopener">peak.events</a>。</p>
+<h1 id="PEP-342"><a href="#PEP-342" class="headerlink" title="PEP 342"></a><strong>PEP 342</strong></h1><p>在 Python 2.5 <a href="http://legacy.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a>之前，生成器几乎与协程一样。在该提议中，有两点值得注意。下边详细说一下。</p>
+<h2 id="重定义-yield-为一个表达式而不是一个语句"><a href="#重定义-yield-为一个表达式而不是一个语句" class="headerlink" title="重定义 yield 为一个表达式而不是一个语句"></a><strong>重定义 yield 为一个表达式而不是一个语句</strong></h2><h3 id="表达式和语句概念辨别"><a href="#表达式和语句概念辨别" class="headerlink" title="表达式和语句概念辨别"></a><strong>表达式和语句概念辨别</strong></h3><p>这个提议一开始看会觉得很奇怪，yield 是一个表达式（expression）还是一个语句（statement）很重要？看了一下表达式和语句的区别之后，还真的很重要！StackOverflow 上有一个<a href="http://stackoverflow.com/questions/4728073/what-is-the-difference-between-an-expression-and-a-statement-in-python/4728147#4728147" target="_blank" rel="noopener">回答</a>挺不错的：</p>
+<blockquote>
+<p>Expressions only contain identifiers, literals and operators, where operators include arithmetic and boolean operators, the function call operator () the subscription operator [] and similar, and can be reduced to some kind of <code>&quot;value&quot;</code>, which can be any Python object. Examples:<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&gt; <span class="number">3</span> + <span class="number">5</span></span><br><span class="line">&gt; map(<span class="keyword">lambda</span> x: x*x, range(<span class="number">10</span>))</span><br><span class="line">&gt; [a.x <span class="keyword">for</span> a <span class="keyword">in</span> some_iterable]</span><br><span class="line">&gt; <span class="keyword">yield</span> <span class="number">7</span></span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<blockquote>
+<p>Statements (see 1, 2), on the other hand, are <code>everything that can make up a line (or several lines)</code> of Python code. Note that <code>expressions are statements</code> as well. Examples:<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&gt; <span class="comment"># all the above expressions</span></span><br><span class="line">&gt; <span class="keyword">print</span> <span class="number">42</span></span><br><span class="line">&gt; <span class="keyword">if</span> x: do_y()</span><br><span class="line">&gt; <span class="keyword">return</span></span><br><span class="line">&gt; a = <span class="number">7</span></span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<p>简单的说，每一行代码都是一个语句（包括表达式），但表达式是能够产生<code>值</code>的语句（expression statement）。这意味着，<code>表达式的值可以赋给其他变量，而一般语句是不行的。</code>这太重要了，<code>因为这样一来，再结合新提议的 send() 方法，就可以从一个生成器将某个值发给另一个生成器，然后后者将该值赋予某变量，进行下一步的操作，从而达到协同工作（cooperative routine, coroutine）的效果。这就是协程！！！</code></p>
+<h3 id="yield-表达式"><a href="#yield-表达式" class="headerlink" title="yield 表达式"></a><strong>yield 表达式</strong></h3><h4 id="提议说明"><a href="#提议说明" class="headerlink" title="提议说明"></a><strong>提议说明</strong></h4><p>根据 <a href="http://legacy.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a> 说明，<code>当把 yield 语句（yield-statement，如 yield 7）放在赋值语句右边时，它就变成了一个 yield 表达式（yield-expression，如 a = yield 7，这时 yield 7 是一个“表达式”，它的值会赋予变量 a）</code>。</p>
+<p>对于 yield 表达式的返回值，</p>
+<ol>
+<li>当调用 send(value) 时，该<code>表达式的值为传入的值（即 value）</code>。</li>
+<li>当<code>调用 next() 时，该表达式的值 None</code>。</li>
+<li><code>该“表达式的值”和“生成器生成（yield）的值”“不是”一回事</code>，如 a = yield 7，表达式是 yield 7，其值由 send()/next() 决定，而生成器生成并返回的值是 7。</li>
+<li>当 yield 表达式是一个 yield 语句时，其返回值被忽略（没有赋值对象）。</li>
+<li><code>生成器下一次迭代从 yield 的“下一行”开始执行</code>，需要特别注意的是，<code>对于 yield 表达式，赋值和真正的挂起并返回操作实际是分开的</code>，并不是如赋值语句那样给我们造成先把 yield 表达式的值赋予变量，然后再挂起并返回结果。也就是说，<code>在字节码层面，yield 操作排在赋值操作的前边</code>，如 a = yield 7 的字节码就为：<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">......</span><br><span class="line">YIELD_VALUE                        &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span><br><span class="line">STORE_FAST               <span class="number">1</span> (a)     &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>最后，需要注意的是，<code>Python 中同时支持 yield 语句和 yield 表达式。</code></p>
+<h4 id="表达式样例"><a href="#表达式样例" class="headerlink" title="表达式样例"></a><strong>表达式样例</strong></h4><p>PEP 342 还列出了一些合法和不合法的 yield 表达式：</p>
+<ol>
+<li><p>合法</p>
+<blockquote>
+<p>x = yield 42<br>x = yield<br>x = 12 + (yield 42)<br>x = 12 + (yield)<br>foo(yield 42)<br>foo(yield)</p>
+</blockquote>
+</li>
+<li><p>不合法</p>
+<blockquote>
+<p>x = 12 + yield 42<br>x = 12 + yield<br>foo(yield 42, 12)<br>foo(yield, 12)</p>
+</blockquote>
+</li>
+</ol>
+<h2 id="为生成器增加-send-方法"><a href="#为生成器增加-send-方法" class="headerlink" title="为生成器增加 send() 方法"></a><strong>为生成器增加 send() 方法</strong></h2><h3 id="提议说明-1"><a href="#提议说明-1" class="headerlink" title="提议说明"></a><strong>提议说明</strong></h3><p>提议的 send() 方法允许我们向生成器发送数据，最后该方法返回该生成器生成（yield）的值。不理解没关系，我们接下来看 <a href="http://legacy.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a> 详细解释。</p>
+<ol>
+<li>send() 方法只接受一个参数。</li>
+<li><code>！！！调用 send(None) 等同于调用 next() 方法</code>。</li>
+<li>因为<code>生成器迭代器从生成器函数体顶部开始执行，生成器刚刚创建时没有 yield 表达式来接收传过来的值，所以这时调用 send() 方法传递非 None 的值是禁止的，而且会抛出 TypeError 异常。</code>因此，当你首次跟<code>协程</code>（注意这时不叫生成器）通信之前，需要调用 next() 方法或 send(None)，以推进执行点至第一个 yield 表达式，也即，<code>首次调用 next() 方法或 send(None) 会使得该协程执行至第一个 yield 表达式处</code>（注意 yield 表达式“赋值”和真正的“挂起并返回操作”是分开的，也即执行至 yield 处，下次迭代就从下一句的赋值语句开始执行）。</li>
+<li>与 next() 方法一样，<code>调用 send() 方法会返回生成器生成（yield）的下一个值</code>，或者当生成器正常退出或已经退出时抛出 <code>StopIteration</code> 异常。当生成器抛出没有捕获的异常时，该异常会传递给 send() 调用者。</li>
+</ol>
+<p><strong>注</strong>：</p>
+<ol>
+<li>send() 方法跟 next() 方法不一样</li>
+<li>生成器本身就是一个函数，只是比较特殊而已</li>
+<li>生成器本身是一种迭代器（实现了某些方法，如 <strong>next</strong>()）</li>
+</ol>
+<h3 id="例子解析"><a href="#例子解析" class="headerlink" title="例子解析"></a><strong>例子解析</strong></h3><p>下边我们来看一个<a href="http://www.dabeaz.com/coroutines/bogus.py" target="_blank" rel="noopener">例子</a>，来加深对 send() 方法的理解：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># bogus.py</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Bogus example of a generator that produces and receives values</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">countdown</span><span class="params">(n)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Counting down from"</span>, n</span><br><span class="line">    <span class="keyword">while</span> n &gt;= <span class="number">0</span>:</span><br><span class="line">        newvalue = (<span class="keyword">yield</span> n)	<span class="comment"># yield n 就是一个表达式，其值由 send()/next() 决定，然后赋予 newvalue</span></span><br><span class="line">        <span class="comment"># If a new value got sent in, reset n with it</span></span><br><span class="line">        <span class="keyword">if</span> newvalue <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            n = newvalue</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            n -= <span class="number">1</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># The holy grail countdown</span></span><br><span class="line">c = countdown(<span class="number">5</span>)</span><br><span class="line"><span class="keyword">for</span> x <span class="keyword">in</span> c:</span><br><span class="line">    <span class="keyword">print</span> x,</span><br><span class="line">    <span class="keyword">if</span> x == <span class="number">5</span>:</span><br><span class="line">        c.send(<span class="number">3</span>)</span><br></pre></td></tr></table></figure></p>
+<h4 id="问题解析"><a href="#问题解析" class="headerlink" title="问题解析"></a><strong>问题解析</strong></h4><p>这个程序很奇葩，结果应该是：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Counting down from 5</span><br><span class="line">5 3 2 1 0</span><br></pre></td></tr></table></figure></p>
+<p>也即过程应该是这样子的（注意：<code>yield 表达式“赋值”和真正的“挂起并返回操作”是分开的。在字节码层面，yield 操作排在赋值操作的前边</code>）：</p>
+<ol>
+<li>for 循环开始迭代生成器（隐含调用 next()）时，第一次调用 next(c)，执行了函数体前两行，执行至第 9 行 yield 所在的地方，yield n 表达式的值为 None，挂起（suspend）并返回 n，这时 n 的值为 5。注意，因为还没执行到赋值语句，<code>这时 newvlue 并没有被赋值，也没有为其分配内存</code>；</li>
+<li>这时刚好满足 if x == 5 的条件，向生成器发送数据，从第 9 行也即赋值语句开始执行，yield n 表达式的值 3 赋予 newvalue，n 的值仍为 5。向下执行 if/else，将 n 的值赋为 newvalue 的值 3，接着回到第 9 行，挂起并返回 n 3，这时 n 的值为 3；</li>
+<li>send 执行完后，又由 for 循环开始迭代调用 next(c)，yield n 表达式的值为 None，赋予 newvalue；此时 n 为 3；继续向下执行，n 自减 1 变为 2，接着回到第 9 行，挂起并返回 n 2；</li>
+<li>依次类推，最后分别返回 1 0。</li>
+</ol>
+<p>但实际结果不是这样的，正确的结果是：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Counting down from 5</span><br><span class="line">5 2 1 0</span><br></pre></td></tr></table></figure></p>
+<p>那 3 哪里去了？？？还记得我们在前边提到的，与 next() 方法一样，<code>调用 send() 方法会返回生成器生成（yield）的下一个值</code>，也就是说，<code>send() 函数相当于在 for 循环中“插了一脚”，让 for 循环少了一次迭代。</code>这样说其实不是很准确，但比较形象。我们知道 send() 函数能够获得返回值，所以我们只要打印 c.send(3) 就会看到打印出来的 3。其实，send() 返回后，生成器里保存的 n 的值就已经为 3 了，接下来 for 循环得到的结果必然是 2 1 0。</p>
+<p>造成以上误解的最大原因在于 <code>send() 方法与 next() 一样，都会改变迭代器的内部状态。</code></p>
+<h4 id="生成器执行点"><a href="#生成器执行点" class="headerlink" title="生成器执行点"></a><strong>生成器执行点</strong></h4><p>其实，除了以上提到的容易造成的误解，还有一点很奇怪，就是我们都说，下一次生成器的执行从上一次执行离开的地方开始执行（left off），但貌似在这里不成立，理由如下：</p>
+<ol>
+<li>for 循环第一次调用 next(c) 的时候，执行到 yield 所在的地方时，就直接挂起并返回了，并没有把 yield n 表达式的值赋予 newvalue，更没有为 newvalue 开辟内存空间；</li>
+<li>后续的迭代，都是先将 yield n 表达式的值赋予 newvalue，为 newvalue 开辟了内存空间，而不是挂起并返回；并执行后后边的 if/else 语句后才最终挂起并返回（yield n）。</li>
+</ol>
+<p>上边两点都指向一个点：<code>yield 表达式“赋值”和真正的“挂起并返回操作”是分开的，也即在字节码层面，yield n 排在表达式赋值的前边。</code></p>
+<p>其实这个时候，只要看一下字节码就很清楚了（“&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;”地方）：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> dis</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">countdown</span><span class="params">(n)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Counting down from"</span>, n</span><br><span class="line">    <span class="keyword">while</span> n &gt;= <span class="number">0</span>:</span><br><span class="line">        newvalue = (<span class="keyword">yield</span> n)</span><br><span class="line">        <span class="comment"># If a new value got sent in, reset n with it</span></span><br><span class="line">        <span class="keyword">if</span> newvalue <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            n = newvalue</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            n -= <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">print</span> dis.dis(countdown.func_code)</span><br><span class="line"><span class="comment"># Results：</span></span><br><span class="line"><span class="comment">#  9           0 LOAD_CONST               1 ('Counting down from')</span></span><br><span class="line"><span class="comment">#              3 PRINT_ITEM          </span></span><br><span class="line"><span class="comment">#              4 LOAD_FAST                0 (n)</span></span><br><span class="line"><span class="comment">#              7 PRINT_ITEM          </span></span><br><span class="line"><span class="comment">#              8 PRINT_NEWLINE       </span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 10           9 SETUP_LOOP              54 (to 66)</span></span><br><span class="line"><span class="comment">#        &gt;&gt;   12 LOAD_FAST                0 (n)</span></span><br><span class="line"><span class="comment">#             15 LOAD_CONST               2 (0)</span></span><br><span class="line"><span class="comment">#             18 COMPARE_OP               5 (&gt;=)</span></span><br><span class="line"><span class="comment">#             21 POP_JUMP_IF_FALSE       65</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 11          24 LOAD_FAST                0 (n)</span></span><br><span class="line"><span class="comment">#             27 YIELD_VALUE                               &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span></span><br><span class="line"><span class="comment">#             28 STORE_FAST               1 (newvalue)     &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># 13          31 LOAD_FAST                1 (newvalue)</span></span><br><span class="line"><span class="comment">#             34 LOAD_CONST               0 (None)</span></span><br><span class="line"><span class="comment">#             37 COMPARE_OP               9 (is not)</span></span><br><span class="line"><span class="comment">#             40 POP_JUMP_IF_FALSE       52</span></span><br><span class="line"><span class="comment"># ......</span></span><br></pre></td></tr></table></figure></p>
+<h2 id="异常及资源清理"><a href="#异常及资源清理" class="headerlink" title="异常及资源清理"></a><strong>异常及资源清理</strong></h2><p><em>这部分暂不涉及，待后需添加…</em></p>
+<h2 id="协程与生成器区别"><a href="#协程与生成器区别" class="headerlink" title="协程与生成器区别"></a><strong>协程与生成器区别</strong></h2><p>看完上边的解释，我想很多人都会想，生成器跟协程不就一个东西吗？我也是这么想，不过它们确实不一样。<code>协程其实有协同工作（cooperative routine）的意思，而生成器就是一个“独立”的函数、迭代器。</code>课程 <a href="http://www.dabeaz.com/coroutines/" target="_blank" rel="noopener">A Curious Course on Coroutines and Concurrency</a> 就说<code>生成器用于生成数据，而协程则倾向于消费数据。</code></p>
+<p>或者你会说，生成器是只有 yield 语句的协程，生成器是协程的一种（因为协程同时支持 yield 语句和表达式）。但这样说，你可能又会说，在 <a href="http://legacy.python.org/dev/peps/pep-0342/" target="_blank" rel="noopener">PEP 342</a>，本身就提议通过改进生成器来实现协程，这样协程不应该是一种生成器吗？</p>
+<p>个人觉得，对于这个问题，只要抓住本质，就啥都好理解了。<code>协程本质上是执行权的切换，从而实现协同工作，它的含义不单单包括了生成器，还涵盖了协同工作；而这些生成器是没有的，它只是一个独立的函数。</code>协程的这种执行权切换很像操作系统对线程的切换，所以，<code>利用协程，我们也可以写一个程序层面的操作系统</code>，详细可参考课程 <a href="http://www.dabeaz.com/coroutines/" target="_blank" rel="noopener">A Curious Course on Coroutines and Concurrency</a> 。</p>
+<p>另外，该课程作者提到的非常重要的一点，<code>协程跟迭代没有关系（Coroutines are not related to iteration）</code>。协程更像是一个流水线，一级一级向下传递执行权。</p>
+<p>对于协程和生成器两者的详细区别可以直接看<a href="https://mail.python.org/pipermail/python-dev/1999-July/000467.html" target="_blank" rel="noopener">英文原文</a>：</p>
+<blockquote>
+<p><strong>GENERATORS</strong></p>
+<p>Generators add two new abstract operations, <code>&quot;suspend&quot;</code> and <code>&quot;resume&quot;</code>.  <code>When a generator suspends, it&#39;s exactly like a return today except we simply decline to decref the frame.  That&#39;s it!  The locals, and where we are in the computation, aren&#39;t thrown away.  A &quot;resume&quot; then consists of *re*starting the frame at its next bytecode instruction, with the retained frame&#39;s locals and eval stack just as they were.</code></p>
+<p>Some generator properties:</p>
+<ul>
+<li><p>In implementation terms a trivial variation on what Python currently does.</p>
+</li>
+<li><p>They’re <code>asymmetric</code>:  “suspend” is something only a generator can do, and “resume” something only its caller can do (this does not preclude a generator from being “the caller” wrt to some other generator, though, and indeed that’s very useful in practice).</p>
+</li>
+<li><p><code>A generator always returns control directly to its caller</code>, at the point the caller invoked the generator.  <code>And upon resumption, a generator always picks up where it left off.</code></p>
+</li>
+<li><p>Because a generator remembers where it is and what its locals are, <code>its state and &quot;what to do next&quot; don&#39;t have to be encoded in global data structures then decoded from scratch upon entry.</code>  That is, whenever you build a little (or large!) state machine to figure out “what to do next” from a collection of persistent flags and state vrbls, chances are good there’s a simple algorithm dying to break free of that clutter <wink>.</wink></p>
+</li>
+</ul>
+<p><strong>COROUTINES</strong></p>
+<p>Coroutines add only one new abstract operation, <code>&quot;transfer&quot;</code>.  They’re fully <code>symmetric</code> so can get away with only one.  “transfer” names a coroutine to transfer to, and gives a value to deliver to it (there are variations, but this one is common &amp; most useful).  When A transfers to B, it acts like a generator “suspend” wrt A and like a generator “resume” wrt B.  So A remembers where it is, and what its locals etc are, and B gets restarted from the point <em>it</em> last transfered to someone else.</p>
+<p>Coroutines grew up in simulation languages because they’re an achingly natural way to model independent objects that interact with feedback.  There each object (which may itself be a complex system of other stuff) is written as an infinite loop, transferring control to other objects when it has something to tell them, and transferred to by other objects when they have something to tell it.</p>
+<p>A Unix pipeline <code>&quot;A | B | C | D&quot;</code> doesn’t exploit the full power but is suggestive.  A may be written as</p>
+</blockquote>
+<blockquote>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    x = compute my next output</span><br><span class="line">    B.transfer(x)     <span class="comment"># resume B with my output</span></span><br><span class="line"></span><br><span class="line">B <span class="keyword">as</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    x = A.transfer()  <span class="comment"># resume A to get my input</span></span><br><span class="line">    y = compute something <span class="keyword">from</span> x <span class="keyword">and</span> my own history</span><br><span class="line">    C.transfer(y)     <span class="comment"># resume C with my output</span></span><br><span class="line"></span><br><span class="line">C <span class="keyword">as</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    x = B.transfer()  <span class="comment"># resume B to get my input</span></span><br><span class="line">    y = compute something <span class="keyword">from</span> x <span class="keyword">and</span> my own history</span><br><span class="line">    D.transfer(y)     <span class="comment"># resume D with my output</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">and</span> D <span class="keyword">as</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    x = C.transfer()  <span class="comment"># resume C to get my input</span></span><br><span class="line">    y = compute something <span class="keyword">from</span> x <span class="keyword">and</span> my own history</span><br><span class="line">    <span class="keyword">print</span> y</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>If e.g. C collapses pairs of values from B, it can be written instead as<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> <span class="number">1</span>:</span><br><span class="line">    <span class="comment"># get a pair of B's</span></span><br><span class="line">    x = B.transfer()</span><br><span class="line">    y = B.transfer()</span><br><span class="line">    z = f(x, y, whatever)</span><br><span class="line">    D.transfer(z)     <span class="comment"># resume D with my output</span></span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<blockquote>
+<p>It’s a local modification to C:  B doesn’t know and shouldn’t need to know. This keeps complex algorithms manageable as things evolve.</p>
+<p>Initialization and shutdown can be delicate, but once the pipe is set up it doesn’t even matter which of {A, B, C, D} first gets control!  You can view A as pushing results through the pipe, or D as pulling them, or whatever. In reality they’re all equal partners.</p>
+<p><code>Why these are so much harder to implement than generators:  &quot;transfer&quot; *names* who next gets control, while generators always return to their (unnamed) caller.  So a generator simply &quot;pops the stack&quot; when it suspends, while coroutine flow need not  be (and typically isn&#39;t) stack-like.</code></p>
+<p>In Python this is currently a coroutine-killer, because the C stack gets intertwined.  So if coroutine A merely calls (in the regular sense) function F, and F tries to transfer to coroutine B, the info needed to resume A includes the chunk of the C stack between A and F.  And that’s why the Python coroutine implementation I referenced earlier uses threads under the covers (where capturing pieces of the C stack isn’t a problem).</p>
+<p>Early versions of coroutines didn’t allow for this, though!  At first coroutines could only transfer <em>directly</em> to other coroutines, and as soon as a coroutine made “a regular call” transfers were prohibited until the call returned (unless the called function kicked off a brand new collection of coroutines, which could then transfer among themselves – making the distinction leads to convoluted rules, so modern practice is to generalize from the start).</p>
+<p>Then the current state of each coroutine was contained in a single frame, and it’s really no harder to implement than generators.  Knuth seems to have this restricted flavor of coroutine in mind when he describes <code>generator behavior as &quot;semi-coroutine&quot;.</code></p>
+</blockquote>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/04/25/coroutines-improve-your-python-yield-and-generators-explained/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          【译】祥析 Yield 关键字和生成器
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/12/10/kvm-the-first-virtual-machine/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">KVM 系列：第一个虚拟机</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#子例程"><span class="toc-number">1.</span> <span class="toc-text">子例程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#协程"><span class="toc-number">2.</span> <span class="toc-text">协程</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#协程定义"><span class="toc-number">2.1.</span> <span class="toc-text">协程定义</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#协程本质"><span class="toc-number">2.2.</span> <span class="toc-text">协程本质</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#调度器"><span class="toc-number">2.3.</span> <span class="toc-text">调度器</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#PEP-342"><span class="toc-number">3.</span> <span class="toc-text">PEP 342</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#重定义-yield-为一个表达式而不是一个语句"><span class="toc-number">3.1.</span> <span class="toc-text">重定义 yield 为一个表达式而不是一个语句</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#表达式和语句概念辨别"><span class="toc-number">3.1.1.</span> <span class="toc-text">表达式和语句概念辨别</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#yield-表达式"><span class="toc-number">3.1.2.</span> <span class="toc-text">yield 表达式</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#提议说明"><span class="toc-number">3.1.2.1.</span> <span class="toc-text">提议说明</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#表达式样例"><span class="toc-number">3.1.2.2.</span> <span class="toc-text">表达式样例</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#为生成器增加-send-方法"><span class="toc-number">3.2.</span> <span class="toc-text">为生成器增加 send() 方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#提议说明-1"><span class="toc-number">3.2.1.</span> <span class="toc-text">提议说明</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#例子解析"><span class="toc-number">3.2.2.</span> <span class="toc-text">例子解析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#问题解析"><span class="toc-number">3.2.2.1.</span> <span class="toc-text">问题解析</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#生成器执行点"><span class="toc-number">3.2.2.2.</span> <span class="toc-text">生成器执行点</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#异常及资源清理"><span class="toc-number">3.3.</span> <span class="toc-text">异常及资源清理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#协程与生成器区别"><span class="toc-number">3.4.</span> <span class="toc-text">协程与生成器区别</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

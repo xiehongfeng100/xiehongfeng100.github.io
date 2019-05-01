@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“硬盘基础知识” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="以前对于硬盘一直没有一个完整的概念，这次为了理解内核引导，特查找资料简述。 硬盘基本概念在这里，我们不考虑硬盘的机械结构，而只考虑一些我们（程序员）可能需要了解的硬盘结构单元。我们先来看一个比较形象的硬盘模型：(图片来源:https://technet.microsoft.com/en-us/library/dd758814(v=sql.100).aspx)   这个模型已经涉及到 2 个概念：">
+<meta name="keywords" content="Linux,内核,硬盘">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“硬盘基础知识”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="以前对于硬盘一直没有一个完整的概念，这次为了理解内核引导，特查找资料简述。 硬盘基本概念在这里，我们不考虑硬盘的机械结构，而只考虑一些我们（程序员）可能需要了解的硬盘结构单元。我们先来看一个比较形象的硬盘模型：(图片来源:https://technet.microsoft.com/en-us/library/dd758814(v=sql.100).aspx)   这个模型已经涉及到 2 个概念：">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/simplified-schematic-diagram-of-hard-drive-internals.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘物理结构1.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/physical-disk-structure.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘逻辑设备号.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/linux-0-1-1-device.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/现代设备号命名规则实例分析.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘基本参数信息表.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘主引导区MBR结构.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘分区表项结构.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.584Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“硬盘基础知识”">
+<meta name="twitter:description" content="以前对于硬盘一直没有一个完整的概念，这次为了理解内核引导，特查找资料简述。 硬盘基本概念在这里，我们不考虑硬盘的机械结构，而只考虑一些我们（程序员）可能需要了解的硬盘结构单元。我们先来看一个比较形象的硬盘模型：(图片来源:https://technet.microsoft.com/en-us/library/dd758814(v=sql.100).aspx)   这个模型已经涉及到 2 个概念：">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part8/simplified-schematic-diagram-of-hard-drive-internals.jpg">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part8" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/" class="article-date">
+  	<time datetime="2016-01-29T06:00:00.000Z" itemprop="datePublished">2016-01-29</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“硬盘基础知识”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/硬盘/">硬盘</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>以前对于硬盘一直没有一个完整的概念，这次为了理解内核引导，特查找资料简述。</p>
+<h1 id="硬盘基本概念"><a href="#硬盘基本概念" class="headerlink" title="硬盘基本概念"></a><strong>硬盘基本概念</strong></h1><p>在这里，我们不考虑硬盘的机械结构，而只考虑一些我们（程序员）可能需要了解的硬盘结构单元。我们先来看一个比较形象的硬盘模型：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/simplified-schematic-diagram-of-hard-drive-internals.jpg" alt>(图片来源:<a href="https://technet.microsoft.com/en-us/library/dd758814(v=sql.100).aspx" target="_blank" rel="noopener">https://technet.microsoft.com/en-us/library/dd758814(v=sql.100).aspx</a>)  </p>
+<p>这个模型已经涉及到 2 个概念：  </p>
+<a id="more"></a>
+<ul>
+<li><code>盘片（Platter）</code>：每个盘片上下两面都可存储数据，而且上下两面各需一个读/写磁头。盘片从上到下编号为 0（第 1 个盘片上）、1（第 1 个盘片下）、2（第 2 个盘片上）、3（第 2 个盘片下）…</li>
+<li><code>磁道（Track）</code>：沿着半径方向划分的同心圆（注意是有一定宽度的）。磁道从盘片外圈往内圈编号 0 磁道，1 磁道…靠近主轴的同心圆用于停靠磁头，不存储数据；</li>
+</ul>
+<p>我们再来看一个图：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘物理结构1.png" alt><a href="http://www.cnblogs.com/shishm/archive/2011/10/24/2222469.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>这下我们再来介绍 3 个概念：</p>
+<ul>
+<li><code>扇面</code>：盘片上的扇形区域。</li>
+<li><code>扇区（Sector）</code>：每个磁道被扇面切割成的区域，是数据读/写的最小单元。<ul>
+<li>每个扇区可存储 128×2 的 N 次方（N＝0.1.2.3）个字节的数据（一般为 512B）。从上图可知，外圈的扇区面积比内圈大，但存储的数据量相同，这是因为内外圈使用的磁物质密度不同。现在的硬盘已经采用内外圈同密度物质来存储数据，以减少类似“大面积小数据”的浪费情况。</li>
+<li>扇区的编号从 0 磁道开始，起始扇区为 1 扇区，其后为 2 扇区、3 扇区……，0 磁道的扇区编号结束后，1 磁道的起始扇区累计编号，直到最后一个磁道的最后一个扇区。例如，某个硬盘有 1024 个磁道，每个磁道划分为63 个扇区，则 0 磁道的扇区号为 1~63，1 磁道的起始扇区号为64，最后一个磁道的最后一个扇区号为 64512。</li>
+</ul>
+</li>
+<li><code>簇（Cluster）</code>：同一磁道上的连续的扇区形成的区域。</li>
+</ul>
+<p>我们再来看最后一张图：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/physical-disk-structure.png" alt><a href="http://techpubs.sgi.com/library/dynaweb_docs/0630/SGI_Admin/books/IA_DiskFiles/sgi_html/ch01.html" target="_blank" rel="noopener">图片来源</a><br><strong>注：</strong>上图中的 Disk block 指的就是扇区。</p>
+<p>这下我们再来介绍 1 个概念：  </p>
+<ul>
+<li><code>柱面（Cylinder）</code>：不同盘片上的同半径磁道组成了柱面。</li>
+</ul>
+<p>通过以上各图，我们可以算出一个硬盘的容量为：<code>磁头数 × 磁道(柱面)数 × 每个磁道扇区数 × 每扇区字节数</code>。</p>
+<h1 id="硬盘逻辑设备号"><a href="#硬盘逻辑设备号" class="headerlink" title="硬盘逻辑设备号"></a><strong>硬盘逻辑设备号</strong></h1><h2 id="老式设备号命名规则"><a href="#老式设备号命名规则" class="headerlink" title="老式设备号命名规则"></a><strong>老式设备号命名规则</strong></h2><p>老式的设备号命名规则为：<br><code>设备号 = 主设备号 * 256 + 次设备号</code></p>
+<p>其中，主设备号用来区分不同种类的设备，而次设备号用来区分同一类型的多个设备。</p>
+<p>在老式设备号命名规则中，常见设备的主设备号分别为：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1-内存</span><br><span class="line">2-磁盘</span><br><span class="line">3-硬盘</span><br><span class="line">4-ttyx</span><br><span class="line">5-tty</span><br><span class="line">6-并行口</span><br><span class="line">7-非命名管道</span><br></pre></td></tr></table></figure></p>
+<p>对于硬盘而言，1 个硬盘最多有 4 个分区，由次设备号来指定具体分区。按老式设备号命名规则，硬盘逻辑设备号如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘逻辑设备号.png" alt>  </p>
+<p>我们也可以通过<a href="http://tinylab.org/take-5-minutes-to-build-linux-0-11-experiment-envrionment/" target="_blank" rel="noopener">实际运行 Linux 0.11 操作系统</a>来验证：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/linux-0-1-1-device.png" alt>  </p>
+<h2 id="现代设备号命名规则"><a href="#现代设备号命名规则" class="headerlink" title="现代设备号命名规则"></a><strong>现代设备号命名规则</strong></h2><p>这部分主要参考自博文<a href="http://blog.csdn.net/s464036801/article/details/7676218" target="_blank" rel="noopener">磁盘分区基础和 Linux 上硬盘分区设备号解释</a>。</p>
+<h3 id="分区概念"><a href="#分区概念" class="headerlink" title="分区概念"></a><strong>分区概念</strong></h3><p><code>主分区</code>：一块物理硬盘上可以被独立使用的一部分，一个硬盘最多可以有 4 个主分区。<br><code>扩展分区</code>：为了突破一个物理硬盘只能有 4 个分区的限制，引入了扩展分区。<code>扩展分区和主分区的地位相当，但是扩展分区本身不能被直接使用，然而可以被继续划分成多个&quot;逻辑分区&quot;。一个硬盘只能有一个扩展分区。</code><br><code>逻辑分区</code>：逻辑分区可以有任意多个，但是不能独立存在，多个连续的逻辑分区可作为一个扩展分区。<br>总结：也就是说，<code>在一个物理硬盘上主分区和扩展分区加在一起最多仍然只有 4 个。但是扩展分区可以继续被划分成逻辑分区，而对多数用户而言，其实主分区和逻辑分区在使用上是没什么区别的。这样就达到了一快硬盘几乎可以有无限个分区的目的。</code></p>
+<h3 id="实例分析"><a href="#实例分析" class="headerlink" title="实例分析"></a><strong>实例分析</strong></h3><p>假设现在电脑上有一个 SATA 硬盘，这时查看设备：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ls /dev</span><br></pre></td></tr></table></figure></p>
+<p>会发现有一个 sda（如果是 IDE 硬盘，就是 hda）。不同分区方案能看到不同结果：  </p>
+<p><strong>分区方案一：</strong> 4 个主分区<br>这时候能看到：sda, sda1, sda2, sda3, dsa4</p>
+<p><strong>分区方案二：</strong>一个主分区和一个逻辑分区<br>这时候能看到：sda, sda1, sda2, sda5<br>这里sda是物理硬盘，sda1 是主分区，sda2 是扩展分区，sda5 是逻辑分区（正是<code>因为必须保留 4 个数字给主分区和扩展分区使用，所以逻辑分区的数字必须从 5 开始</code>）。</p>
+<p><strong>分区方案三：</strong>一个逻辑分区<br>这里能看到：sda，sda1，sda5</p>
+<p>如果有多块物理硬盘就会出现 sdb，sdc。</p>
+<p>一个实例如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/现代设备号命名规则实例分析.png" alt>    </p>
+<h1 id="硬盘基本参数表"><a href="#硬盘基本参数表" class="headerlink" title="硬盘基本参数表"></a><strong>硬盘基本参数表</strong></h1><p>在计算机 BIOS 设定的中断向量表中，int 0x41 的中断向量位置（4*0x41=0x0000:0x0104）存放的并不是中断服务程序的地址，而是第一个硬盘的基本参数列表。第二个硬盘的基本参数列表入口地址存放于 int 0x46 中断向量位置处（4*0x46=0x0000:0x0118）。硬盘参数表内容如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘基本参数信息表.png" alt>图片来源：《Linux 内核完全注释》  </p>
+<p>详细请参考博文 <a href="http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/">Linux 内核学习笔记：内核引导程序之“setup.s”</a>“加载机器系统数据”部分。</p>
+<h1 id="硬盘分区表"><a href="#硬盘分区表" class="headerlink" title="硬盘分区表"></a><strong>硬盘分区表</strong></h1><p>如果 PC 机从硬盘上启动操作系统，那么 ROM BIOS 程序在执行完机器自检诊断程序后就会把硬盘上的第 1 个扇区读入内存 0x7C00 开始处，并把控制权交给这个扇区中的代码去执行。这个特定的扇区称为主引导区 <code>MBR</code> （Master Boot Record），其结构如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘主引导区MBR结构.png" alt>图片来源：《Linux 内核完全注释》  </p>
+<p>除了 446 字节的引导执行代码之外，MBR 中还包含一张硬盘分区表，共含有 4 个表项。分区表存放在硬盘的 0 柱面 0 头第 1 个扇区的 0x1BE~0x1FD 偏移位置处。为了实现多个操作系统共享硬盘资源，硬盘可以从逻辑上把所有扇区分成 1~4 个分区。每个分区之间的扇区号是邻接的。分区表中每个表项由 16 字节，用来描述一个分区的特性。<code>分区表项</code>结构如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part8/硬盘分区表项结构.png" alt>图片来源：《Linux 内核完全注释》  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part9/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“权限”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/28/linux-kenel-0-11-topic-necessary-preparation-part7/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：预备知识之“汇编语言”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#硬盘基本概念"><span class="toc-number">1.</span> <span class="toc-text">硬盘基本概念</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#硬盘逻辑设备号"><span class="toc-number">2.</span> <span class="toc-text">硬盘逻辑设备号</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#老式设备号命名规则"><span class="toc-number">2.1.</span> <span class="toc-text">老式设备号命名规则</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#现代设备号命名规则"><span class="toc-number">2.2.</span> <span class="toc-text">现代设备号命名规则</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#分区概念"><span class="toc-number">2.2.1.</span> <span class="toc-text">分区概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#实例分析"><span class="toc-number">2.2.2.</span> <span class="toc-text">实例分析</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#硬盘基本参数表"><span class="toc-number">3.</span> <span class="toc-text">硬盘基本参数表</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#硬盘分区表"><span class="toc-number">4.</span> <span class="toc-text">硬盘分区表</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

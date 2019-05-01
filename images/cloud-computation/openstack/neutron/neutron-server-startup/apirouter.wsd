@@ -1,0 +1,71 @@
+@startuml
+
+title APIRouter
+
+participant api_router as "neutron.api.v2.router::APIRouter"
+participant neutron_manager as "neutron.manager::NeutronManager"
+participant plugin_aware_extension_manager as "neutron.api.extensions::PluginAwareExtensionManager"
+
+activate api_router
+note over api_router: init routes.mapper.py::Mapper()
+note over api_router
+__Note__
+call neutron.manager.py::init()
+as func init() will eventually call
+**neutron.manager.py::NeutronManager::_create_instance()**,
+so we just skip some funcs and jump to the target funcs.
+end note
+
+api_router->neutron_manager: call neutron.manager.py::NeutronManager::_create_instance()
+
+activate neutron_manager
+neutron_manager->neutron_manager: call self._\_init__()
+
+activate neutron_manager
+note over neutron_manager #EB9898
+load services from **core plugin**：
+1. !!!load core plugin: neutron.plugins.ml2.plugin:Ml2Plugin()
+2. load services (None actually NOW) from core plugin
+
+Note: Configs are determined by cfg.CONF.core_plugin
+and CORE_PLUGINS_NAMESPACE
+end note
+
+note over neutron_manager #EB9898
+load **service plugins**：
+1. !!!load service plugins one by one
+
+Note: Configs are determined by cfg.CONF.service_plugins,
+DEFAULT_SERVICE_PLUGINS and SERVICE_PLUGINS_NAMESPACE
+end note
+
+note over neutron_manager
+__Note__
+Loaded core and service plugins have been added to the
+**neutron_lib.plugins.directory.py::_PluginDirectory()** instance.
+end note
+
+neutron_manager-->neutron_manager: return
+deactivate neutron_manager
+
+neutron_manager-->api_router: return
+deactivate neutron_manager
+
+api_router->plugin_aware_extension_manager: handle extensions
+
+activate plugin_aware_extension_manager
+note over plugin_aware_extension_manager #60A1EB
+1. get **PluginAwareExtensionManager (inherite from ExtensionManager)** instance
+2. **extend resources**
+end note
+
+plugin_aware_extension_manager-->api_router: return
+deactivate plugin_aware_extension_manager 
+
+note over api_router: get core plugin instance (directory.get_plugin())
+
+note over api_router #6EDF64
+!!!initialize **core plugin routes**
+end note
+
+@enduml

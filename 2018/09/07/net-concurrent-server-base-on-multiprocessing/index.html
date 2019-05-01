@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>网络学习笔记：基于多进程并发服务器 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文迁移并整理自个人之前在博客园的博客。  本文是并发服务器系列学习笔记的第 1 篇。 参考资料：《UNIX网络编程 卷1》 fork 及 exec 函数fork函数是Unix/Linux中派生新进程的唯一方法。其定义如下：123#include &amp;lt;unistd.h&amp;gt;pid_t fork(void);// 返回：若成功则在子进程中返回 0，在父进程中返回子进程 ID，若出错则返回 -1">
+<meta name="keywords" content="多进程,fork">
+<meta property="og:type" content="article">
+<meta property="og:title" content="网络学习笔记：基于多进程并发服务器">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2018/09/07/net-concurrent-server-base-on-multiprocessing/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文迁移并整理自个人之前在博客园的博客。  本文是并发服务器系列学习笔记的第 1 篇。 参考资料：《UNIX网络编程 卷1》 fork 及 exec 函数fork函数是Unix/Linux中派生新进程的唯一方法。其定义如下：123#include &amp;lt;unistd.h&amp;gt;pid_t fork(void);// 返回：若成功则在子进程中返回 0，在父进程中返回子进程 ID，若出错则返回 -1">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/图4-14-accept返回前客户-服务器的状态.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/图4-15-accept返回后客户-服务器的状态.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/图4-16-fork返回前客户-服务器的状态.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/图4-17-父子进程关闭相应套接字后客户-服务器的状态.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/example1/start-server.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/example1/start-client.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/example1/parent-child-process-status.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/example1/child-process-becomes-zombie.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/example1/too-many-zombie-processes.png">
+<meta property="og:updated_time" content="2019-05-01T07:14:01.783Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="网络学习笔记：基于多进程并发服务器">
+<meta name="twitter:description" content="本文迁移并整理自个人之前在博客园的博客。  本文是并发服务器系列学习笔记的第 1 篇。 参考资料：《UNIX网络编程 卷1》 fork 及 exec 函数fork函数是Unix/Linux中派生新进程的唯一方法。其定义如下：123#include &amp;lt;unistd.h&amp;gt;pid_t fork(void);// 返回：若成功则在子进程中返回 0，在父进程中返回子进程 ID，若出错则返回 -1">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/network/concurrent-server/multi-processing/图4-14-accept返回前客户-服务器的状态.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-net-concurrent-server-base-on-multiprocessing" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2018/09/07/net-concurrent-server-base-on-multiprocessing/" class="article-date">
+  	<time datetime="2018-09-07T15:38:28.000Z" itemprop="datePublished">2018-09-07</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      网络学习笔记：基于多进程并发服务器
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/fork/">fork</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/多进程/">多进程</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/网络/">网络</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文迁移并整理自个人之前在博客园的<a href="https://www.cnblogs.com/xiehongfeng100/p/4617531.html" target="_blank" rel="noopener">博客</a>。</p>
+<hr>
+<p>本文是并发服务器系列学习笔记的第 1 篇。</p>
+<p>参考资料：《UNIX网络编程 卷1》</p>
+<h1 id="fork-及-exec-函数"><a href="#fork-及-exec-函数" class="headerlink" title="fork 及 exec 函数"></a><strong>fork 及 exec 函数</strong></h1><p>fork函数是Unix/Linux中派生新进程的唯一方法。其定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="keyword">pid_t</span> fork(<span class="keyword">void</span>);</span><br><span class="line"><span class="comment">// 返回：若成功则在子进程中返回 0，在父进程中返回子进程 ID，若出错则返回 -1</span></span><br></pre></td></tr></table></figure></p>
+<p>fork 函数调用一次，返回两次。它在调用进程（称为父进程）中返回一次，返回值是新派生进程（称为子进程）的进程ID号；在子进程中返回一次，返回值为 0。因此，返回值本身告知当前进程是子进程还是父进程。</p>
+<p>fork 在子进程返回 0 而不是父进程的进程 ID 的原因在于：任何子进程只有一个父进程，而且子进程总是可以通过调用 getppid 函数取得父进程的进程 ID。相反，父进程可以有很多子进程，而且无法获取各个子进程的进程 ID。如果父进程想要跟踪所有子进程的进程 ID，那么它必须记录每次调用 fork 的返回值。</p>
+<p><code>父进程中调用 fork 之前打开的所有描述符在 fork 返回之后由子进程分享。</code>我们将看到网络服务器利用了这个特性：父进程调用 accept 之后调用 fork。所接受的已连接套接字随后就在父进程与子进程共享。通常情况下，子进程接着读写这个已连接套接字，父进程则关闭这个已连接套接字。</p>
+<p>fork 有两个典型用法：<br>1）一个进程创建一个自身的副本，这样每个副本都可以在另一个副本执行其他任务的同时处理各自的某个操作。这是网络服务器的典型用法。<br>2）一个进程想要执行另一个程序。既然创建新进程的唯一办法是调用 fork，该进程于是首先调用 fork 创建一个自身的副本，然后其中一个副本（通常为子进程）调用 exec 把自身替换成新的程序。这是诸如 shell 之类程序的典型用法。</p>
+<p>存放在硬盘上的可执行程序文件能够被 Unix 执行的唯一方法是：由一个现有进程调用六个 exec 函数中的某一个。（这六个函数中哪一个被调用并不重要，我们往往把它们统称为 exec 函数。）exec 把当前进程映像替换成新的程序文件，而且该新进程通常从 main 函数开始执行。进程 ID 并不改变。我们称调用 exec 的进程为调用进程（calling process），称新执行的程序为新程序（new program）。</p>
+<p>这六个 exec 函数之间的区别在于：<br>a）待执行的程序文件是由文件名（filename）还是由路径名（pathname）指定；<br>b）新程序的参数是一一列出还是由一个指针数组来引用；<br>c）把调用进程的环境传递给新程序还是给新程序指定新的环境。</p>
+<a id="more"></a>
+<h1 id="并发服务器"><a href="#并发服务器" class="headerlink" title="并发服务器"></a><strong>并发服务器</strong></h1><p>我们之前（第4章前，如图4-11）接触的服务器是一个迭代服务器（iterative server）。对于像时间获取这样的简单服务器来说，这就够了。然而当服务一个客户请求可能花费较长时间时，我们并不希望整个服务器被单个客户长期占用，而是希望同时服务多个客户。Unix/Linux中编写并发服务器程序最简单的办法就是fork一个子进程来服务每个客户。下边程序给出了一个典型的并发服务器程序的轮廓：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pid_t</span> pid;</span><br><span class="line"><span class="keyword">int</span> listenfd, connfd;</span><br><span class="line">listenfd = Socket(...);</span><br><span class="line">    <span class="comment">/* fill in sockaddr_in&#123;&#125; with server's well-known port */</span></span><br><span class="line">Bind(listenfd, ...);</span><br><span class="line">Listen(listenfd, LISTENQ);</span><br><span class="line"><span class="keyword">for</span>( ; ; )</span><br><span class="line">&#123;</span><br><span class="line">    connfd = Accept(listenfd, ...);        <span class="comment">/* probably blocks */</span></span><br><span class="line">    <span class="keyword">if</span>((pid = Fork()) == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        Close(listenfd);                   <span class="comment">/* child closes listening socket */</span></span><br><span class="line">        doit(connfd);                      <span class="comment">/* process the request */</span></span><br><span class="line">        Close(connfd);                     <span class="comment">/* done with this client */</span></span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">0</span>);                           <span class="comment">/* child terminates */</span></span><br><span class="line">    &#125;</span><br><span class="line">    Close(connfd);                         <span class="comment">/* parent closes connected socked */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>当一个连接建立时，accept返回，服务器接着调用fork，然后由子进程服务客户（通过已连接套接字connfd），父进程则等待另一个连接（通过监听套接字listenfd）。既然新的客户由子进程提供服务，父进程就关闭已连接套接字。</p>
+<p>在上边程序中，我们假设由函数doit执行服务客户所需的所有操作。当该函数返回时，我们在该子进程显式地关闭已连接套接字。这一点并非必需，因为下一个语句就是调用exit，而进程终止处理的部分工作就是关闭所有由内核打开的描述符。是否显式调用close只和个人编程风格有关。</p>
+<p>对一个TCP套接字调用close会导致发送一个FIN，随后是正常的TCP连接终止序列。为什么上边程序中父进程对connfd调用close没有终止它与客户的连接呢？为了便于理解，我们必须知道<code>每个文件或套接字都有一个引用计数。引用计数在文件表项中维护（APUE第58-59页），它是当前打开着的引用该文件或套接字的描述符的个数</code>。在上边程序中，socket返回后与listenfd关联的文件表项的引用计数值为1。accept返回后与connfd关联的文件表项的引用计数值也为1。然而fork返回后，这两个描述符就在父进程与子进程间共享（也就是被复制），因此与这两个套接字相关联的文件表项各自的访问计数值均为2。这么一来，当父进程关闭connfd时，它只是把相应的引用计数值从2减为1。这套接字真正的清理和资源释放要等到其引用计数为0时才发生。这也会在子进程关闭connfd时发生。</p>
+<p>我们还可以用图示直观的表现出来。</p>
+<p>首先，图4-14给出了在服务器阻塞于accept调用且来自客户的连接请求到达时客户和服务器的状态：<br><img src="/images/network/concurrent-server/multi-processing/图4-14-accept返回前客户-服务器的状态.png" alt>  </p>
+<p>从accept返回后，我们立即就有图4-15所示状态。连接被内核接受，新的套接字connfd被创建。这是一个已连接套接字，可由此跨连接读写数据：<br><img src="/images/network/concurrent-server/multi-processing/图4-15-accept返回后客户-服务器的状态.png" alt>  </p>
+<p>并发服务器的下一步是调用fork，图4-16给出了从fork返回后的状态：<br><img src="/images/network/concurrent-server/multi-processing/图4-16-fork返回前客户-服务器的状态.png" alt>  </p>
+<p>注意，此时listenfd和connfd这两个描述符都在父进程和子进程之间共享（被复制）。</p>
+<p>再下一步是由父进程关闭已连接套接字，由子进程关闭监听套接字，如图4-17所示：<br><img src="/images/network/concurrent-server/multi-processing/图4-17-父子进程关闭相应套接字后客户-服务器的状态.png" alt>  </p>
+<p>这是这两个套接字所期望的最终状态。子进程处理与客户的连接，父进程则可以在监听套接字上再次调用accept来处理下一个客户连接。</p>
+<h1 id="示例"><a href="#示例" class="headerlink" title="示例"></a><strong>示例</strong></h1><h2 id="示例-1"><a href="#示例-1" class="headerlink" title="示例 1"></a><strong>示例 1</strong></h2><h3 id="服务端程序"><a href="#服务端程序" class="headerlink" title="服务端程序"></a><strong>服务端程序</strong></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"unp.h"</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span></span><br><span class="line">main()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> listenfd, connfd;</span><br><span class="line">    <span class="keyword">pid_t</span> childpid;</span><br><span class="line">    <span class="keyword">socklen_t</span> clilen;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">cliaddr</span>, <span class="title">servaddr</span>;</span></span><br><span class="line">    </span><br><span class="line">    listenfd = Socket(AF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">    </span><br><span class="line">    bzero(&amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line">    servaddr.sin_family = AF_INET;</span><br><span class="line">    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);</span><br><span class="line">    servaddr.sin_port = htons(SERV_PORT);</span><br><span class="line"></span><br><span class="line">    Bind(listenfd, (SA *) &amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line">    Listen(listenfd, LISTENQ);</span><br><span class="line">    <span class="keyword">for</span>( ; ; )</span><br><span class="line">    &#123;</span><br><span class="line">        clilen = <span class="keyword">sizeof</span>(cliaddr);</span><br><span class="line">        connfd = Accept(listenfd, (SA *) &amp;cliaddr, &amp;cliaddr);</span><br><span class="line">        <span class="keyword">if</span>((childpid = Fork()) == <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            Close(listenfd);</span><br><span class="line">            str_echo(connfd);</span><br><span class="line">            Close(connfd);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        Close(connfd);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中str_echo函数用于处理客户端消息，其定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span></span><br><span class="line">str_echo(<span class="keyword">int</span> sockfd)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">ssize_t</span> n;</span><br><span class="line">    <span class="keyword">char</span> buf[MAXLINE];</span><br><span class="line"></span><br><span class="line">again:</span><br><span class="line">    <span class="keyword">while</span> ( (n = read(sockfd, buf, MAXLINE)) &gt; <span class="number">0</span>)</span><br><span class="line">        Writen(sockfd, buf, n);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (n &lt; <span class="number">0</span> &amp;&amp; errno == EINTR)</span><br><span class="line">        <span class="keyword">goto</span> again;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (n &lt; <span class="number">0</span>)</span><br><span class="line">        err_sys(<span class="string">"str_echo: read error"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="客户端程序"><a href="#客户端程序" class="headerlink" title="客户端程序"></a><strong>客户端程序</strong></h3><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"unp.h"</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span></span><br><span class="line">main(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> sockfd;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">servaddr</span>;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(argc != <span class="number">2</span>)</span><br><span class="line">        err_quit(<span class="string">"usage: tcpcli &lt;IPaddress&gt;"</span>);</span><br><span class="line"></span><br><span class="line">    sockfd = Socket(AF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">    </span><br><span class="line">    bzero(&amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line">    servaddr.sin_family = AF_INET;</span><br><span class="line">    servaddr.sin_port = htons(SERV_PORT);</span><br><span class="line">    Inet_pton(AF_INET, argv[<span class="number">1</span>], &amp;servaddr.sin_addr.s_addr);</span><br><span class="line"></span><br><span class="line">    Connect(sockfd, (SA *) &amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line"></span><br><span class="line">    str_cli(<span class="built_in">stdin</span>, sockfd);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中函数str_cli用于从标准输入读入一行文本，写到服务器上，读回服务器对该行的回射，并把回射行写到标准输出上。其定义为：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">void</span></span><br><span class="line">str_cli(FILE *fp, <span class="keyword">int</span> sockfd)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">char</span>    sendline[MAXLINE], recvline[MAXLINE];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (Fgets(sendline, MAXLINE, fp) != <span class="literal">NULL</span>) &#123;</span><br><span class="line"></span><br><span class="line">        Writen(sockfd, sendline, <span class="built_in">strlen</span>(sendline));</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (Readline(sockfd, recvline, MAXLINE) == <span class="number">0</span>)</span><br><span class="line">            err_quit(<span class="string">"str_cli: server terminated prematurely"</span>);</span><br><span class="line"></span><br><span class="line">        Fputs(recvline, <span class="built_in">stdout</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h3 id="测试效果"><a href="#测试效果" class="headerlink" title="测试效果"></a><strong>测试效果</strong></h3><p>接下来，我们在机器上看一下实际效果：</p>
+<p>1）<strong>首先开启服务端</strong><br><img src="/images/network/concurrent-server/multi-processing/example1/start-server.png" alt><br>上图表示服务端进程tcpserv01正处在inet_csk_accept状态（从accept队列中取出sock然后返回）。</p>
+<p>2）<strong>开启客户端</strong><br><img src="/images/network/concurrent-server/multi-processing/example1/start-client.png" alt>  </p>
+<p>这时我们再次查看进程，发现服务端父进程已经创建了一个子进程，且父进程仍处于监听状态，而由子进程处理与客户端的数据交互，如下图：<br><img src="/images/network/concurrent-server/multi-processing/example1/parent-child-process-status.png" alt>  </p>
+<p>而当关闭客户端时会使得服务端子进程退出，最后成为僵尸进程，如下图：<br><img src="/images/network/concurrent-server/multi-processing/example1/child-process-becomes-zombie.png" alt>  </p>
+<p>当有大量的客户端断开与服务端的连接，就会造成大量的僵尸进程，浪费系统资源，如下图：<br><img src="/images/network/concurrent-server/multi-processing/example1/too-many-zombie-processes.png" alt>  </p>
+<p>因此，示例1的服务端程序存在 造成大量僵尸进程从而大量浪费系统资源 的潜在威胁，所以我们需要改进一下该服务端程序。</p>
+<p>关于僵尸进程解决方法请参考博文<a href="http://www.cnblogs.com/xiehongfeng100/p/4619913.html" target="_blank" rel="noopener">孤儿进程与僵尸进程</a>。</p>
+<h2 id="示例-2：改进示例-1"><a href="#示例-2：改进示例-1" class="headerlink" title="示例 2：改进示例 1"></a><strong>示例 2：改进示例 1</strong></h2><p>在这里我们只需要改进服务端程序就可以了（详细解释请参考《UNIX网络编程 卷1》5.10节），改进后的程序如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"unp.h"</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">void</span></span><br><span class="line">sig_chld(<span class="keyword">int</span> signo)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">pid_t</span> pid;</span><br><span class="line">    <span class="keyword">int</span> stat;</span><br><span class="line">    <span class="keyword">while</span>((pid = waitpid(<span class="number">-1</span>, &amp;stat, WNOHANG)) &gt; <span class="number">0</span>)</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"child %d terminated\n"</span>, pid);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span></span><br><span class="line">main()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">int</span> listenfd, connfd;</span><br><span class="line">    <span class="keyword">pid_t</span> childpid;</span><br><span class="line">    <span class="keyword">socklen_t</span> clilen;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">cliaddr</span>, <span class="title">servaddr</span>;</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">sig_chld</span><span class="params">(<span class="keyword">int</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">    listenfd = Socket(AF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">    </span><br><span class="line">    bzero(&amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line">    servaddr.sin_family = AF_INET;</span><br><span class="line">    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);</span><br><span class="line">    servaddr.sin_port = htons(SERV_PORT);</span><br><span class="line"></span><br><span class="line">    Bind(listenfd, (SA *) &amp;servaddr, <span class="keyword">sizeof</span>(servaddr));</span><br><span class="line">    Listen(listenfd, LISTENQ);</span><br><span class="line">    Signal(SIGCHLD, sig_chld);    <span class="comment">/* must call waitpid */</span></span><br><span class="line">    <span class="keyword">for</span>( ; ; )</span><br><span class="line">    &#123;</span><br><span class="line">        clilen = <span class="keyword">sizeof</span>(cliaddr);</span><br><span class="line">        <span class="keyword">if</span>((connfd = accept(listenfd, (SA *)&amp;cliaddr, &amp;clilen)) &lt; <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span>(errno == EINTR)</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">                err_sys(<span class="string">"accept error"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span>((childpid = Fork()) == <span class="number">0</span>)</span><br><span class="line">        &#123;</span><br><span class="line">            Close(listenfd);</span><br><span class="line">            str_echo(connfd);</span><br><span class="line">            Close(connfd);</span><br><span class="line">            <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        Close(connfd);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>其中Signal函数定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* include signal */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span>    <span class="meta-string">"unp.h"</span></span></span><br><span class="line"></span><br><span class="line">Sigfunc *</span><br><span class="line">signal(<span class="keyword">int</span> signo, Sigfunc *func)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sigaction</span>    <span class="title">act</span>, <span class="title">oact</span>;</span></span><br><span class="line"></span><br><span class="line">    act.sa_handler = func;</span><br><span class="line">    sigemptyset(&amp;act.sa_mask);</span><br><span class="line">    act.sa_flags = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (signo == SIGALRM) &#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span>    SA_INTERRUPT</span></span><br><span class="line">        act.sa_flags |= SA_INTERRUPT;    <span class="comment">/* SunOS 4.x */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">#ifdef    SA_RESTART</span><br><span class="line">        act.sa_flags |= SA_RESTART;        <span class="comment">/* SVR4, 44BSD */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (sigaction(signo, &amp;act, &amp;oact) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span>(SIG_ERR);</span><br><span class="line">    <span class="keyword">return</span>(oact.sa_handler);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">/* end signal */</span></span><br><span class="line"></span><br><span class="line">Sigfunc *</span><br><span class="line">Signal(<span class="keyword">int</span> signo, Sigfunc *func)    <span class="comment">/* for our signal() function */</span></span><br><span class="line">&#123;</span><br><span class="line">    Sigfunc    *sigfunc;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ( (sigfunc = signal(signo, func)) == SIG_ERR)</span><br><span class="line">        err_sys(<span class="string">"signal error"</span>);</span><br><span class="line">    <span class="keyword">return</span>(sigfunc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/09/07/net-concurrent-server-base-on-multithreading/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          网络学习笔记：基于多线程并发服务器
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/09/07/net-what-is-socket/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">网络学习笔记：什么是 Socket</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#fork-及-exec-函数"><span class="toc-number">1.</span> <span class="toc-text">fork 及 exec 函数</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#并发服务器"><span class="toc-number">2.</span> <span class="toc-text">并发服务器</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#示例"><span class="toc-number">3.</span> <span class="toc-text">示例</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#示例-1"><span class="toc-number">3.1.</span> <span class="toc-text">示例 1</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#服务端程序"><span class="toc-number">3.1.1.</span> <span class="toc-text">服务端程序</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#客户端程序"><span class="toc-number">3.1.2.</span> <span class="toc-text">客户端程序</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#测试效果"><span class="toc-number">3.1.3.</span> <span class="toc-text">测试效果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#示例-2：改进示例-1"><span class="toc-number">3.2.</span> <span class="toc-text">示例 2：改进示例 1</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

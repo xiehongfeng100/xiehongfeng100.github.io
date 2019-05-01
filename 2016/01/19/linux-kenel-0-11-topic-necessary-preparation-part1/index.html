@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“寄存器模型” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="Linux 0.11 是一个 32 位操作系统，最初运行在 Intel 80386 微处理器上。下文主要集中介绍跟 80386 微处理器相关的一些知识点或微处理器共性。 80386 有多个工作模式，即实模式、保护模式和 V86 模式。《32 位微型计算机接口技术及应用》一书对微处理器工作模式有很简明扼要的解释：    微处理器的工作模式是指微处理器对“存储器”的操作模式。早期的微处理器（如 808">
+<meta name="keywords" content="Linux,内核,微处理器,寄存器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“寄存器模型”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="Linux 0.11 是一个 32 位操作系统，最初运行在 Intel 80386 微处理器上。下文主要集中介绍跟 80386 微处理器相关的一些知识点或微处理器共性。 80386 有多个工作模式，即实模式、保护模式和 V86 模式。《32 位微型计算机接口技术及应用》一书对微处理器工作模式有很简明扼要的解释：    微处理器的工作模式是指微处理器对“存储器”的操作模式。早期的微处理器（如 808">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/general-registers.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/segment-registers.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/instruction-pointer.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/flags-register.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/GDTR-n-IDTR.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/LDTR-n-TR.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/CR0-to-CR3.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/PG-n-PE-combination.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.583Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“寄存器模型”">
+<meta name="twitter:description" content="Linux 0.11 是一个 32 位操作系统，最初运行在 Intel 80386 微处理器上。下文主要集中介绍跟 80386 微处理器相关的一些知识点或微处理器共性。 80386 有多个工作模式，即实模式、保护模式和 V86 模式。《32 位微型计算机接口技术及应用》一书对微处理器工作模式有很简明扼要的解释：    微处理器的工作模式是指微处理器对“存储器”的操作模式。早期的微处理器（如 808">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part1/general-registers.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part1" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/" class="article-date">
+  	<time datetime="2016-01-19T08:49:44.000Z" itemprop="datePublished">2016-01-19</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“寄存器模型”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/寄存器/">寄存器</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/微处理器/">微处理器</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Linux 0.11 是一个 32 位操作系统，最初运行在 Intel 80386 微处理器上。下文主要集中介绍跟 80386 微处理器相关的一些知识点或微处理器共性。</p>
+<p>80386 有多个工作模式，即实模式、保护模式和 V86 模式。<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书对微处理器工作模式有很简明扼要的解释：  </p>
+<blockquote>
+<p><code>微处理器的工作模式是指微处理器对“存储器”的操作模式。</code>早期的微处理器（如 8086）只有一种工作模式就是实地址模式（Real Address Mode），简称<code>实模式</code>，程序和数据运行在实际存储空间，无存储保护；从 80286 到 Pentium 的微处理器又增加了一种工作模式，即受保护的虚拟地址模式（Protected Virtual Address Mode），简称<code>保护模式</code>，对程序和数据的管理采用虚拟存储空间，并且增加了存储保护，还支持多任务；在保护模式下，为了兼容 8086 微处理器对存储器的实模式操作，又派生出一种虚拟 8086 工作模式，又称 V8086 模式，简称 <code>V86 模式</code>。所以，32 位微处理器有实模式、保护模式和 V86 模式 3 种工作模式供用户选择使用。其中，<code>保护模式是 32 位微处理器的本机工作模式，而实模式和 V86 模式是为了兼容 16 位微处理器程序而留下来的工作模式。</code></p>
+</blockquote>
+<p>另外，实模式和保护模式下的寄存器模型是不一样的（<code>后者基本包括了前者，不同之处在后文指出</code>），下边分开阐述。</p>
+<a id="more"></a>
+<p><strong>注</strong>：下文内容主要参考自 80386 官方手册 <a href="http://pan.baidu.com/s/1mhf7Nmg" target="_blank" rel="noopener">Intel 80386 programmer’s reference manual</a>及<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书。</p>
+<h1 id="实模式下的-80386-寄存器模型"><a href="#实模式下的-80386-寄存器模型" class="headerlink" title="实模式下的 80386 寄存器模型"></a><strong>实模式下的 80386 寄存器模型</strong></h1><p>按照 80386 官方手册 <a href="http://pan.baidu.com/s/1mhf7Nmg" target="_blank" rel="noopener">Intel 80386 programmer’s reference manual</a>，其所有的寄存器可分为通用寄存器（General registers）、段寄存器（Segment registers）和标志寄存器（Flags register）。这跟<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书第 3.2 节分类稍微有点不一样，不过内容是相同的。</p>
+<h2 id="通用寄存器"><a href="#通用寄存器" class="headerlink" title="通用寄存器"></a><strong>通用寄存器</strong></h2><p>80386 的通用寄存器如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/general-registers.png" alt>  </p>
+<p>包含了 EAX、EDX、ECX、EBX、EBP、ESI、EDI、ESP 共 8 个寄存器。从上表我们也可以看出，这些寄存器也能够用作 16 位或 8 位寄存器，或两者兼有。</p>
+<p>下边将分成两个部分来阐述。</p>
+<h3 id="EAX、EDX、ECX、EBX"><a href="#EAX、EDX、ECX、EBX" class="headerlink" title="EAX、EDX、ECX、EBX"></a><strong>EAX、EDX、ECX、EBX</strong></h3><ul>
+<li>EAX 是累加器寄存器，主要用于存放程序执行过程中的一些中间结果，以及 I/O 数据。</li>
+<li>EBX 是基址寄存器，常用来存放访问内存时的地址。</li>
+<li>ECX 是计数寄存器，在串、循环、循环移位和移位操作指令中用作计数器。</li>
+<li>EDX 是数据寄存器，在寄存器间接寻址中的 I/O 指令中存放 I/O 端口的地址。</li>
+</ul>
+<h3 id="EBP、ESI、EDI、ESP"><a href="#EBP、ESI、EDI、ESP" class="headerlink" title="EBP、ESI、EDI、ESP"></a><strong>EBP、ESI、EDI、ESP</strong></h3><p>EBP、ESP 是指针寄存器，ESI 和 EDI 是变址寄存器。</p>
+<p>由于有些指令（算术、逻辑指令）的操作数在数据寄存器中，另一些指令（串指令）的操作数不在数据寄存器中，而在存储器内，因此，需要有一些能够确定操作数在存储器中的位置的寄存器。<code>指针寄存器和变址寄存器就是用于存放“偏移量”地址，而不是存放数据的寄存器。</code></p>
+<ul>
+<li>指针寄存器（EBP、ESP）用于选取<code>堆栈内</code>的具体存储单元，即指针寄存器的值指向堆栈段的栈顶或栈内的具体存储单元。如 EBP 和段寄存器 SS 的组合 SS:EBP 可指向堆栈内的存储单元；ESP 和 SS 的组合 SS:ESP 可指向堆栈的顶部（TOS，Top of the Stack）。</li>
+<li>变址寄存器（ESI、EDI）用于选取<code>数据段</code>内的具体存储单元，即变址寄存器的值指向存储器数据段或附加段内的存储单元。在指令包含变址时，ESI 用于保存源操作数的偏移量地址，EDI 用于保存目标操作数用的偏移地址。</li>
+</ul>
+<p><strong>注意：</strong>这里的<code>堆栈</code>实际上只指<code>栈</code>，不包括堆。</p>
+<h2 id="段寄存器"><a href="#段寄存器" class="headerlink" title="段寄存器"></a><strong>段寄存器</strong></h2><p>段寄存器是为了存储器分段的需要而设置的，用于存放段基址。80386 中总共有 1 个代码段、1 个堆栈段和 4 个数据段寄存器，如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/segment-registers.png" alt>  </p>
+<p>一段内存，既可以用作代码的存储空间，也可以用作数据的存储空间，还可以用作堆栈空间，主要是由微处理器中的段寄存器来指定。例如，由 CS 和 EIP 指定为代码的存储空间，由 DS 和偏移量指定为数据的存储空间，由 SS 和 ESP 指定为堆栈存储空间。</p>
+<h2 id="指令指针寄存器"><a href="#指令指针寄存器" class="headerlink" title="指令指针寄存器"></a><strong>指令指针寄存器</strong></h2><p>指令指针寄存器（Instruction pointer）在 <a href="http://pan.baidu.com/s/1mhf7Nmg" target="_blank" rel="noopener">80386 官方手册</a>中被归到标志寄存器下（根据目录上下级来判断），但个人总觉得这不大妥当，所以单独拿出来说。  </p>
+<p><code>指令指针寄存器指示存储器中当前代码段内的“偏移量”，即代码与代码段基址的距离。</code>它和代码段寄存器 CS 的组合 CS:EIP 指向待访问的代码。指令指针寄存器如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/instruction-pointer.png" alt>  </p>
+<h2 id="标志寄存器"><a href="#标志寄存器" class="headerlink" title="标志寄存器"></a><strong>标志寄存器</strong></h2><p>标志寄存器（Flags register）是一个 32 位寄存器，称为 EFLAGS （16 位的称为 FLAGS），用于指示微处理器的状态并控制它的工作，如下图所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/flags-register.png" alt>  </p>
+<p><code>实模式下，微处理器只用到了低 9 位（除去保留位，即从 OF~CF）。</code></p>
+<p>关于详细的标志意义，请参考 <a href="http://pan.baidu.com/s/1mhf7Nmg" target="_blank" rel="noopener">80386 官方手册</a>或<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书第 3.2 节。</p>
+<hr>
+<p>值得注意的是，在实模式下，还有一个控制寄存器 <code>CR0</code>。该寄存器在保护模式中介绍。</p>
+<h1 id="保护模式下的-80386-寄存器模型"><a href="#保护模式下的-80386-寄存器模型" class="headerlink" title="保护模式下的 80386 寄存器模型"></a><strong>保护模式下的 80386 寄存器模型</strong></h1><p>保护模式中跟实模式中相同的就不再介绍了，但有不同之处，在后文介绍。</p>
+<h2 id="全局描述符表寄存器"><a href="#全局描述符表寄存器" class="headerlink" title="全局描述符表寄存器"></a><strong>全局描述符表寄存器</strong></h2><p>全局描述符表寄存器 GDTR 用来<code>在存储器地址空间内定位一个全局描述符表 GDT。</code></p>
+<p>如表 1 所示，GDTR 长 48 位，其  </p>
+<ul>
+<li><code>高 32 位基地址 Base，指示 GDT 在存储器的开始位置。</code>32 位基址允许把 GDT 定位在线性地址空间内的任何地方。</li>
+<li><code>低 16 位指示 GDT 的段限长 Limit。它规定了 GDT 按&quot;字节&quot;计算的大小（Limit 的值要比实际表小 1。例如，如果 Limit=00FFH，则表长为 256B）。</code>16 位段限长允许 GDT 表做长可达 65536B，因而最多可容纳 8192 个描述符（每个描述符长 8B，64 位），实际应用根据需要来确定 GDT 的长度。</li>
+</ul>
+<p>表 1：GDTR 和 IDTR 寄存器<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/GDTR-n-IDTR.png" alt>  </p>
+<h2 id="中断描述符表寄存器"><a href="#中断描述符表寄存器" class="headerlink" title="中断描述符表寄存器"></a><strong>中断描述符表寄存器</strong></h2><p>中断描述符表寄存器 IDTR 用来<code>在存储器地址空间内定位一个中断描述符表 IDT。</code></p>
+<p>如表 1 所示，IDTR 长 48 位，其  </p>
+<ul>
+<li><code>高 32 位基地址 Base，指示 IDT 在存储器的开始位置。</code>32 位基址允许把 IDT 定位在线性地址空间内的任何地方。</li>
+<li><code>低 16 位指示 IDT 的段限长 Limit。它规定了 IDT 按字节计算的大小（Limit 的值要比实际表小 1。例如，如果 Limit=00FFH，则表长为 256B）。</code>16 位段限长允许 IDT 表做长可达 65536B，但<code>系统只支持 256 个中断和异常</code>，所以，实际上 IDT 的最大长度是 2048B，以字节为单位的界限为 7FFH。</li>
+</ul>
+<h2 id="局部描述符表寄存器"><a href="#局部描述符表寄存器" class="headerlink" title="局部描述符表寄存器"></a><strong>局部描述符表寄存器</strong></h2><p>如表 2 所示，局部描述符表寄存器 LDTR 长 16 位，是一个<code>选择子</code>，它指向存放在 GDT 中的 LDT 的描述符。</p>
+<p><code>LDTR （选择子）并不能直接定位 LDT，只有描述符才能定位 LDT</code>（注意：描述符跟描述符表是不一样的）。</p>
+<p>实际上，<code>LDT 需要两次定位</code>：  </p>
+<ol>
+<li>LDTR （选择子）定位 GDT 中 LDT 的（真正的）描述符。该描述符会被装入 LDTR 的高速缓冲寄存器中（如表 2 所示）；其高 32 位的 Base 值指示 LDT 在存储器的起始地址，20 位的 Limit 值指示 LDT 的大小，12 位的 Attribute 值说明 LDT 的属性。</li>
+<li>利用该描述符，定位 LDT 在存储器中的位置。</li>
+</ol>
+<p>表 2：LDTR 和 TR 寄存器<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/LDTR-n-TR.png" alt>  </p>
+<h2 id="任务状态段寄存器"><a href="#任务状态段寄存器" class="headerlink" title="任务状态段寄存器"></a><strong>任务状态段寄存器</strong></h2><p>任务状态段寄存器 TR 跟 LDTR 类似，也不能直接指定<code>任务状态段 TSS</code>在存储器空间的位置。其格式如表 2 所示。</p>
+<p>TSS 段也需要两次定位：  </p>
+<ol>
+<li>TR （选择子）定位 GDT 中 TSS 段的（真正的）描述符。该描述符会被装入 TR 的高速缓冲寄存器中（如表 2 所示）；其高 32 位的 Base 值指示 TSS 段在存储器的起始地址，20 位的 Limit 值指示 TSS 段的大小，12 位的 Attribute 值说明 TSS 段的属性。</li>
+<li>利用该描述符，定位 TSS 段在存储器中的位置。</li>
+</ol>
+<h2 id="控制寄存器"><a href="#控制寄存器" class="headerlink" title="控制寄存器"></a><strong>控制寄存器</strong></h2><p>保护模式新增加的 4 个 32 位控制寄存器 CR0、CR1、CR2 和 CR3 是为了控制微处理器的工作方式和分段管理机制及分页管理机制。其格式如表 3 所示。</p>
+<p>表 3：CR0~CR3 寄存器<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/CR0-to-CR3.png" alt>  </p>
+<h3 id="控制寄存器-CR0"><a href="#控制寄存器-CR0" class="headerlink" title="控制寄存器 CR0"></a><strong>控制寄存器 CR0</strong></h3><p>CR0 的主要功能是选择微处理器的工作方式和存储器的管理模式。各位的含义如下：  </p>
+<ul>
+<li><p><strong>保护模式允许位 PE</strong><br>PE 位控制微处理器是进入实模式还是保护模式。置 0 表示实模式；置 1 则表示保护模式。<code>系统开机或重启时 PE 清零，微处理器处于实模式。若要进入保护模式，必须通过程序将 PE 置 1。</code></p>
+</li>
+<li><p><strong>分页管理启用位 PG</strong><br>PG 控制禁用还是开启分页管理机制。置 0 表示禁用，此时由分段机制形成的线性地址就作为物理地址；置 1 则表示开启，此时线性地址还不是物理地址，需要通过分页转换才能形成物理地址。</p>
+</li>
+</ul>
+<p>表 4 列出了不同 PE/PG 的组合下微处理器的工作方式。<br>表 4：微处理器的工作方式与 PE/PG 的选择<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part1/PG-n-PE-combination.png" alt>  </p>
+<ul>
+<li><strong>协处理器操作控制位（MP、EM、TS、ET）</strong><br>CR0 中的位 1 ~ 位 4 分别标记为 MP（算术存在位）、EM（模拟位）、TS（任务切换位）和 ET（扩展类型位），它们控制浮点协处理器的操作。</li>
+</ul>
+<h3 id="控制寄存器-CR2"><a href="#控制寄存器-CR2" class="headerlink" title="控制寄存器 CR2"></a><strong>控制寄存器 CR2</strong></h3><p>CR2 由分页管理机制使用，用于报告发生页故障时的出错信息。<code>如果某页不在存储器中，则在页转换时会发生缺页故障，此时，微处理器把引起页故障的线性地址保存在 CR2 中。操作系统的页故障处理程序通过检查 CR2 的内容，就可查出是线性地址空间中的哪一页引起的故障。</code></p>
+<h3 id="控制寄存器-CR3"><a href="#控制寄存器-CR3" class="headerlink" title="控制寄存器 CR3"></a><strong>控制寄存器 CR3</strong></h3><p>CR3 也由分页管理机制使用，用于<code>保存&quot;页表目录&quot;的起始物理地址</code>。CR3 的高 20 位提供页表目录的基地址，低 12 位“不用”（这里的“不用”并不是指真的不用，而是从 CR3 取 32 位数据时，低 12 位全“取”为 0）。</p>
+<h2 id="改变功能的寄存器"><a href="#改变功能的寄存器" class="headerlink" title="改变功能的寄存器"></a><strong>改变功能的寄存器</strong></h2><h3 id="段寄存器-1"><a href="#段寄存器-1" class="headerlink" title="段寄存器"></a><strong>段寄存器</strong></h3><p>段寄存器在实模式下用作段基址，但在保护模式下用作段选择子（仍然是 16 位）。选择子并不直接指定存储器地址，而是选择一个定义存储器段的段基址、大小和属性的描述符。</p>
+<p>值得注意的是，在保护模式下，每个段寄存器都有一个相应的<code>高速缓存寄存器</code>(可参见<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书第 3.3.4 节)，它对一般编程人员是不可见的。</p>
+<h3 id="标志寄存器-1"><a href="#标志寄存器-1" class="headerlink" title="标志寄存器"></a><strong>标志寄存器</strong></h3><p>标志寄存器 EFLAGS 长度扩展到 32 位，新增加了 5 位。具体参考上文的“标志寄存器”小节。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“存储器管理基础”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/19/linux-kenel-0-11-topic-preface/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：前言</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#实模式下的-80386-寄存器模型"><span class="toc-number">1.</span> <span class="toc-text">实模式下的 80386 寄存器模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#通用寄存器"><span class="toc-number">1.1.</span> <span class="toc-text">通用寄存器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#EAX、EDX、ECX、EBX"><span class="toc-number">1.1.1.</span> <span class="toc-text">EAX、EDX、ECX、EBX</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#EBP、ESI、EDI、ESP"><span class="toc-number">1.1.2.</span> <span class="toc-text">EBP、ESI、EDI、ESP</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#段寄存器"><span class="toc-number">1.2.</span> <span class="toc-text">段寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#指令指针寄存器"><span class="toc-number">1.3.</span> <span class="toc-text">指令指针寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#标志寄存器"><span class="toc-number">1.4.</span> <span class="toc-text">标志寄存器</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#保护模式下的-80386-寄存器模型"><span class="toc-number">2.</span> <span class="toc-text">保护模式下的 80386 寄存器模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#全局描述符表寄存器"><span class="toc-number">2.1.</span> <span class="toc-text">全局描述符表寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#中断描述符表寄存器"><span class="toc-number">2.2.</span> <span class="toc-text">中断描述符表寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#局部描述符表寄存器"><span class="toc-number">2.3.</span> <span class="toc-text">局部描述符表寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#任务状态段寄存器"><span class="toc-number">2.4.</span> <span class="toc-text">任务状态段寄存器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#控制寄存器"><span class="toc-number">2.5.</span> <span class="toc-text">控制寄存器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#控制寄存器-CR0"><span class="toc-number">2.5.1.</span> <span class="toc-text">控制寄存器 CR0</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#控制寄存器-CR2"><span class="toc-number">2.5.2.</span> <span class="toc-text">控制寄存器 CR2</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#控制寄存器-CR3"><span class="toc-number">2.5.3.</span> <span class="toc-text">控制寄存器 CR3</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#改变功能的寄存器"><span class="toc-number">2.6.</span> <span class="toc-text">改变功能的寄存器</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#段寄存器-1"><span class="toc-number">2.6.1.</span> <span class="toc-text">段寄存器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#标志寄存器-1"><span class="toc-number">2.6.2.</span> <span class="toc-text">标志寄存器</span></a></li></ol></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

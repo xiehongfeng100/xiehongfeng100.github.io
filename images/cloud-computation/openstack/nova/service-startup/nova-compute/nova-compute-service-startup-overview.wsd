@@ -1,0 +1,212 @@
+@startuml
+
+title Launch Nova-compute Service
+
+participant "setup.cfg"
+participant main as "cmd.compute::main"
+participant config_parse_args as "config::parse_args"
+participant "objects._\_init__.py"
+participant "conductor.rpcapi::ConductorAPI"
+participant "service::wait"
+participant "service::serve"
+participant oslo_ser_launch as "oslo_service.service::launch"
+participant oslo_ser_serlauncher as "oslo_service.service::ServiceLauncher"
+participant oslo_ser_launcher as "oslo_service.service::Launcher"
+participant oslo_ser_services as "oslo_service.service::Services"
+participant oslo_ser_thrgroup_for_serlauncher as "oslo_service.threadgroup::ThreadGroup defined in ServiceLauncher"
+participant "service::Service"
+participant oslo_ser_thrgroup_for_each_service as "oslo_service.threadgroup::ThreadGroup defined in Each Service"
+participant oslo_loopingcall_for_each_service as "oslo_service.loopingcall::LoopingCallBase defined in Each Service"
+
+"setup.cfg"->main: nova-compute = nova.cmd.compute:main
+
+activate main
+main->config_parse_args: call config::parse_args
+
+activate config_parse_args
+note over config_parse_args: register log options
+note over config_parse_args: set default log levels
+note over config_parse_args: set rpc default control exchange to be 'nova'
+note over config_parse_args: set profiler defaults if it is not None
+note over config_parse_args: set keystone middleware defaults
+note over config_parse_args: call oslo_config.cfg::_\_call__()
+
+note over config_parse_args #EB9898
+RPC init related content, plz refer to the
+"nova-compute-service-rpc-init.wsd".
+end note
+
+note over config_parse_args: config DB
+
+config_parse_args-->main: return
+deactivate config_parse_args
+
+note over main: setup logging
+note over main: init context
+note over main: monkey patch
+
+main->"objects._\_init__.py": register DB objects
+
+note over main: init os_vif
+note over main: setup Guru Meditation Report
+note over main: block direct DB access
+main->"conductor.rpcapi::ConductorAPI": init DB access api through nova-conductor
+
+' Create service ====
+main->"service::Service": call service::Service::create()
+
+activate "service::Service"
+note over "service::Service" #6EDF64
+__Note__
+The comments for the service::Service has well stated its
+main functions:
+```
+class Service(service.Service):
+    """Service object for binaries running on hosts.
+
+    A service takes a manager and enables rpc by listening to queues based
+    on topic. It also periodically runs tasks on the manager and reports
+    its state to the database services table.
+    """
+```
+That is, it mainly do things below:
+1. init a manager (ComputeManager)
+2. init and start the rpc service
+3. run periodic tasks 
+	1) of the manager
+	2) to report service state
+end note
+note over "service::Service": init host, binary, topic, manager
+note over "service::Service": init report interval, periodic params
+note over "service::Service": init service::Service()
+
+"service::Service"-->main: return server = service::Service()
+deactivate "service::Service"
+
+' Serve service ====
+main->"service::serve": call service::serve()
+
+activate "service::serve"
+"service::serve"->oslo_ser_launch: get launcher
+
+activate oslo_ser_launch
+oslo_ser_launch->oslo_ser_serlauncher: init ServiceLauncher
+
+activate oslo_ser_serlauncher
+oslo_ser_serlauncher-->oslo_ser_launch: return the ServiceLauncher
+deactivate oslo_ser_serlauncher
+
+oslo_ser_launch->oslo_ser_serlauncher: call oslo_service.service::ServiceLauncher::launch_service()
+
+activate oslo_ser_serlauncher
+oslo_ser_serlauncher->oslo_ser_services: call oslo_service.service::Services::add()
+note over oslo_ser_services: add service to self.services
+
+activate oslo_ser_services
+oslo_ser_services->oslo_ser_thrgroup_for_serlauncher: call oslo_service.threadgroup::ThreadGroup::add_thread()
+
+activate oslo_ser_thrgroup_for_serlauncher
+note over oslo_ser_thrgroup_for_serlauncher: spawn a green thread to run the service with Eventlet
+oslo_ser_thrgroup_for_serlauncher->"service::Service": call service::Service::start() \n(the callback definded in oslo_service.service::Services::run_service)
+
+activate "service::Service"
+note over "service::Service" #FFAAAA
+service::Service::start() is very complecated, 
+so we will talk about it independently.
+
+--See next file "nova-compute-service-details.wsd"--
+
+It mainly does some important things:
+1) init host
+2) check service version
+3) resource tracker
+4) init rpc server
+5) servicegroup (timer, to report state)
+6) add periodic tasks (dynamic_timers)
+end note
+"service::Service"-->oslo_ser_thrgroup_for_serlauncher: return
+deactivate "service::Service"
+
+oslo_ser_thrgroup_for_serlauncher-->oslo_ser_services: return the thread
+deactivate oslo_ser_thrgroup_for_serlauncher
+
+oslo_ser_services-->oslo_ser_serlauncher: return
+deactivate oslo_ser_services
+
+oslo_ser_serlauncher-->oslo_ser_launch: return
+deactivate oslo_ser_serlauncher
+
+oslo_ser_launch-->"service::serve": return launcher
+deactivate oslo_ser_launch
+
+note over "service::serve": set the returned launcher to global var _launcher
+"service::serve"-->main: return
+deactivate "service::serve"
+
+' Wait service ====
+main->"service::wait": call service::wait()
+
+activate "service::wait"
+"service::wait"->oslo_ser_serlauncher: call oslo_service.service::ServiceLauncher::wait()
+
+activate oslo_ser_serlauncher
+oslo_ser_serlauncher->oslo_ser_launcher: call oslo_service.service::Launcher::wait()
+
+activate oslo_ser_launcher
+oslo_ser_launcher->oslo_ser_services: call oslo_service.service::Services::wait()
+
+activate oslo_ser_services
+oslo_ser_services->"service::Service": call service::Service::wait() in for loop (for service in self.services)
+
+activate "service::Service"
+"service::Service"->oslo_ser_thrgroup_for_each_service: call oslo_service.threadgroup::ThreadGroup::wait()
+
+activate oslo_ser_thrgroup_for_each_service
+oslo_ser_thrgroup_for_each_service->oslo_loopingcall_for_each_service: call oslo_service.loopingcall::LoopingCallBase::wait()
+
+activate oslo_loopingcall_for_each_service
+note right of oslo_loopingcall_for_each_service #60A1EB
+LoopingCallBase::wait() is actually 
+waiting for timer or dynamic timers, 
+and calls eventlet.event::Event::wait() eventually.
+
+__We will talk about nova **periodic task** lately.__
+end note
+oslo_loopingcall_for_each_service-->oslo_ser_thrgroup_for_each_service: return
+deactivate oslo_loopingcall_for_each_service
+
+oslo_ser_thrgroup_for_each_service-->"service::Service": return
+deactivate oslo_ser_thrgroup_for_each_service
+
+"service::Service"-->oslo_ser_services: return
+deactivate "service::Service"
+
+' activate oslo_ser_services
+oslo_ser_services->oslo_ser_thrgroup_for_serlauncher: call oslo_service.threadgroup::ThreadGroup::wait()
+
+activate oslo_ser_thrgroup_for_serlauncher
+note right of oslo_ser_thrgroup_for_serlauncher #60A1EB
+Because self.timers in oslo_service.threadgroup::ThreadGroup 
+is blank at this time, so nothings going to happen, that is,
+calling on oslo_service.loopingcall::LoopingCallBase::wait()
+will not happen.
+end note
+
+oslo_ser_thrgroup_for_serlauncher-->oslo_ser_services: return
+deactivate oslo_ser_thrgroup_for_serlauncher
+
+oslo_ser_services-->oslo_ser_launcher: return
+deactivate oslo_ser_services
+
+oslo_ser_launcher-->oslo_ser_serlauncher: return
+deactivate oslo_ser_launcher
+
+oslo_ser_serlauncher-->"service::wait": return
+deactivate oslo_ser_serlauncher
+
+"service::wait"-->main: return
+deactivate "service::wait"
+
+deactivate main
+
+@enduml

@@ -1,0 +1,171 @@
+@startuml
+
+title RPC Init
+
+participant config_parse_args as "config::parse_args"
+participant rpc
+participant oslo_transport as "oslo_messaging.transport"
+participant oslo_notifier as "oslo_messaging.notify.notifier"
+
+note over config_parse_args #FFAAAA
+call rpc.init():
+
+init global variables
+TRANSPORT, 
+NOTIFICATION_TRANSPORT, 
+LEGACY_NOTIFIER, NOTIFIER
+
+!!! Here, these variables are related to 
+some import rpc concepts, like transport,
+notifier, serializer, etc, plz check this
+func for detail.
+
+We will talk about them in detail.
+end note
+
+config_parse_args->rpc: call rpc::init()
+
+activate rpc
+rpc->rpc: call rpc::create_transport()
+
+activate rpc #DarkSalmon
+rpc->oslo_transport: call oslo_messaging.transport::get_transport()
+
+activate oslo_transport
+note over oslo_transport
+load oslo.messaging.driver through stevedore:
+```
+try:
+    mgr = driver.DriverManager('oslo.messaging.drivers',
+                               url.transport.split('+')[0],
+                               invoke_on_load=True,
+                               invoke_args=[conf, url],
+                               invoke_kwds=kwargs)
+except RuntimeError as ex:
+    raise DriverLoadFailure(url.transport, ex)
+
+return Transport(mgr.driver)
+```
+
+And the oslo.messaging.drivers is defined in 
+setup.cfg in oslo_messaging module:
+```
+oslo.messaging.drivers =
+    rabbit = oslo_messaging._drivers.impl_rabbit:RabbitDriver
+    ...
+```
+
+And the transport_url is defined as in /etc/nova/nova.conf:
+stack@ubuntu-controller:~$ grep -R transport_url /etc/nova/nova.conf 
+transport_url = rabbit://stackrabbit:admin123@192.168.0.14:5672/
+
+So, the rpc::create_transport() will finally return the rabbitmq transport,
+that is, the oslo_messaging._drivers.impl_rabbit:RabbitDriver()
+
+And the driver will init its parent class AMQPDriverBase 
+"connection_pool" (this is important):
+```
+class RabbitDriver(amqpdriver.AMQPDriverBase):
+    def _\_init__(self, conf, url,
+                 default_exchange=None,
+                 allowed_remote_exmods=None):
+        ......
+        connection_pool = pool.ConnectionPool(
+            conf, max_size, min_size, ttl,
+            url, Connection)
+
+        super(RabbitDriver, self)._\_init__(
+            conf, url,
+            connection_pool,
+            default_exchange,
+            allowed_remote_exmods
+        )
+```
+end note
+
+oslo_transport-->rpc: return oslo_messaging.transport::Transport()
+deactivate oslo_transport
+deactivate rpc
+
+rpc->oslo_notifier: call oslo_messaging.notify.notifier::get_notification_transport()
+activate oslo_notifier
+note over oslo_notifier
+__Note__
+This is almost the same as rpc::create_transport()
+and finally get the rabbit transport.
+end note
+
+oslo_notifier-->rpc: return oslo_messaging.transport::Transport()
+deactivate oslo_notifier
+
+note over rpc
+__Note__
+the way to get LEGACY_NOTIFIER and 
+NOTIFIER is the same, so we will 
+talk about them altogether.
+end note
+
+rpc->oslo_notifier: call oslo_messaging.notify.notifier::Notifier::_\_init__()
+
+activate oslo_notifier
+note over oslo_notifier
+Through the code below, we know that we will finally get
+a drvier oslo_messaging.notify.messaging::MessagingDriver()
+for the notifier.
+```
+# oslo.messaging.oslo_messaging.notify.notifier.py
+class Notifier(object):
+	def _\_init__(self, transport, publisher_id=None,
+	             driver=None, topic=None,
+	             serializer=None, retry=None,
+	             topics=None):
+		......
+	    self._driver_names = ([driver] if driver is not None else
+	                          conf.oslo_messaging_notifications.driver)
+
+	    ......
+	    self._driver_mgr = named.NamedExtensionManager(
+	        'oslo.messaging.notify.drivers',
+	        names=self._driver_names,
+	        invoke_on_load=True,
+	        invoke_args=[conf],
+	        invoke_kwds={
+	            'topics': self._topics,
+	            'transport': self.transport,
+	        }
+	    )
+
+# oslo.messaging.setup.cfg
+oslo.messaging.notify.drivers =
+    messaging = oslo_messaging.notify.messaging:MessagingDriver
+    ......
+
+# /etc/nova/nova.conf
+[oslo_messaging_notifications]
+driver = messaging
+```
+
+__Note__
+the Notifier has some important methods:
+```
+class Notifier(object):
+	def prepare() ...
+	def audit() ...
+	def _notify() ...
+	def info() ...
+	def debug() ...
+	def warn() ...
+	def error() ...
+	def critical() ...
+	def sample()
+```
+end note
+
+oslo_notifier-->rpc: return oslo_messaging.notify.notifier::Notifier()
+deactivate oslo_notifier
+
+rpc-->config_parse_args: return
+deactivate rpc
+
+
+@enduml

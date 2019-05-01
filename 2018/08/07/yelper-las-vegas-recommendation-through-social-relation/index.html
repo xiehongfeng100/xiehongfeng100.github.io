@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Yelper 之基于社交关系推荐 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="在之前的准备工作中，我们知道用户之间存在朋友（friend）关系，而且还通过用户互相评论过的商店计算过他们之间的相似度。那我们可不可以基于它们两者给用户推荐商店呢？ 很显然是可以的。通过朋友给用户推荐商店在生活中是一种很常见的需求（如哪一家美食店朋友去过），因为朋友之间多多少少有一些共同兴趣之处，朋友去过的的商店该用户可能也会喜欢。一个用户可能有很多朋友，而朋友也可能去过很多家商店，他们对商店有评">
+<meta name="keywords" content="Yelper,相似度,Neo4J">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Yelper 之基于社交关系推荐">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2018/08/07/yelper-las-vegas-recommendation-through-social-relation/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="在之前的准备工作中，我们知道用户之间存在朋友（friend）关系，而且还通过用户互相评论过的商店计算过他们之间的相似度。那我们可不可以基于它们两者给用户推荐商店呢？ 很显然是可以的。通过朋友给用户推荐商店在生活中是一种很常见的需求（如哪一家美食店朋友去过），因为朋友之间多多少少有一些共同兴趣之处，朋友去过的的商店该用户可能也会喜欢。一个用户可能有很多朋友，而朋友也可能去过很多家商店，他们对商店有评">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/schema.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/constraints.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/indexes.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_friends.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_similarities.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_reviews.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/reco-with-friends-result.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/reco-with-similarities-result.png">
+<meta property="og:updated_time" content="2019-05-01T06:07:45.149Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Yelper 之基于社交关系推荐">
+<meta name="twitter:description" content="在之前的准备工作中，我们知道用户之间存在朋友（friend）关系，而且还通过用户互相评论过的商店计算过他们之间的相似度。那我们可不可以基于它们两者给用户推荐商店呢？ 很显然是可以的。通过朋友给用户推荐商店在生活中是一种很常见的需求（如哪一家美食店朋友去过），因为朋友之间多多少少有一些共同兴趣之处，朋友去过的的商店该用户可能也会喜欢。一个用户可能有很多朋友，而朋友也可能去过很多家商店，他们对商店有评">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/machine-learning/yelper/eda/recommendation/social-relation/schema.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-yelper-las-vegas-recommendation-through-social-relation" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2018/08/07/yelper-las-vegas-recommendation-through-social-relation/" class="article-date">
+  	<time datetime="2018-08-06T23:14:53.000Z" itemprop="datePublished">2018-08-07</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Yelper 之基于社交关系推荐
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Neo4J/">Neo4J</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Yelper/">Yelper</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/相似度/">相似度</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/机器学习/">机器学习</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>在之前的<a href="https://github.com/xiehongfeng100/yelper_dpps_and_eda/tree/master/dpps/las_vegas" target="_blank" rel="noopener">准备工作</a>中，我们知道用户之间存在朋友（friend）关系，而且还通过用户互相评论过的商店计算过他们之间的<a href="https://github.com/xiehongfeng100/yelper_dpps_and_eda/blob/master/dpps/las_vegas/lv_dpps05_Calc_User2User_Similarities.ipynb" target="_blank" rel="noopener">相似度</a>。那我们可不可以基于它们两者给用户推荐商店呢？</p>
+<p>很显然是可以的。通过朋友给用户推荐商店在生活中是一种很常见的需求（如哪一家美食店朋友去过），因为朋友之间多多少少有一些共同兴趣之处，朋友去过的的商店该用户可能也会喜欢。一个用户可能有很多朋友，而朋友也可能去过很多家商店，他们对商店有评价高的，也有评价低的，简单将朋友去过的商店推荐给用户显然是不行的，因为这有可能给用户推荐了一个大家评价都比较差的商店，导致不好的用户体验。而且给用户推荐的商店数量应该是有限的，推荐全部商店存在上一句说到的问题；另外用户的精力是有限的，他/她只会关注最好的几个，这跟生活中的“人们只会记住第一名”有意思相似之处；最后，用户不喜欢做选择题，想一想我们平常为了找一家好的美食店翻尽美食 APP 商店的情形就清楚了。综合来讲，<code>我们应该按朋友对商店的平均评价进行排序（Ranking），然后只给用户推荐平均评价最高的的几家商店（Top N）。</code></p>
+<p>除了基于朋友关系进行推荐，还可以基于用户相似度进行推荐。两个用户相似度高说明他们兴趣相似的可能性大，给一个用户推荐另一个用户去过的商店也是很合理的。</p>
+<p>基于朋友关系和用户相似度推荐都涉及到对社交关系进行建模。而对于此种关系建模，图形数据库有着天然的优势，因为图形数据库本身就是建立节点（Node）、关系（Relationship）及属性（Property）这 3 个概念之上，非常擅长处理关系数据；我们最终选择的 Neo4J 这款比较闻名稳定的图形数据库更是把关系当做<a href="https://neo4j.com/docs/operations-manual/current/introduction/" target="_blank" rel="noopener">第一等公民（first class citizen）</a>。例如，我们建立在 Neo4J 上的关系模型如下：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/schema.png" alt>  </p>
+<p>用户之间存在好友关系（FRIEND）、相似度关系（SIMILARITY），以及用户对商店存在评价关系（REVIEW）。当要查询某个用户的好友、相似的用户或评价过的商店时都是比较方便的，而且在这查询过程中还可以做一些聚合的操作（如求和）。</p>
+<a id="more"></a>
+<h1 id="Neo4J-相关概念"><a href="#Neo4J-相关概念" class="headerlink" title="Neo4J 相关概念"></a><strong>Neo4J 相关概念</strong></h1><ul>
+<li>Node：节点</li>
+<li>Relationship：关系，用于连接节点</li>
+<li>Property：属性，节点和关系都可以有属性</li>
+<li>Label：标签，用于标识节点或关系</li>
+<li>Cypher：Neo4J 提供的一个类似于 SQL 的查询工具，详细可参考其<a href="https://neo4j.com/docs/developer-manual/current/cypher/" target="_blank" rel="noopener">官方文档</a></li>
+</ul>
+<h1 id="导入数据"><a href="#导入数据" class="headerlink" title="导入数据"></a><strong>导入数据</strong></h1><p>关于导入 CSV 文件，可以参考 Neo4J 官方详细的<a href="https://neo4j.com/docs/developer-manual/current/get-started/cypher/importing-csv-files-with-cypher/" target="_blank" rel="noopener">说明和示例</a>。</p>
+<h2 id="唯一性约束"><a href="#唯一性约束" class="headerlink" title="唯一性约束"></a><strong>唯一性约束</strong></h2><p>用户和商店的 db_id （从 MySQL 导出）都是唯一的，为了防止在数据导入过程中存在数据重复隐患，我们为这两者的 db_id 加上唯一性约束。除了这个好处，<a href="https://neo4j.com/docs/developer-manual/current/cypher/schema/constraints/" target="_blank" rel="noopener">Neo4J 在为某一个字段添加唯一性约束时会为该字段自动添加索引，这能够提高查询效率</a>，还能够加快朋友、相似度、评论数据集的导入（因为涉及到对用户和商店 db_id 的查询）。</p>
+<p>添加唯一性约束的命令如下：<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 下边的 USER/BUSINESS 是标签（Label）；user/business 是节点。表示"分别"具有 USER/BUSINESS 标签的 user/business 节点的 db_id 都是唯一的</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">CONSTRAINT</span> <span class="keyword">ON</span> (<span class="keyword">user</span>:<span class="keyword">USER</span>) ASSERT user.db_id <span class="keyword">IS</span> <span class="keyword">UNIQUE</span></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">CONSTRAINT</span> <span class="keyword">ON</span> (business:BUSINESS) ASSERT business.db_id <span class="keyword">IS</span> <span class="keyword">UNIQUE</span></span><br></pre></td></tr></table></figure></p>
+<p>执行完成后，我们可以在 Neo4J 提供的 Web 界面中查询操作是否成功：</p>
+<ul>
+<li><p><code>查询已添加的约束</code><br><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/constraints.png" alt>  </p>
+</li>
+<li><p><code>查询已添加的索引</code><br><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/indexes.png" alt>  </p>
+</li>
+</ul>
+<h2 id="Neo4J-导入数据"><a href="#Neo4J-导入数据" class="headerlink" title="Neo4J 导入数据"></a><strong>Neo4J 导入数据</strong></h2><p>Neo4J 导入数据之前需要先设置一下导入目录，具体可参考<a href="https://neo4j.com/docs/operations-manual/current/reference/configuration-settings/#config_dbms.directories.import" target="_blank" rel="noopener">官方说明</a>。</p>
+<p>导入的数据文件是在之前的<a href="https://github.com/xiehongfeng100/yelper_dpps_and_eda/tree/master/dpps/las_vegas" target="_blank" rel="noopener">准备工作</a>中处理后保存下来的。下边是导入数据的 Cypher 语句：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 用户</span></span><br><span class="line">USING PERIODIC <span class="keyword">COMMIT</span> <span class="number">500</span>	<span class="comment">-- 导入大数据文件，为了减少出错概率，每 500 行数据提交一次，官方参考链接：https://neo4j.com/docs/developer-manual/current/cypher/clauses/load-csv/#load-csv-importing-large-amounts-of-data</span></span><br><span class="line"><span class="keyword">LOAD</span> CSV <span class="keyword">WITH</span> HEADERS <span class="keyword">FROM</span> <span class="string">"file:///las_vegas_user_with_db_id.csv"</span> <span class="keyword">AS</span> csvLine	<span class="comment">-- 导入 CSV 文件</span></span><br><span class="line"><span class="keyword">MERGE</span> (<span class="keyword">user</span>:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.db_id) &#125;)	<span class="comment">-- MERGE 表示不重复创建 db_id 一样的用户节点</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 朋友关系（用户 &lt;-&gt; 用户）</span></span><br><span class="line"><span class="keyword">USING</span> PERIODIC <span class="keyword">COMMIT</span> <span class="number">500</span></span><br><span class="line"><span class="keyword">LOAD</span> CSV <span class="keyword">WITH</span> HEADERS <span class="keyword">FROM</span> <span class="string">"file:///las_vegas_friend_with_db_id.csv"</span> <span class="keyword">AS</span> csvLine</span><br><span class="line"><span class="keyword">MATCH</span> (<span class="keyword">user</span>:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.user_db_id)&#125;),</span><br><span class="line">      (friend:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.friend_db_id)&#125;)</span><br><span class="line"><span class="keyword">MERGE</span> (<span class="keyword">user</span>)-[r:FRIEND]-(friend)	<span class="comment">-- 由于 Neo4J 只能保存有向关系，但用户好友关系是双向的，为了节省存储，对于用户A和B，他们之间的朋友关系只要保存一个“用户A-&gt;用户B”关系就足够了，再保存一个“用户B-&gt;用户A”关系是没有必要的</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 相似度关系（用户 &lt;-&gt; 用户）</span></span><br><span class="line"><span class="keyword">USING</span> PERIODIC <span class="keyword">COMMIT</span> <span class="number">500</span></span><br><span class="line"><span class="keyword">LOAD</span> CSV <span class="keyword">WITH</span> HEADERS <span class="keyword">FROM</span> <span class="string">"file:///las_vegas_user2user_similarities.csv"</span> <span class="keyword">AS</span> csvLine</span><br><span class="line"><span class="keyword">MATCH</span> (user_a:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.user_a_db_id)&#125;),</span><br><span class="line">      (user_b:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.user_b_db_id)&#125;)</span><br><span class="line"><span class="keyword">MERGE</span> (user_a)-[s:SIMILARITY]-(user_b)</span><br><span class="line"><span class="keyword">SET</span> s.similarity = csvLine.similarity</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 商店</span></span><br><span class="line"><span class="keyword">USING</span> PERIODIC <span class="keyword">COMMIT</span> <span class="number">500</span></span><br><span class="line"><span class="keyword">LOAD</span> CSV <span class="keyword">WITH</span> HEADERS <span class="keyword">FROM</span> <span class="string">"file:///las_vegas_business_preprocessed_with_db_id.csv"</span> <span class="keyword">AS</span> csvLine</span><br><span class="line"><span class="keyword">MERGE</span> (biz:BUSINESS &#123; db_id: toInteger(csvLine.db_id), popularity: csvLine.popularity &#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 评论（用户 -&gt; 商店）</span></span><br><span class="line"><span class="keyword">USING</span> PERIODIC <span class="keyword">COMMIT</span> <span class="number">500</span></span><br><span class="line"><span class="keyword">LOAD</span> CSV <span class="keyword">WITH</span> HEADERS <span class="keyword">FROM</span> <span class="string">"file:///las_vegas_review_with_stars_time_scaled_with_db_id.csv"</span> <span class="keyword">AS</span> csvLine</span><br><span class="line"><span class="keyword">MATCH</span> (<span class="keyword">user</span>:<span class="keyword">USER</span> &#123; db_id: toInteger(csvLine.user_db_id)&#125;),</span><br><span class="line">      (biz:BUSINESS &#123; db_id: toInteger(csvLine.business_db_id)&#125;)</span><br><span class="line"><span class="keyword">MERGE</span> (<span class="keyword">user</span>)-[r:REVIEW &#123; db_id: csvLine.db_id, stars_time_scaled: csvLine.stars_time_scaled &#125;]-&gt;(biz)	<span class="comment">-- 不同于用户之间关系，用户对商店的关系只能是单向的</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 转换部分字段数据类型为浮点类型（因为一些数据导入之后变成字符串）</span></span><br><span class="line"><span class="keyword">MATCH</span> ()-[r:SIMILARITY]-&gt;() <span class="keyword">SET</span> r.similarity = toFloat(r.similarity)</span><br><span class="line"><span class="keyword">MATCH</span> (b:BUSINESS) <span class="keyword">SET</span> b.popularity = toFloat(b.popularity)</span><br><span class="line"><span class="keyword">MATCH</span> ()-[r:REVIEW]-&gt;() <span class="keyword">SET</span> r.stars_time_scaled = toFloat(r.stars_time_scaled)</span><br></pre></td></tr></table></figure>
+<h2 id="可视化"><a href="#可视化" class="headerlink" title="可视化"></a><strong>可视化</strong></h2><p>我们可以在 Web 界面查询得到上边导入的三种关系（以 db_id 为 1 的用户为例）：</p>
+<ul>
+<li><code>朋友关系</code>：双向（Neo4J 只能表示单向关系，这里的单向在实际意义上是双向的）<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MATCH (u1:USER &#123;db_id: 1&#125;)-[f:FRIEND]-(u2:USER) RETURN u1, f, u2 limit 10;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_friends.png" alt>  </p>
+<ul>
+<li><code>相似度关系</code>：双向<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MATCH (u1:USER &#123;db_id: 1&#125;)-[s:SIMILARITY]-(u2:USER) RETURN u1, s, u2 limit 4;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_similarities.png" alt>  </p>
+<ul>
+<li><code>评论关系</code>：单向<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MATCH (u1:USER &#123;db_id: 1&#125;)-[r:REVIEW]-(b:BUSINESS) RETURN u1, r, b limit 8;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/user_db_id_1_reviews.png" alt>  </p>
+<h1 id="推荐"><a href="#推荐" class="headerlink" title="推荐"></a><strong>推荐</strong></h1><h2 id="基于朋友关系推荐"><a href="#基于朋友关系推荐" class="headerlink" title="基于朋友关系推荐"></a><strong>基于朋友关系推荐</strong></h2><p>基于朋友关系的 Cypher 语句如下（以 db_id 为 65 的用户为例）：<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">MATCH (u1:USER)-[r:REVIEW]-&gt;(biz:BUSINESS), (u1)-[f:FRIEND]-(u2:USER &#123;db_id: 65&#125;) WHERE NOT ((u2)-[:REVIEW]-&gt;(biz)) -- 过滤出用户 u2（如 db_id 为 1 的用户）没评论过但朋友评论过的商店</span><br><span class="line"><span class="keyword">WITH</span> biz, r.stars_time_scaled <span class="keyword">AS</span> stars	<span class="comment">-- 将商店、stars 数据向下传递</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> biz.db_id, stars <span class="keyword">DESC</span>	<span class="comment">-- 按商店 db_id 分组，并按 stars 大小从高到低排序</span></span><br><span class="line"><span class="keyword">WITH</span> biz.db_id <span class="keyword">AS</span> business, <span class="keyword">COLLECT</span>(stars)[<span class="number">0.</span><span class="number">.3</span>] <span class="keyword">AS</span> starses	<span class="comment">-- 只取每个商店评论中的 stars 值最大的 3 个</span></span><br><span class="line"><span class="keyword">WITH</span> business, REDUCE(s = <span class="number">0</span>, i <span class="keyword">IN</span> starses | s + i)*<span class="number">1.0</span> / <span class="keyword">LENGTH</span>(starses) <span class="keyword">AS</span> recommendation	<span class="comment">-- 计算每个商店 stars 平均值（推荐值）</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> recommendation <span class="keyword">DESC</span>	<span class="comment">-- 按推荐值从高到低排序</span></span><br><span class="line"><span class="keyword">RETURN</span> business , recommendation <span class="keyword">LIMIT</span> <span class="number">10</span>;	<span class="comment">-- 返回推荐值 TOP 10 的商店</span></span><br></pre></td></tr></table></figure></p>
+<p>得到的结果如下：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/reco-with-friends-result.png" alt>  </p>
+<p>从以上结果，按推荐值从大到小，就可以给用户推荐商店了。</p>
+<h2 id="基于相似度关系推荐"><a href="#基于相似度关系推荐" class="headerlink" title="基于相似度关系推荐"></a><strong>基于相似度关系推荐</strong></h2><p>基于相似度关系的 Cypher 语句如下（以 db_id 为 6 的用户为例）：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">MATCH (u1:USER)-[r:REVIEW]-&gt;(biz:BUSINESS), (u1)-[s:SIMILARITY]-(u2:USER &#123;db_id: 6&#125;)</span><br><span class="line">WHERE NOT((u2)-[:REVIEW]-&gt;(biz))</span><br><span class="line"><span class="keyword">WITH</span> biz, s.similarity <span class="keyword">AS</span> similarity, r.stars_time_scaled <span class="keyword">AS</span> stars</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> biz.db_id, similarity <span class="keyword">DESC</span></span><br><span class="line"><span class="keyword">WITH</span> biz.db_id <span class="keyword">AS</span> business, <span class="keyword">COLLECT</span>(stars)[<span class="number">0.</span><span class="number">.3</span>] <span class="keyword">AS</span> starses</span><br><span class="line"><span class="keyword">WITH</span> business, REDUCE(s = <span class="number">0</span>, i <span class="keyword">IN</span> starses | s + i)*<span class="number">1.0</span> / <span class="keyword">LENGTH</span>(starses) <span class="keyword">AS</span> recommendation</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> recommendation <span class="keyword">DESC</span></span><br><span class="line"><span class="keyword">RETURN</span> business, recommendation <span class="keyword">LIMIT</span> <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+<p>得到的结果如下：</p>
+<p><img src="/images/machine-learning/yelper/eda/recommendation/social-relation/reco-with-similarities-result.png" alt>  </p>
+<p>从以上结果，按推荐值从大到小，就可以给用户推荐商店了。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/08/09/yelper-las-vegas-review-text-sentiment-analysis/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Yelper 之评论文本情感分析
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/08/05/yelper-las-vegas-find-nearest-businesses/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Yelper 之查找离用户最近的商店</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Neo4J-相关概念"><span class="toc-number">1.</span> <span class="toc-text">Neo4J 相关概念</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#导入数据"><span class="toc-number">2.</span> <span class="toc-text">导入数据</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#唯一性约束"><span class="toc-number">2.1.</span> <span class="toc-text">唯一性约束</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Neo4J-导入数据"><span class="toc-number">2.2.</span> <span class="toc-text">Neo4J 导入数据</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#可视化"><span class="toc-number">2.3.</span> <span class="toc-text">可视化</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#推荐"><span class="toc-number">3.</span> <span class="toc-text">推荐</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#基于朋友关系推荐"><span class="toc-number">3.1.</span> <span class="toc-text">基于朋友关系推荐</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基于相似度关系推荐"><span class="toc-number">3.2.</span> <span class="toc-text">基于相似度关系推荐</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

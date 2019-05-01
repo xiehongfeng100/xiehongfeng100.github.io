@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“权限” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="这篇文章是在学习了 Linux 0.11 部分源码后再写的。个人将 Linux 下的权限分为硬件和操作系统两个层面。这样的分类是比较宽泛的。 另外，本文的讨论环境是 32 位保护模式。 硬件层面硬件层面的权限准确地讲应该是特权级（Priviledge Level）。特权级分成 4 级，用 0、1、2、3 来表示不同级别，值越小级别越高。其中，特权级 1、2 都不用，0 代表内核级别，3 代表用户级">
+<meta name="keywords" content="Linux,内核,权限">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“权限”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part9/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="这篇文章是在学习了 Linux 0.11 部分源码后再写的。个人将 Linux 下的权限分为硬件和操作系统两个层面。这样的分类是比较宽泛的。 另外，本文的讨论环境是 32 位保护模式。 硬件层面硬件层面的权限准确地讲应该是特权级（Priviledge Level）。特权级分成 4 级，用 0、1、2、3 来表示不同级别，值越小级别越高。其中，特权级 1、2 都不用，0 代表内核级别，3 代表用户级">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/CodeSegmentSelector.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/DataSegmentSelector.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/x86SegmentProtection.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/用户和组的关系.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/博文截图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-xiehongfeng100-正常.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-root-正常.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-xiehongfeng100-添加setuid位.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-root-添加setuid位.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/文件类型和属性.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/chmod.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/chmod样例1.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/umask样例.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.583Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“权限”">
+<meta name="twitter:description" content="这篇文章是在学习了 Linux 0.11 部分源码后再写的。个人将 Linux 下的权限分为硬件和操作系统两个层面。这样的分类是比较宽泛的。 另外，本文的讨论环境是 32 位保护模式。 硬件层面硬件层面的权限准确地讲应该是特权级（Priviledge Level）。特权级分成 4 级，用 0、1、2、3 来表示不同级别，值越小级别越高。其中，特权级 1、2 都不用，0 代表内核级别，3 代表用户级">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part9/CodeSegmentSelector.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part9" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part9/" class="article-date">
+  	<time datetime="2016-01-29T07:58:00.000Z" itemprop="datePublished">2016-01-29</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“权限”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/权限/">权限</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>这篇文章是在学习了 Linux 0.11 部分源码后再写的。个人将 Linux 下的权限分为硬件和操作系统两个层面。这样的分类是比较宽泛的。</p>
+<p>另外，本文的讨论环境是 32 位保护模式。</p>
+<h1 id="硬件层面"><a href="#硬件层面" class="headerlink" title="硬件层面"></a><strong>硬件层面</strong></h1><p>硬件层面的权限准确地讲应该是<code>特权级（Priviledge Level）</code>。特权级分成 4 级，用 0、1、2、3 来表示不同级别，值越小级别越高。其中，特权级 1、2 都不用，0 代表内核级别，3 代表用户级别。</p>
+<p>特权级共有 3 种：  </p>
+<ul>
+<li><code>CPL(Current Privilege Level)</code>，代码段选择子当前特权级别，跟 CPU 当前特权级一样，不能通过代码来设定级别大小</li>
+</ul>
+<p><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/CodeSegmentSelector.png" alt><a href="http://duartes.org/gustavo/blog/post/cpu-rings-privilege-and-protection/" target="_blank" rel="noopener">图片来源</a>  </p>
+<ul>
+<li><code>RPL（Rquest Privilege Level）</code>，数据段（如 ds、ss）选择子请求特权级别，表示请求存储段（代码段、数据段、栈段）描述符、系统描述符（TSS、LDT）的特权级别，可以通过代码来设定级别大小</li>
+</ul>
+<p><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/DataSegmentSelector.png" alt><a href="http://duartes.org/gustavo/blog/post/cpu-rings-privilege-and-protection/" target="_blank" rel="noopener">图片来源</a>  </p>
+<ul>
+<li><code>DPL(Descriptor Privilege Level)</code>，描述符特权级别，描述符可以是门描述符、存储段描述符、系统描述符，可以通过代码设定级别大小</li>
+</ul>
+<a id="more"></a>
+<p>这 3 者关系如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/x86SegmentProtection.png" alt><a href="http://duartes.org/gustavo/blog/post/cpu-rings-privilege-and-protection/" target="_blank" rel="noopener">图片来源</a>  </p>
+<h1 id="操作系统层面"><a href="#操作系统层面" class="headerlink" title="操作系统层面"></a><strong>操作系统层面</strong></h1><h2 id="用户和组"><a href="#用户和组" class="headerlink" title="用户和组"></a><strong>用户和组</strong></h2><p>这部分摘录自博文<a href="http://ixdba.blog.51cto.com/2895551/531787" target="_blank" rel="noopener">浅谈Linux用户权限管理之一（用户与组的概念）</a>。</p>
+<h3 id="用户的角色分类"><a href="#用户的角色分类" class="headerlink" title="用户的角色分类"></a><strong>用户的角色分类</strong></h3><p>在linux下用户是根据角色定义的，具体分为三种角色：<br> 超级用户：拥有对系统的最高管理权限，默认是root用户。<br> 普通用户：只能对自己目录下的文件进行访问和修改，具有登录系统的权限。<br> 虚拟用户：也叫“伪”用户，这类用户最大的特点是不能登录系统，它们的存在主要是方便系统管理，满足相应的系统进程对文件属主的要求。例如系统默认的 bin、adm、nobody 用户等。一般运行的 web 服务，默认就是使用的 nobody 用户，但是 nobody 用户是不能登录系统的。</p>
+<h3 id="用户组"><a href="#用户组" class="headerlink" title="用户组"></a><strong>用户组</strong></h3><p>用户组是具有相同特征用户的逻辑集合，有时我们需要让多个用户具有相同的权限，比如查看、修改某一个文件的权限，一种方法是分别对多个用户进行文件访问授权，如果有 10 个用户的话，就需要授权 10 次，显然这种方法不太合理；另一种方法是建立一个组，让这个组具有查看、修改此文件的权限，然后将所有需要访问此文件的用户放入这个组中，那么所有用户就具有了和组一样的权限。这就是用户组，将用户分组是 Linux 系统中对用户进行管理及控制访问权限的一种手段，通过定义用户组，在很大程度上简化了管理工作。</p>
+<h3 id="用户和组的关系"><a href="#用户和组的关系" class="headerlink" title="用户和组的关系"></a><strong>用户和组的关系</strong></h3><p>用户和用户组的对应关系有：一对一、一对多、多对一和多对多；下图展示了这种关系：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/用户和组的关系.png" alt><a href="http://ixdba.blog.51cto.com/2895551/531787" target="_blank" rel="noopener">图片来源</a>  </p>
+<p> 一对一：即一个用户可以存在一个组中，也可以是组中的唯一成员。<br> 一对多：即一个用户可以存在多个用户组中。那么此用户具有多个组的共同权限。<br> 多对一：多个用户可以存在一个组中，这些用户具有和组相同的权限。<br> 多对多：多个用户可以存在多个组中。其实就是上面三个对应关系的扩展。</p>
+<h2 id="uid、euid-和-suid"><a href="#uid、euid-和-suid" class="headerlink" title="uid、euid 和 suid"></a><strong>uid、euid 和 suid</strong></h2><p>uid、euid 和 suid 这 3 个词分别是 (real) user identifier、effective user identifier 和 saved user identifier 的缩写。关于这三者，文献 <a href="http://www.cs.berkeley.edu/~daw/papers/setuid-usenix02.pdf" target="_blank" rel="noopener">Setuid Demystified</a> （<a href="http://pan.baidu.com/s/1kTTbTUv" target="_blank" rel="noopener">百度云备份</a>）有一个简要的描述：  </p>
+<blockquote>
+<p>Each process has three user IDs: the real user ID (real uid, or ruid), the effective user ID (effective uid, or euid), and the saved user ID (saved uid, or suid). <code>The real uid identifies the owner of the process</code> [i.e. the user launching the application], <code>the effective uid is used in most access control decisions</code>, and <code>the saved uid stores a previous user ID so that it can be restored later</code>.</p>
+</blockquote>
+<h3 id="3-者区别"><a href="#3-者区别" class="headerlink" title="3 者区别"></a><strong>3 者区别</strong></h3><p>对于这 3 者的区别，博文 <a href="http://timetobleed.com/5-things-you-dont-know-about-user-ids-that-will-destroy-you/" target="_blank" rel="noopener">5 Things You Don’t Know About User IDs That Will Destroy You</a>有一个很简洁但很容易理解的解释（很赞！！！）：  </p>
+<blockquote>
+<ul>
+<li><code>Real ID</code> – The real ID is the ID of the process that created the current process. So, let’s say you log in to your box as joe, your shell is then launched with its real ID set to joe. All processes you start from your shell will inherit the real ID joe as their real ID.</li>
+<li><code>Effective ID</code> – T<strong>he effective ID is the ID that the system uses to determine whether a process can take a particular action.</strong> There are two popular ways to change your effective ID:<ul>
+<li><em>su –</em> the <em>su</em> program changes your effective, real, and saved IDs to the ID of the user you are switching to.</li>
+<li>set ID upon execute (abbreviated <strong>setuid</strong>) – You can mark a program’s <em>set uid upon execute bit</em> so that the program runs with its effective and saved ID set to the owner of the program (which may not necessarily be you). The real ID will remain untouched. For example, if you have a program:</li>
+<li><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/博文截图.png" alt><a href="http://timetobleed.com/5-things-you-dont-know-about-user-ids-that-will-destroy-you/" target="_blank" rel="noopener">图片来源</a>      </li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li><code>Saved ID</code> – The saved ID is set to the effective ID when the program starts. <strong>This exists so that a program can regain its original effective ID after it drops its effective ID to an unprivileged ID.</strong> This use-case can cause problems (as we’ll see soon) if it is not correctly managed.</li>
+<li>If you start a program as yourself, and it does not have its set ID upon execute bit set, then the program will start running with its real, effective, and saved IDs set to your user ID.</li>
+<li>If you run a setuid program, your real ID remains unchanged, but your effective and saved IDs are set to the owner of the file.</li>
+<li><em>su</em> does the same as running a setuid program, but it also changes your real ID.</li>
+</ul>
+</blockquote>
+<h3 id="实验"><a href="#实验" class="headerlink" title="实验"></a><strong>实验</strong></h3><p>实验代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> uid = <span class="number">0</span>, euid = <span class="number">0</span>, suid = <span class="number">0</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// For 'getresuid': On success, zero is returned.  On error, -1 is returned, </span></span><br><span class="line">	<span class="comment">// and errno is set appropriately.</span></span><br><span class="line">	<span class="keyword">if</span>(getresuid(&amp;uid, &amp;euid, &amp;suid) &lt; <span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Error\n"</span>);</span><br><span class="line">		<span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"uid = %d\n"</span>, uid);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"euid = %d\n"</span>, euid);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"suid = %d\n"</span>, suid);</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">return</span> <span class="number">-1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>将以上代码编译链接为可执行目标文件 test。</p>
+<ul>
+<li><p>实验1：用户 xiehongfeng100，执行 test：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-xiehongfeng100-正常.png" alt>  </p>
+</li>
+<li><p>实验2：切换到 root 用户并执行 test：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-root-正常.png" alt>  </p>
+</li>
+</ul>
+<p>实验 1 和实验 2 说明：<code>当只是简单切换用户时，uid、euid 和 suid 只跟当前用户相关。</code></p>
+<ul>
+<li><p>实验3：用户 xiehongfeng100，为 test 添加 setuid 位，执行 test：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-xiehongfeng100-添加setuid位.png" alt>  </p>
+</li>
+<li><p>实验4：这时切换到 root 用户并执行 test：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/实验-root-添加setuid位.png" alt>  </p>
+</li>
+</ul>
+<p>实验 3 和实验 4 说明：<code>通过设置 setuid 位，可以让用户在执行程序时，身份变成该程序的所有者，这样就能拥有程序所有者的所有权利。</code> <strong>sudo</strong> 命令就是赋予普通用户 root 用户权限的命令。</p>
+<h2 id="文件权限"><a href="#文件权限" class="headerlink" title="文件权限"></a><strong>文件权限</strong></h2><h3 id="UGO-权限"><a href="#UGO-权限" class="headerlink" title="UGO 权限"></a><strong>UGO 权限</strong></h3><p>Linux 采用了 UGO (User, Group and Other) 权限对文件的权限进行管理。利用 <code>ls -l</code> 命令可以显示文件权限：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/文件类型和属性.png" alt>  </p>
+<p>UGO 在代码中实际是用 <a href="http://lxr.free-electrons.com/source/include/uapi/linux/stat.h#L28" target="_blank" rel="noopener">16 个权限位</a>来表示的：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IRWXU 00700	<span class="comment">// 用户读、写、执行</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IRUSR 00400	<span class="comment">// 用户读</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IWUSR 00200	<span class="comment">// 用户写</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IXUSR 00100	<span class="comment">// 用户执行</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IRWXG 00070	<span class="comment">// 组读、写、执行</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IRGRP 00040	<span class="comment">// 组读</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IWGRP 00020	<span class="comment">// 组写</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IXGRP 00010	<span class="comment">// 组执行</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IRWXO 00007	<span class="comment">// 其他读、写、执行</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IROTH 00004	<span class="comment">// 其他读</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IWOTH 00002	<span class="comment">// 其他写</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> S_IXOTH 00001	<span class="comment">// 其他执行</span></span></span><br></pre></td></tr></table></figure></p>
+<p><strong>注意</strong>权限位还有这些<a href="http://man7.org/linux/man-pages/man2/open.2.html" target="_blank" rel="noopener">情况</a>：</p>
+<blockquote>
+<p>According to POSIX, the effect when other bits are set in mode is unspecified.  On Linux, the following bits are also honored in mode:<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">S_ISUID  <span class="number">0004000</span> <span class="built_in">set</span>-user-ID bit</span><br><span class="line">S_ISGID  <span class="number">0002000</span> <span class="built_in">set</span>-group-ID bit</span><br><span class="line">S_ISVTX  <span class="number">0001000</span> sticky bit</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<h3 id="chmod"><a href="#chmod" class="headerlink" title="chmod"></a><strong>chmod</strong></h3><p>通过 <code>chmod</code> 命令来修改文件的 UGO 权限（<code>chown</code> 和 <code>chgrp</code> 是修改文件的所属用户/组）:<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/chmod.png" alt><a href="http://www.cnblogs.com/LinuxBlogs/p/4378209.html?utm_source=tuicool&amp;utm_medium=referral" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>另外，R、W 和 X 3 个权限可以用数字来表示：  </p>
+<ul>
+<li>R - 4</li>
+<li>W - 2</li>
+<li>X - 1 </li>
+</ul>
+<p>如：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/chmod样例1.png" alt>  </p>
+<h3 id="umask"><a href="#umask" class="headerlink" title="umask"></a><strong>umask</strong></h3><p>umask 是权限掩码，它用来设置新建文件的默认权限。umask 值与权限的对照表如下所示：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">umask	文件	目录</span><br><span class="line">--------------------</span><br><span class="line">0 	6	7</span><br><span class="line">1 	6	6</span><br><span class="line">2 	4	5</span><br><span class="line">3 	4	4</span><br><span class="line">4 	2	3</span><br><span class="line">5 	2	2</span><br><span class="line">6 	0	1</span><br><span class="line">7 	0	0</span><br><span class="line">--------------------</span><br></pre></td></tr></table></figure></p>
+<p>示例如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part9/umask样例.png" alt>  </p>
+<h2 id="打开文件权限"><a href="#打开文件权限" class="headerlink" title="打开文件权限"></a><strong>打开文件权限</strong></h2><p>在 Linux 中，open 函数定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">open</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *path, <span class="keyword">int</span> oflags,<span class="keyword">mode_t</span> mode)</span></span>;	<span class="comment">// 第 3 个参数 mode 仅当创建文件时使用，用于指定文件权限位（UGO）</span></span><br></pre></td></tr></table></figure></p>
+<p>其中的 <code>oflag</code> 用于指定文件的打开/创建模式，这个参数可由以下常量（定义于 fcntl.h）通过逻辑或构成：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">O_RDONLY      只读模式</span><br><span class="line">O_WRONLY      只写模式</span><br><span class="line">O_RDWR        读写模式</span><br></pre></td></tr></table></figure></p>
+<p>打开/创建文件时，至少得使用上述三个常量中的一个。以下常量是选用的：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">O_APPEND       每次写操作都写入文件的末尾</span><br><span class="line">O_CREAT        如果指定文件不存在，则创建这个文件</span><br><span class="line">O_EXCL         如果要创建的文件已存在，则返回 -1，并且修改 errno 的值</span><br><span class="line">O_TRUNC        如果文件存在，并且以只写/读写方式打开，则清空文件全部内容</span><br><span class="line">O_NOCTTY       如果路径名指向终端设备，不要把这个设备用作控制终端。</span><br><span class="line">O_NONBLOCK     如果路径名指向 FIFO/块文件/字符文件，则把文件的打开和后继 I/O设置为非阻塞模式（nonblocking mode）</span><br></pre></td></tr></table></figure></p>
+<p>以下三个常量同样是选用的，它们用于同步输入输出：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">O_DSYNC        等待物理 I/O 结束后再 write。在不影响读取新写入的数据的前提下，不等待文件属性更新。</span><br><span class="line">O_RSYNC        read 等待所有写入同一区域的写操作完成后再进行</span><br><span class="line">O_SYNC         等待物理 I/O 结束后再 write，包括更新文件属性的 I/O</span><br></pre></td></tr></table></figure></p>
+<p>更详细的解释可参考 <a href="http://man7.org/linux/man-pages/man2/open.2.html" target="_blank" rel="noopener">Linux 手册</a>。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part10/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“栈帧”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：预备知识之“硬盘基础知识”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#硬件层面"><span class="toc-number">1.</span> <span class="toc-text">硬件层面</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#操作系统层面"><span class="toc-number">2.</span> <span class="toc-text">操作系统层面</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#用户和组"><span class="toc-number">2.1.</span> <span class="toc-text">用户和组</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#用户的角色分类"><span class="toc-number">2.1.1.</span> <span class="toc-text">用户的角色分类</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#用户组"><span class="toc-number">2.1.2.</span> <span class="toc-text">用户组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#用户和组的关系"><span class="toc-number">2.1.3.</span> <span class="toc-text">用户和组的关系</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#uid、euid-和-suid"><span class="toc-number">2.2.</span> <span class="toc-text">uid、euid 和 suid</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-者区别"><span class="toc-number">2.2.1.</span> <span class="toc-text">3 者区别</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#实验"><span class="toc-number">2.2.2.</span> <span class="toc-text">实验</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#文件权限"><span class="toc-number">2.3.</span> <span class="toc-text">文件权限</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#UGO-权限"><span class="toc-number">2.3.1.</span> <span class="toc-text">UGO 权限</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#chmod"><span class="toc-number">2.3.2.</span> <span class="toc-text">chmod</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#umask"><span class="toc-number">2.3.3.</span> <span class="toc-text">umask</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#打开文件权限"><span class="toc-number">2.4.</span> <span class="toc-text">打开文件权限</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

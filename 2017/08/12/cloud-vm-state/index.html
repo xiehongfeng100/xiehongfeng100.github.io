@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>虚拟机状态 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要参考（翻译）自 OpenStack 官方文档 VMState、Virtual Machine States and Transitions，以及简要说明一下其在 Nova 代码中的体现。 虚拟机状态对于每个虚拟机而言，它都有 3 种状态，vm_state、task_state 以及 power_state。它们之间非常容易混淆。不过官方文档 VMState 简明扼要地区别了它们：  pow">
+<meta name="keywords" content="Nova">
+<meta property="og:type" content="article">
+<meta property="og:title" content="虚拟机状态">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/08/12/cloud-vm-state/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要参考（翻译）自 OpenStack 官方文档 VMState、Virtual Machine States and Transitions，以及简要说明一下其在 Nova 代码中的体现。 虚拟机状态对于每个虚拟机而言，它都有 3 种状态，vm_state、task_state 以及 power_state。它们之间非常容易混淆。不过官方文档 VMState 简明扼要地区别了它们：  pow">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-state/vm-state-state-machine.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-state/vm-states-and-possible-commands.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-state/requirements-for-commands.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-state/create-instance-states.png">
+<meta property="og:updated_time" content="2019-05-01T06:29:15.775Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="虚拟机状态">
+<meta name="twitter:description" content="本文主要参考（翻译）自 OpenStack 官方文档 VMState、Virtual Machine States and Transitions，以及简要说明一下其在 Nova 代码中的体现。 虚拟机状态对于每个虚拟机而言，它都有 3 种状态，vm_state、task_state 以及 power_state。它们之间非常容易混淆。不过官方文档 VMState 简明扼要地区别了它们：  pow">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-state/vm-state-state-machine.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-cloud-vm-state" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/08/12/cloud-vm-state/" class="article-date">
+  	<time datetime="2017-08-12T01:40:21.000Z" itemprop="datePublished">2017-08-12</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      虚拟机状态
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Nova/">Nova</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/OpenStack/">OpenStack</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要参考（翻译）自 OpenStack 官方文档 <a href="https://wiki.openstack.org/wiki/VMState" target="_blank" rel="noopener">VMState</a>、<a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">Virtual Machine States and Transitions</a>，以及简要说明一下其在 Nova 代码中的体现。</p>
+<h1 id="虚拟机状态"><a href="#虚拟机状态" class="headerlink" title="虚拟机状态"></a><strong>虚拟机状态</strong></h1><p>对于每个虚拟机而言，它都有 3 种状态，vm_state、task_state 以及 power_state。它们之间非常容易混淆。不过官方文档 <a href="https://wiki.openstack.org/wiki/VMState" target="_blank" rel="noopener">VMState</a> 简明扼要地区别了它们：</p>
+<ul>
+<li>power_state 是虚拟机在 Hypervisor 上的状态，从计算节点从下而上（bottom-up）传递，如 RUNNING</li>
+<li>vm_state 反应了基于 API 调用的一种稳定状态，如 ACTIVE</li>
+<li>task_state 反应了 API 调用过程中的过渡状态，如 SCHEDULING</li>
+</ul>
+<h2 id="power-state"><a href="#power-state" class="headerlink" title="power_state"></a><strong>power_state</strong></h2><p>power_state 应该通过调用虚拟机的 virt 驱动来获得。Hypervisor 上虚拟机的状态是最权威的，而数据库中的 power_state 只是（最近）过去状态的一个快照。这个状态会周期性更新，而且应该在每一个会影响 power_state 的任务（task）结束时更新。</p>
+<ul>
+<li><p>如何更新<br>从计算节点从下而上（bottom-up）传递，覆写数据库中相应的字段。这可能会触发跟 vm_state 的一致性协调，见下文 vm_state。</p>
+</li>
+<li><p>命名规范<br>取决于 Libvirt 返回的状态</p>
+</li>
+<li><p>已废弃状态</p>
+<ul>
+<li>BLOCKED：本质上是 RUNNING</li>
+<li>SHUTOFF：对应到 SHUTDOWN</li>
+<li>FAILED：对应到 NOSTATE</li>
+</ul>
+</li>
+</ul>
+<a id="more"></a>
+<h2 id="vm-state"><a href="#vm-state" class="headerlink" title="vm_state"></a><strong>vm_state</strong></h2><p>vm_state 描述的是虚拟机当前稳定（非过渡）状态。也就是说，如果没有正在执行的 API 调用（正在运行的任务），vm_state 应该和用户所期待的的一致。例如，一个好的例子是 vm_state 值为 ACTIVE，意味着虚拟机运行正常；不好的例子是 vm_state 值为 SUSPENDING（过渡状态），意味着虚拟机正在挂起并将变为已挂起（suspended）状态（<strong>注</strong>：这里是说用 SUSPENDING 这种过度状态来表示 vm_state 是不合适的，而不是说 vm_state 中有这个状态）。过渡状态属于 task_state。</p>
+<ul>
+<li><p>如何更新<br>vm_state 应该只在任务结束的时候更新，即任务结束并且 task_state 变为 None。没有 API 调用，vm_state 应该保持不变。如果任务失败了，但适当处理（意义，原文为 clean up）后（如，实时迁移失败，虚拟机在原宿主机上回滚后，工作正常），vm_state 也应该保持不变。如果任务失败而且无法回滚，vm_state 变成 ERROR。</p>
+</li>
+<li><p>命名规范<br>形容词</p>
+</li>
+<li><p>跟 power_state 关系<br>vm_state 跟 power_state 没有一一映射的关系，它们表示的是不同的信息。你不能够由其中一个来推断出另外一个。例如，当你使用修复镜像（rescue image）修复一个虚拟机后，其 power_state 可能为 RUNNING 或者 BLOCKED，但是 vm_state 应该值为 RESCUED。如果仅仅基于 power_state，我们并不清楚 vm_state 应该为 ACTIVE 还是 RESCUED。</p>
+</li>
+<li><p>当跟 power_state 不一致时，如何协调<br>首先，当有一个任务正在进行时，vm_state 和 power_state 很可能会不一致。这是因为 vm_state 只表示稳定状态，但在任务进行当中，虚拟机真正的状态其实是过渡的，而 vm_state 是过时的。</p>
+</li>
+</ul>
+<p>当没有任务进行时，power_state 和 vm_state 应该保持一致，除非错误或失败。这种情况要具体问题具体分析。例如：</p>
+<ol>
+<li>power_state=SHUTOFF，vm_state=ACTIVE。这很可能是关机（shutdown）命令在虚拟机内部（inside，不是指命令行）发出，所以 power_state 是正确的。这大概等同于隐式调用了 stop() API。vm_state 应该更正为 STOPPED。</li>
+<li>power_state=BLOCKED, vm_state=HARD_DELETED。这意味着用户已经发出了删除虚拟机的命令但不知道怎么回事失败了。我们应该试着再删一次。</li>
+<li>power_state=BLOCKED, vm_state=PAUSED。这意味着在调用 virt 驱动的 pause() 函数之前发生了不可预期的错误。请告诉我：在这种情形下，怎么样处理对用户最友好？设置为 ERROR 状态？</li>
+<li>现在 _sync_power_states 跟正在进行的任务没有关联，可能会导致奇怪的行为。</li>
+</ol>
+<ul>
+<li><p>如何从 vm_state 获取 EC2 对等的状态<br>EC2 状态同时包含了稳定（如 ACTIVE）和过渡状态（如 SUSPENDING）。你需要用 task_state 和 vm_state 来推导出 EC2 状态。</p>
+</li>
+<li><p>vm_state 可选参数如下：</p>
+<ul>
+<li>INITIALIZED: 虚拟机刚从数据库中创建，但正在构建当中（building），还没构建好（built）</li>
+<li>ACTIVE: 正在运行</li>
+<li>RESCUED: 正在运行，使用修复镜像（rescue image）</li>
+<li>PAUSED: 暂停运行</li>
+<li>SUSPENDED: 挂起，但保存了内存快照（以便于恢复）</li>
+<li>STOPPED: 停止运行</li>
+<li>SOFT_DELETED: 虚拟机不在计算节点运行，但磁盘镜像保存完整，可以恢复</li>
+<li>HARD_DELETED: 从配额和计费角度，虚拟机不再存在。虚拟机及其磁盘镜像最终会被销毁</li>
+<li>RESIZED: 虚拟机在原宿主机停止运行，但在目的宿主机上继续运行。虚拟机的磁盘镜像存在于这两个宿主机当中，但大小不一样。用户需要确认调整磁盘大小（resize）或者恢复虚拟机（废弃的 task_state.RESIZE_VERIFY 和该状态意义一样)</li>
+<li>ERROR: 发生了不可恢复的错误。唯一允许的操作就是删除虚拟机</li>
+</ul>
+</li>
+</ul>
+<p>废弃的状态：REBUILDING、MIGRATING，REBUILDING, MIGRATING 也应该放在 task_state；SHUTOFF 也应该废弃掉，因为这个状态很费解，应该根据 shutdown_terminate 划分为 STOPPED 或 DELETED。</p>
+<h2 id="task-state"><a href="#task-state" class="headerlink" title="task_state"></a><strong>task_state</strong></h2><p>task_state 表示过渡状态，跟计算（compute） API 紧密关联，表明虚拟机当前正在执行的任务。处于 vm_state 的虚拟机 task_state 为 None，只有正在运行的进程有 task_state。</p>
+<ul>
+<li><p>特殊任务：强制删除（force/hard delete）<br>什么时候都应该允许删除虚拟机，且删除成功。用户也因此有更多空闲配额资源，已删资源也不再计费。不幸的是，前一个任务可能卡住，导致 task_state 不能变为 None；或者 virt 驱动在删除虚拟机时卡住；或者计算节点因为网络或硬件问题不可用。所以，此时我们不应该等待 force_delete() 任务在计算节点执行并更新 vm_state 为 HARD_DELETED。相反，vm_state 应该被立即更新而无需通过计算节点。换一句话说，force_delete() 任务就是单纯的数据库操作。真正的清理工作会（数据库操作后）马上进行，但这跟 power_state 和 vm_state 之间的协调流程没什么差别，也可以周期性触发。</p>
+</li>
+<li><p>如何更新<br>当确定在虚拟机上只有一个任务在进行，就可以设置 task_state。为了确保更新的原子性，在任务开始时需要生成一个唯一的 task_id（UUID 格式），并和虚拟机 ID 关联起来。如果虚拟机已经关联到一个 task_id，说明另一个任务正在执行。在任务执行期间，task_id 通过请求上下文 RequestContext 数据结构传送到计算节点（worker）。要在任务进行期间更新 task_state，必须保证 task_id 和虚拟机当前的 task_id 相匹配，否则，当前任务会被其他任务（目前只有 force delete 任务）抢占。<code>当一个任务完成的时候，task_state 设置为 None，task_id 也会设置为 None。</code></p>
+</li>
+</ul>
+<p>因为 force delete 是目前唯一会抢占其他任务的任务，我们当前可能不需要为每一个任务添加 task_id，但我们需要检查 vm_state 是否为 HARD_DELETED 而不是 task_id 是否匹配。</p>
+<ul>
+<li><p>我们真的需要分离开 vm_state 和 task_state 吗？<br>从技术上来讲，vm_state（稳定的）和 task_state（过渡的）没有交集，可以将他们结合在一起。这种分离最大的好处在于状态转移图简单得多——只需要考虑 vm_state 之间的 DFA（Deterministic finite automaton）。如果新增一个 task_state，状态转移图也不用改变。</p>
+</li>
+<li><p>命名规范<br>“动词 + ing” 形式推荐用于描述 task_state，其中“动词”表示 compute API 方法（method）。在任务执行期间，task_state 应该保持不变。要表示任务的过程，应该使用一个单独的字段（field）而不是简单化的状态机。</p>
+</li>
+<li><p>task_state 的可能值如下：</p>
+<ul>
+<li>None: no task is currently in progress</li>
+<li>BUILDING</li>
+<li>IMAGE_SNAPSHOTTING</li>
+<li>IMAGE_BACKINGUP</li>
+<li>UPDATING_PASSWORD</li>
+<li>PAUSING</li>
+<li>UNPAUSING</li>
+<li>SUSPENDING</li>
+<li>RESUMING</li>
+<li>DELETING</li>
+<li>STOPPING</li>
+<li>STARTING</li>
+<li>RESCUING</li>
+<li>UNRESCUING</li>
+<li>REBOOTING</li>
+<li>REBUILDING</li>
+<li>POWERING_ON</li>
+<li>POWERING_OFF</li>
+<li>RESIZING</li>
+<li>RESIZE_REVERTING</li>
+<li>RESIZE_CONFIRMING</li>
+<li>SCHEDULING</li>
+<li>BLOCK_DEVICE_MAPPING</li>
+<li>NETWORKING</li>
+<li>SPAWNING</li>
+<li>RESIZE_PREP</li>
+<li>RESIZE_MIGRATING</li>
+<li>RESIZE_MIGRATED</li>
+<li>RESIZE_FINISH</li>
+</ul>
+</li>
+</ul>
+<p>已废弃的值：RESIZE_VERIFY 不是一个过渡状态，而是一个稳定状态。它现在是 vm_state 中的 RESIZED 状态。</p>
+<h2 id="状态机"><a href="#状态机" class="headerlink" title="状态机"></a><strong>状态机</strong></h2><p>OpenStack 官方文档 <a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">Virtual Machine States and Transitions</a> 画了一个简明的状态机图：<br><img src="/images/cloud-computation/openstack/nova/vm-state/vm-state-state-machine.png" alt><a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>另外，更加详细的的状态机图可见一个<a href="https://docs.google.com/spreadsheet/ccc?key=0AsgKparJuTF2dE12Q0t0OGlwd25DTHdfVUNMT3IydWc" target="_blank" rel="noopener"> Excel 分享</a>。</p>
+<h2 id="虚拟机操作与状态关系"><a href="#虚拟机操作与状态关系" class="headerlink" title="虚拟机操作与状态关系"></a><strong>虚拟机操作与状态关系</strong></h2><p>对于虚拟机操作及相应的状态，<a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">Virtual Machine States and Transitions</a> 也是说的很清楚：<br><img src="/images/cloud-computation/openstack/nova/vm-state/vm-states-and-possible-commands.png" alt><a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>另外，对一些操作所需的虚拟机状态（前提），该文档也有说明：<br><img src="/images/cloud-computation/openstack/nova/vm-state/requirements-for-commands.png" alt><a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>最后，该文档还给出了创建虚拟机过程中虚拟机状态的变化：<br><img src="/images/cloud-computation/openstack/nova/vm-state/create-instance-states.png" alt><a href="https://docs.openstack.org/nova/latest/reference/vm-states.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<h1 id="Nova-代码中的状态"><a href="#Nova-代码中的状态" class="headerlink" title="Nova 代码中的状态"></a><strong>Nova 代码中的状态</strong></h1><p>在 Nova 源码 nova/compute 目录下有三个文件 vm_states.py、task_states.py 和 power_state.py，分别定义了 vm_state、task_state 和 power_state 的可能值，这里就不详细列出了，请参考源码。下边我们来看一下其他值得注意的地方。</p>
+<h2 id="虚拟机-status-字段"><a href="#虚拟机-status-字段" class="headerlink" title="虚拟机 status 字段"></a><strong>虚拟机 status 字段</strong></h2><p>除了以上提到的 3 种 state，其实还有一个我们经常看到的虚拟机的 status 字段（nova show），其值由 vm_state 和 task_state 共同决定（status_from_state 函数，另外也说明了在某一个 vm_state 下可以有哪些 task_state 值）：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># nova/api/openstack/common.py</span></span><br><span class="line"></span><br><span class="line">_STATE_MAP = &#123;</span><br><span class="line">    vm_states.ACTIVE: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'ACTIVE'</span>,</span><br><span class="line">        task_states.REBOOTING: <span class="string">'REBOOT'</span>,</span><br><span class="line">        task_states.REBOOT_PENDING: <span class="string">'REBOOT'</span>,</span><br><span class="line">        task_states.REBOOT_STARTED: <span class="string">'REBOOT'</span>,</span><br><span class="line">        task_states.REBOOTING_HARD: <span class="string">'HARD_REBOOT'</span>,</span><br><span class="line">        task_states.REBOOT_PENDING_HARD: <span class="string">'HARD_REBOOT'</span>,</span><br><span class="line">        task_states.REBOOT_STARTED_HARD: <span class="string">'HARD_REBOOT'</span>,</span><br><span class="line">        task_states.UPDATING_PASSWORD: <span class="string">'PASSWORD'</span>,</span><br><span class="line">        task_states.REBUILDING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_BLOCK_DEVICE_MAPPING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_SPAWNING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.MIGRATING: <span class="string">'MIGRATING'</span>,</span><br><span class="line">        task_states.RESIZE_PREP: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_MIGRATING: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_MIGRATED: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_FINISH: <span class="string">'RESIZE'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.BUILDING: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'BUILD'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.STOPPED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'SHUTOFF'</span>,</span><br><span class="line">        task_states.RESIZE_PREP: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_MIGRATING: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_MIGRATED: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.RESIZE_FINISH: <span class="string">'RESIZE'</span>,</span><br><span class="line">        task_states.REBUILDING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_BLOCK_DEVICE_MAPPING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_SPAWNING: <span class="string">'REBUILD'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.RESIZED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'VERIFY_RESIZE'</span>,</span><br><span class="line">        <span class="comment"># Note(maoy): the OS API spec 1.1 doesn't have CONFIRMING_RESIZE</span></span><br><span class="line">        <span class="comment"># state so we comment that out for future reference only.</span></span><br><span class="line">        <span class="comment"># task_states.RESIZE_CONFIRMING: 'CONFIRMING_RESIZE',</span></span><br><span class="line">        task_states.RESIZE_REVERTING: <span class="string">'REVERT_RESIZE'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.PAUSED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'PAUSED'</span>,</span><br><span class="line">        task_states.MIGRATING: <span class="string">'MIGRATING'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.SUSPENDED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'SUSPENDED'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.RESCUED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'RESCUE'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.ERROR: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'ERROR'</span>,</span><br><span class="line">        task_states.REBUILDING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_BLOCK_DEVICE_MAPPING: <span class="string">'REBUILD'</span>,</span><br><span class="line">        task_states.REBUILD_SPAWNING: <span class="string">'REBUILD'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.DELETED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'DELETED'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.SOFT_DELETED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'SOFT_DELETED'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.SHELVED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'SHELVED'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    vm_states.SHELVED_OFFLOADED: &#123;</span><br><span class="line">        <span class="string">'default'</span>: <span class="string">'SHELVED_OFFLOADED'</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">status_from_state</span><span class="params">(vm_state, task_state=<span class="string">'default'</span>)</span>:</span></span><br><span class="line">    <span class="string">"""Given vm_state and task_state, return a status string."""</span></span><br><span class="line">    task_map = _STATE_MAP.get(vm_state, dict(default=<span class="string">'UNKNOWN'</span>))</span><br><span class="line">    status = task_map.get(task_state, task_map[<span class="string">'default'</span>])</span><br><span class="line">    <span class="keyword">if</span> status == <span class="string">"UNKNOWN"</span>:</span><br><span class="line">        LOG.error(_LE(<span class="string">"status is UNKNOWN from vm_state=%(vm_state)s "</span></span><br><span class="line">                      <span class="string">"task_state=%(task_state)s. Bad upgrade or db "</span></span><br><span class="line">                      <span class="string">"corrupted?"</span>),</span><br><span class="line">                  &#123;<span class="string">'vm_state'</span>: vm_state, <span class="string">'task_state'</span>: task_state&#125;)</span><br><span class="line">    <span class="keyword">return</span> status</span><br></pre></td></tr></table></figure></p>
+<h2 id="API-中的状态检查"><a href="#API-中的状态检查" class="headerlink" title="API 中的状态检查"></a><strong>API 中的状态检查</strong></h2><p>因为有些操作只有当虚拟机处于某种操作时才可以，所以这些操作对应的 API 在真正执行之前需要先检查一下虚拟机状态（check_instance_state 函数），如启动虚拟机 API 在被调用前需先检查虚拟机 vm_state 是否为 STOPPED：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># nova/compute/api.py</span></span><br><span class="line"></span><br><span class="line"><span class="meta">@profiler.trace_cls("compute_api")</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">API</span><span class="params">(base.Base)</span>:</span></span><br><span class="line">    ...</span><br><span class="line"> </span><br><span class="line"><span class="meta">    @check_instance_lock</span></span><br><span class="line"><span class="meta">    @check_instance_host</span></span><br><span class="line"><span class="meta">    @check_instance_cell</span></span><br><span class="line"><span class="meta">    @check_instance_state(vm_state=[vm_states.STOPPED])</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">start</span><span class="params">(self, context, instance)</span>:</span></span><br><span class="line">        <span class="string">"""Start an instance."""</span></span><br><span class="line">        LOG.debug(<span class="string">"Going to try to start instance"</span>, instance=instance)</span><br><span class="line"> </span><br><span class="line">        instance.task_state = task_states.POWERING_ON</span><br><span class="line">        instance.save(expected_task_state=[<span class="literal">None</span>])</span><br><span class="line"> </span><br><span class="line">        self._record_action_start(context, instance, instance_actions.START)</span><br><span class="line">        <span class="comment"># TODO(yamahata): injected_files isn't supported right now.</span></span><br><span class="line">        <span class="comment">#                 It is used only for osapi. not for ec2 api.</span></span><br><span class="line">        <span class="comment">#                 availability_zone isn't used by run_instance.</span></span><br><span class="line">        self.compute_rpcapi.start_instance(context, instance)</span><br><span class="line"> </span><br><span class="line"><span class="comment"># 虚拟机状态检查装饰器</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">check_instance_state</span><span class="params">(vm_state=None, task_state=<span class="params">(None,)</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">                         must_have_launched=True)</span>:</span></span><br><span class="line">    <span class="string">"""Decorator to check VM and/or task state before entry to API functions.</span></span><br><span class="line"><span class="string"> </span></span><br><span class="line"><span class="string">    If the instance is in the wrong state, or has not been successfully</span></span><br><span class="line"><span class="string">    started at least once the wrapper will raise an exception.</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"> </span><br><span class="line">    <span class="keyword">if</span> vm_state <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span> <span class="keyword">not</span> isinstance(vm_state, set):</span><br><span class="line">        vm_state = set(vm_state)</span><br><span class="line">    <span class="keyword">if</span> task_state <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span> <span class="keyword">not</span> isinstance(task_state, set):</span><br><span class="line">        task_state = set(task_state)</span><br><span class="line"> </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">outer</span><span class="params">(f)</span>:</span></span><br><span class="line"><span class="meta">        @six.wraps(f)</span></span><br><span class="line">        <span class="function"><span class="keyword">def</span> <span class="title">inner</span><span class="params">(self, context, instance, *args, **kw)</span>:</span></span><br><span class="line">            <span class="keyword">if</span> vm_state <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span> instance.vm_state <span class="keyword">not</span> <span class="keyword">in</span> vm_state:</span><br><span class="line">                <span class="keyword">raise</span> exception.InstanceInvalidState(</span><br><span class="line">                    attr=<span class="string">'vm_state'</span>,</span><br><span class="line">                    instance_uuid=instance.uuid,</span><br><span class="line">                    state=instance.vm_state,</span><br><span class="line">                    method=f.__name__)</span><br><span class="line">            <span class="keyword">if</span> (task_state <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span></span><br><span class="line">                    instance.task_state <span class="keyword">not</span> <span class="keyword">in</span> task_state):</span><br><span class="line">                <span class="keyword">raise</span> exception.InstanceInvalidState(</span><br><span class="line">                    attr=<span class="string">'task_state'</span>,</span><br><span class="line">                    instance_uuid=instance.uuid,</span><br><span class="line">                    state=instance.task_state,</span><br><span class="line">                    method=f.__name__)</span><br><span class="line">            <span class="keyword">if</span> must_have_launched <span class="keyword">and</span> <span class="keyword">not</span> instance.launched_at:</span><br><span class="line">                <span class="keyword">raise</span> exception.InstanceInvalidState(</span><br><span class="line">                    attr=<span class="string">'launched_at'</span>,</span><br><span class="line">                    instance_uuid=instance.uuid,</span><br><span class="line">                    state=instance.launched_at,</span><br><span class="line">                    method=f.__name__)</span><br><span class="line"> </span><br><span class="line">            <span class="keyword">return</span> f(self, context, instance, *args, **kw)</span><br><span class="line">        <span class="keyword">return</span> inner</span><br><span class="line">    <span class="keyword">return</span> outer</span><br></pre></td></tr></table></figure></p>
+<h2 id="Libvirt-状态和-power-state-之间的映射关系"><a href="#Libvirt-状态和-power-state-之间的映射关系" class="headerlink" title="Libvirt 状态和 power_state 之间的映射关系"></a><strong>Libvirt 状态和 power_state 之间的映射关系</strong></h2><p>代码已经写的很清楚了：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># nova/virt/libvirt/guest.py</span></span><br><span class="line"></span><br><span class="line">VIR_DOMAIN_NOSTATE = <span class="number">0</span></span><br><span class="line">VIR_DOMAIN_RUNNING = <span class="number">1</span></span><br><span class="line">VIR_DOMAIN_BLOCKED = <span class="number">2</span></span><br><span class="line">VIR_DOMAIN_PAUSED = <span class="number">3</span></span><br><span class="line">VIR_DOMAIN_SHUTDOWN = <span class="number">4</span></span><br><span class="line">VIR_DOMAIN_SHUTOFF = <span class="number">5</span></span><br><span class="line">VIR_DOMAIN_CRASHED = <span class="number">6</span></span><br><span class="line">VIR_DOMAIN_PMSUSPENDED = <span class="number">7</span></span><br><span class="line"></span><br><span class="line">LIBVIRT_POWER_STATE = &#123;</span><br><span class="line">    VIR_DOMAIN_NOSTATE: power_state.NOSTATE,</span><br><span class="line">    VIR_DOMAIN_RUNNING: power_state.RUNNING,</span><br><span class="line">    <span class="comment"># The DOMAIN_BLOCKED state is only valid in Xen.  It means that</span></span><br><span class="line">    <span class="comment"># the VM is running and the vCPU is idle. So, we map it to RUNNING</span></span><br><span class="line">    VIR_DOMAIN_BLOCKED: power_state.RUNNING,</span><br><span class="line">    VIR_DOMAIN_PAUSED: power_state.PAUSED,</span><br><span class="line">    <span class="comment"># The libvirt API doc says that DOMAIN_SHUTDOWN means the domain</span></span><br><span class="line">    <span class="comment"># is being shut down. So technically the domain is still</span></span><br><span class="line">    <span class="comment"># running. SHUTOFF is the real powered off state.  But we will map</span></span><br><span class="line">    <span class="comment"># both to SHUTDOWN anyway.</span></span><br><span class="line">    <span class="comment"># http://libvirt.org/html/libvirt-libvirt.html</span></span><br><span class="line">    VIR_DOMAIN_SHUTDOWN: power_state.SHUTDOWN,</span><br><span class="line">    VIR_DOMAIN_SHUTOFF: power_state.SHUTDOWN,</span><br><span class="line">    VIR_DOMAIN_CRASHED: power_state.CRASHED,</span><br><span class="line">    VIR_DOMAIN_PMSUSPENDED: power_state.SUSPENDED,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/08/20/openstack-nova-service-startup/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          OpenStack 源码系列之 Nova：服务启动
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/08/12/cloud-vm-lifecycle/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">【译】 虚拟机生命周期</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#虚拟机状态"><span class="toc-number">1.</span> <span class="toc-text">虚拟机状态</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#power-state"><span class="toc-number">1.1.</span> <span class="toc-text">power_state</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#vm-state"><span class="toc-number">1.2.</span> <span class="toc-text">vm_state</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#task-state"><span class="toc-number">1.3.</span> <span class="toc-text">task_state</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#状态机"><span class="toc-number">1.4.</span> <span class="toc-text">状态机</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#虚拟机操作与状态关系"><span class="toc-number">1.5.</span> <span class="toc-text">虚拟机操作与状态关系</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Nova-代码中的状态"><span class="toc-number">2.</span> <span class="toc-text">Nova 代码中的状态</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#虚拟机-status-字段"><span class="toc-number">2.1.</span> <span class="toc-text">虚拟机 status 字段</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#API-中的状态检查"><span class="toc-number">2.2.</span> <span class="toc-text">API 中的状态检查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Libvirt-状态和-power-state-之间的映射关系"><span class="toc-number">2.3.</span> <span class="toc-text">Libvirt 状态和 power_state 之间的映射关系</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

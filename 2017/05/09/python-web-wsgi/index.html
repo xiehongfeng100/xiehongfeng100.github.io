@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>WSGI | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="博文 WSGI 简介 对 WSGI 说的很清楚：  WSGI的全称是Web Server Gateway Interface，翻译过来就是Web服务器网关接口。具体的来说，WSGI 是一个规范，定义了 Web 服务器如何与 Python 应用程序进行交互，使得使用 Python 写的 Web 应用程序可以和 Web 服务器对接起来。  上边已经说的很清楚，WSGI 就是用来规范 Web 服务器（如">
+<meta name="keywords" content="Python,WSGI">
+<meta property="og:type" content="article">
+<meta property="og:title" content="WSGI">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/05/09/python-web-wsgi/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="博文 WSGI 简介 对 WSGI 说的很清楚：  WSGI的全称是Web Server Gateway Interface，翻译过来就是Web服务器网关接口。具体的来说，WSGI 是一个规范，定义了 Web 服务器如何与 Python 应用程序进行交互，使得使用 Python 写的 Web 应用程序可以和 Web 服务器对接起来。  上边已经说的很清楚，WSGI 就是用来规范 Web 服务器（如">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/python/wsgi/server-application-call-procedure.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/python/wsgi/middleware-procedure.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/python/wsgi/server-middleware-application.png">
+<meta property="og:updated_time" content="2019-05-01T05:06:42.649Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="WSGI">
+<meta name="twitter:description" content="博文 WSGI 简介 对 WSGI 说的很清楚：  WSGI的全称是Web Server Gateway Interface，翻译过来就是Web服务器网关接口。具体的来说，WSGI 是一个规范，定义了 Web 服务器如何与 Python 应用程序进行交互，使得使用 Python 写的 Web 应用程序可以和 Web 服务器对接起来。  上边已经说的很清楚，WSGI 就是用来规范 Web 服务器（如">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/programing-languages/python/wsgi/server-application-call-procedure.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-python-web-wsgi" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/05/09/python-web-wsgi/" class="article-date">
+  	<time datetime="2017-05-09T14:48:12.000Z" itemprop="datePublished">2017-05-09</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      WSGI
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Python/">Python</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/WSGI/">WSGI</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/编程语言/">编程语言</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>博文 <a href="https://segmentfault.com/a/1190000003069785#articleHeader2" target="_blank" rel="noopener">WSGI 简介</a> 对 WSGI 说的很清楚：</p>
+<blockquote>
+<p>WSGI的全称是Web Server Gateway Interface，翻译过来就是Web服务器网关接口。具体的来说，WSGI 是一个规范，<code>定义了 Web 服务器如何与 Python 应用程序进行交互</code>，使得使用 Python 写的 Web 应用程序可以和 Web 服务器对接起来。</p>
+</blockquote>
+<p>上边已经说的很清楚，WSGI 就是用来规范 Web 服务器（如 Apache）如何与 Python 应用程序（如 Django）进行交互的。这个很重要，因为<code>一般来说，服务器（程序）只有一个（专门处理 HTTP 请求），但应用程序却种类繁多，不可能让服务器为了某个应用程序而开发一套跟其交互的方案；而通过规范（类似 TCP/IP 协议），却能够让服务器与采用同样规范的应用程序连接起来，而不用单独考虑应用程序的特殊性。</code></p>
+<p>上边提到的博客已经讲的非常好了，所以本文更多的是对 WSGI 的实践。另外一个要参考的资料是 Python 官方针对 WSGI 的提案 <a href="https://www.python.org/dev/peps/pep-3333/" target="_blank" rel="noopener">PEP 3333</a>。这个方案对 WSGI 的各种细节参数都说明的非常详细，一定要仔细看。</p>
+<h1 id="WSGI-工作原理"><a href="#WSGI-工作原理" class="headerlink" title="WSGI 工作原理"></a><strong>WSGI 工作原理</strong></h1><p>根据前边提到的，WSGI 涉及到两个角色：服务器（称为 Server 或 Gateway）与应用程序（称为 Application 或 Framework）。服务器接收客户端的请求，然后根据请求调用相应的应用程序，应用程序处理完之后返回结果给服务器，服务器（经处理）再将结果返回给客户端。具体地，应用程序向服务端提供一个可调用的对象（<code>callable object</code>，函数或类，是应用程序的入口），该对象（入口）接收服务端传入的两个参数（environ 和 start_response）；服务端通过调用该对象（入口），从而实现对该应用程序的调用，如下图所示：<br><img src="/images/programing-languages/python/wsgi/server-application-call-procedure.png" alt>  </p>
+<a id="more"></a>
+<p>例如，我们可以来看一个例子：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Application: with params environ and start_response (and optional one exc_info)</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">simple_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line">    <span class="string">"""Simplest possible application object"""</span></span><br><span class="line">    status = <span class="string">'200 OK'</span></span><br><span class="line">    response_headers = [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>)]</span><br><span class="line">    start_response(status, response_headers)</span><br><span class="line">    <span class="keyword">return</span> [<span class="string">'Hello World'</span>]  <span class="comment"># !!!应用程序返回值需要为“可迭代对象”，如 list、生成器</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Server</span></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    simple_app</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>另外，注意类也可以是一个应用程序的入口：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Application: with params environ and start_response (and optional one exc_info)</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">AppClass</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, environ, start_response)</span>:</span></span><br><span class="line">        self.environ = environ</span><br><span class="line">        self.start = start_response</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__iter__</span><span class="params">(self)</span>:</span></span><br><span class="line">        status = <span class="string">'200 OK'</span></span><br><span class="line">        response_headers = [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>)]</span><br><span class="line">        self.start(status, response_headers)</span><br><span class="line">        <span class="keyword">yield</span> <span class="string">'Hello World'</span>  <span class="comment"># !!!应用程序返回值需要为“可迭代对象”，如 list、生成器</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Server</span></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8052</span>,</span><br><span class="line">    AppClass</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<h1 id="入口参数"><a href="#入口参数" class="headerlink" title="入口参数"></a><strong>入口参数</strong></h1><p>对于一个应用程序来说，其标准入口定义如下（以函数为例）：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">simple_app</span><span class="params">(environ, start_response)</span>:</span> <span class="comment"># 这些参数都是服务端传给应用程序的</span></span><br><span class="line">      <span class="keyword">pass</span>	<span class="comment"># !!!应用程序返回值需要为“可迭代对象”，如 list、生成器</span></span><br></pre></td></tr></table></figure></p>
+<p><strong>注</strong>：这些入口参数的名字不一定如上所述，只是这样叫是一个惯例，如 environ 也可为 environment。</p>
+<p>下边我们逐一来解释一下。</p>
+<h2 id="environ"><a href="#environ" class="headerlink" title="environ"></a><strong>environ</strong></h2><p>environ 是一个字典类型（!!!一定要是內建的）的对象，包含环境变量参数，由服务端传给应用，应用也可对其进行修改。</p>
+<p>对该变量，博文 <a href="https://segmentfault.com/a/1190000003069785#articleHeader6" target="_blank" rel="noopener">WSGI 简介</a>已经说的很好了，下边介绍部分就直接摘录自该博文。</p>
+<blockquote>
+<p><code>environ 字典包含了一些 CGI 规范要求的数据，以及 WSGI 规范新增的数据，还可能包含一些操作系统的环境变量以及 Web 服务器相关的环境变量。</code><br>首先是 CGI 规范中要求的变量：</p>
+<ul>
+<li>REQUEST_METHOD： 请求方法，是个字符串，’GET’, ‘POST’ 等</li>
+<li>SCRIPT_NAME： HTTP请求的path中的用于查找到application对象的部分，比如 Web 服务器可以根据 path 的一部分来决定请求由哪个 virtual host 处理</li>
+<li>PATH_INFO： HTTP 请求的 path 中剩余的部分，也就是 application 要处理的部分</li>
+<li>QUERY_STRING： HTTP 请求中的查询字符串，URL 中 ? 后面的内容</li>
+<li>CONTENT_TYPE： HTTP headers 中的 content-type 内容</li>
+<li>CONTENT_LENGTH： HTTP headers 中的 content-length 内容</li>
+<li>SERVER_NAME和SERVER_PORT： 服务器名和端口，这两个值和前面的 SCRIPT_NAME, PATH_INFO 拼起来可以得到完整的 URL 路径</li>
+<li>SERVER_PROTOCOL： HTTP 协议版本，HTTP/1.0 或者 HTTP/1.1</li>
+<li>HTTP_： 和 HTTP 请求中的 headers 对应。</li>
+</ul>
+</blockquote>
+<p>WSGI 规范中还要求 environ 包含下列成员：</p>
+<blockquote>
+<ul>
+<li>wsgi.version：表示 WSGI 版本，一个元组 (1, 0)，表示版本 1.0</li>
+<li>wsgi.url_scheme：http 或者 https</li>
+<li>wsgi.input：一个类文件的输入流，application 可以通过这个获取 HTTP request body</li>
+<li>wsgi.errors：一个输出流，当应用程序出错时，可以将错误信息写入这里</li>
+<li>wsgi.multithread：当 application 对象可能被多个线程同时调用时，这个值需要为 True</li>
+<li>wsgi.multiprocess：当 application 对象可能被多个进程同时调用时，这个值需要为 True</li>
+<li>wsgi.run_once：当server期望 application 对象在进程的生命周期内只被调用一次时，该值为 True</li>
+</ul>
+</blockquote>
+<p><strong>注</strong>：对于 CGI 的参数，可参考其<a href="https://tools.ietf.org/html/draft-coar-cgi-v11-03#section-4.1" target="_blank" rel="noopener">官方草稿</a>，也可参考 IBM 博文 <a href="https://www.ibm.com/support/knowledgecenter/zh/SSSHTQ_7.3.0/com.ibm.netcool_OMNIbus.doc_7.3.0/webtop/wip/reference/web_cust_envvariablesincgiscripts.html" target="_blank" rel="noopener">CGI 脚本中的环境变量</a>。</p>
+<p>当然，我们也可以在程序中把 environ 的内容直接作为 body 返回，来查看 environ 的内容：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">simple_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line">    <span class="string">"""Simplest possible application object"""</span></span><br><span class="line">    response_body = [</span><br><span class="line">        <span class="string">'%s: %s'</span> % (key, value) <span class="keyword">for</span> key, value <span class="keyword">in</span> sorted(environ.items())</span><br><span class="line">    ]</span><br><span class="line">    response_body = <span class="string">'\n'</span>.join(response_body)</span><br><span class="line"></span><br><span class="line">    status = <span class="string">'200 OK'</span></span><br><span class="line">    response_headers = [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>), (<span class="string">'Content-Length'</span>, str(len(response_body)))]</span><br><span class="line">    start_response(status, response_headers)</span><br><span class="line">    <span class="keyword">return</span> [response_body]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    simple_app</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>浏览器上输入 <a href="http://localhost:8051/" target="_blank" rel="noopener">http://localhost:8051/</a> 就可以看到结果。</p>
+<h2 id="start-response"><a href="#start-response" class="headerlink" title="start_response"></a><strong>start_response</strong></h2><p><code>start_response 是一个可调用对象，用于返回应用的处理情况（status, headers）返回给服务端，表示应用要开始返回 body 了。</code>start_response 的定义如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">start_response</span><span class="params">(status, response_headers, exc_info=None)</span>:</span></span><br><span class="line">    <span class="keyword">pass</span></span><br></pre></td></tr></table></figure></p>
+<p>其参数解释博文 <a href="https://segmentfault.com/a/1190000003069785#articleHeader6" target="_blank" rel="noopener">WSGI 简介</a>已经说的很好了：</p>
+<blockquote>
+<ul>
+<li>status: 一个字符串，表示 HTTP 响应状态字符串</li>
+<li>response_headers: 一个列表，包含有如下形式的元组：(header_name, header_value)，用来表示 HTTP 响应的 headers</li>
+<li>exc_info（可选）: 用于出错时，server 需要返回给浏览器的信息<br>当 application 对象根据 environ 参数的内容执行完业务逻辑后，就需要返回结果给server端。我们知道 HTTP 的响应需要包含 status，headers 和 body，所以在 application 对象将 body 作为返回值 return 之前，需要先调用 start_response()，将 status 和 headers 的内容返回给 server，这同时也是告诉 server，application 对象要开始返回 body 了。</li>
+</ul>
+</blockquote>
+<h1 id="中间件"><a href="#中间件" class="headerlink" title="中间件"></a><strong>中间件</strong></h1><p>除了服务端直接调用（最终）应用，我们还可以在服务端和应用之间添加中间件（Middleware），作为服务端与应用之间的中介，<code>对服务端扮演“应用程序”角色，对应用扮演“服务器”角色</code>。它的工作流程如下图所示：<br><img src="/images/programing-languages/python/wsgi/middleware-procedure.png" alt><a href="https://segmentfault.com/a/1190000003069785#articleHeader11" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>现在，我们对文中前头提到的进行改造，添加一个中间件：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Application: with params environ and start_response (and optional one exc_info)</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">simple_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line">    <span class="string">"""Simplest possible application object"""</span></span><br><span class="line">    status = <span class="string">'200 OK'</span></span><br><span class="line">    response_headers = [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>)]</span><br><span class="line">    start_response(status, response_headers)</span><br><span class="line">    <span class="keyword">return</span> [<span class="string">'Hello World'</span>]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Middleware</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">LowerWare</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, app)</span>:</span></span><br><span class="line">        self.wrapped_app = app</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, environ, start_response)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> data <span class="keyword">in</span> self.wrapped_app(environ, start_response):</span><br><span class="line">            <span class="keyword">yield</span> data.lower()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">wrapped_app = LowerWare(simple_app)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Server</span></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    wrapped_app</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>这种中间件的用处非常大，例如在 OpenStack 项目中就用其作为过滤器：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># keystone/etc/keystone-paste.ini</span></span><br><span class="line">[pipeline:admin_api]</span><br><span class="line"><span class="comment"># The last item in this pipeline must be admin_service or an equivalent</span></span><br><span class="line"><span class="comment"># application. It cannot be a filter.</span></span><br><span class="line">pipeline = healthcheck cors sizelimit http_proxy_to_wsgi osprofiler url_normalize request_id admin_token_auth build_auth_context token_auth json_body ec2_extension s3_extension admin_service</span><br></pre></td></tr></table></figure></p>
+<p>关于 PasteDeploy 我们将在下篇博文介绍。</p>
+<h1 id="URL-重建"><a href="#URL-重建" class="headerlink" title="URL 重建"></a><strong>URL 重建</strong></h1><p>利用 environ 参数，我们可以重建请求的 URL，如下：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># -*- coding: utf-8 -*-</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> urllib <span class="keyword">import</span> quote</span><br><span class="line"><span class="keyword">from</span> wsgiref.simple_server <span class="keyword">import</span> make_server</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">simple_app</span><span class="params">(environ, start_response)</span>:</span></span><br><span class="line">    <span class="string">"""Simplest possible application object"""</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># URL reconstruction</span></span><br><span class="line">    url = environ[<span class="string">'wsgi.url_scheme'</span>] + <span class="string">'://'</span></span><br><span class="line">    <span class="keyword">if</span> environ.get(<span class="string">'HTTP_HOST'</span>):</span><br><span class="line">        url += environ[<span class="string">'HTTP_HOST'</span>]</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        url += environ[<span class="string">'SERVER_NAME'</span>]</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> environ[<span class="string">'wsgi.url_scheme'</span>] == <span class="string">'https'</span>:</span><br><span class="line">            <span class="keyword">if</span> environ[<span class="string">'SERVER_PORT'</span>] != <span class="string">'443'</span>:</span><br><span class="line">                url += <span class="string">':'</span> + environ[<span class="string">'SERVER_PORT'</span>]</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">if</span> environ[<span class="string">'SERVER_PORT'</span>] != <span class="string">'80'</span>:</span><br><span class="line">                url += <span class="string">':'</span> + environ[<span class="string">'SERVER_PORT'</span>]</span><br><span class="line"></span><br><span class="line">    url += quote(environ.get(<span class="string">'SCRIPT_NAME'</span>, <span class="string">''</span>))</span><br><span class="line">    url += quote(environ.get(<span class="string">'PATH_INFO'</span>, <span class="string">''</span>))</span><br><span class="line">    <span class="keyword">if</span> environ.get(<span class="string">'QUERY_STRING'</span>):</span><br><span class="line">        url += <span class="string">'?'</span> + environ[<span class="string">'QUERY_STRING'</span>]</span><br><span class="line">    response_body = url</span><br><span class="line"></span><br><span class="line">    status = <span class="string">'200 OK'</span></span><br><span class="line">    response_headers = [(<span class="string">'Content-type'</span>, <span class="string">'text/plain'</span>), (<span class="string">'Content-Length'</span>, str(len(response_body)))]</span><br><span class="line">    start_response(status, response_headers)</span><br><span class="line">    <span class="keyword">return</span> [response_body]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">httpd = make_server(</span><br><span class="line">    <span class="string">'127.0.0.1'</span>,</span><br><span class="line">    <span class="number">8051</span>,</span><br><span class="line">    simple_app</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">httpd.handle_request()</span><br></pre></td></tr></table></figure></p>
+<p>浏览器输入 <a href="http://localhost:8051/" target="_blank" rel="noopener">http://localhost:8051/</a> 可得到结果：<a href="http://localhost:8051/。" target="_blank" rel="noopener">http://localhost:8051/。</a></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a><strong>总结</strong></h1><p>我想，放一张大图就够了吧：<br><img src="/images/programing-languages/python/wsgi/server-middleware-application.png" alt><a href="http://blog.csdn.net/u011521019/article/details/45621467" target="_blank" rel="noopener">图片来源</a>  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/05/15/python-web-wsgiref/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          WSGIRef
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/05/08/python-project-cookiecutter/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">项目模板之 Cookiecutter</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#WSGI-工作原理"><span class="toc-number">1.</span> <span class="toc-text">WSGI 工作原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#入口参数"><span class="toc-number">2.</span> <span class="toc-text">入口参数</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#environ"><span class="toc-number">2.1.</span> <span class="toc-text">environ</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#start-response"><span class="toc-number">2.2.</span> <span class="toc-text">start_response</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#中间件"><span class="toc-number">3.</span> <span class="toc-text">中间件</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#URL-重建"><span class="toc-number">4.</span> <span class="toc-text">URL 重建</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#总结"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

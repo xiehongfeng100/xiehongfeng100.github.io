@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>数据库版本管理 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="没有接触 OpenStack 之前，一直以为只有代码、Office 文档之类有版本管理，没想到数据库也有版本管理，真是大开眼界。 基于 SQLAlchemy 的数据库版本管理工具有 SQLAlchemy-Migrate 和 Alembic。前者在 OpenStack 中用得最多，目前由 OpenStack 官方维护。 本文主要摘录自 SQLAlchemy-Migrate 官方样例，以后如有需要再做">
+<meta name="keywords" content="SQLAlchemy-Migrate,Alembic">
+<meta property="og:type" content="article">
+<meta property="og:title" content="数据库版本管理">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/07/04/db-migration/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="没有接触 OpenStack 之前，一直以为只有代码、Office 文档之类有版本管理，没想到数据库也有版本管理，真是大开眼界。 基于 SQLAlchemy 的数据库版本管理工具有 SQLAlchemy-Migrate 和 Alembic。前者在 OpenStack 中用得最多，目前由 OpenStack 官方维护。 本文主要摘录自 SQLAlchemy-Migrate 官方样例，以后如有需要再做">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-01T06:45:46.442Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="数据库版本管理">
+<meta name="twitter:description" content="没有接触 OpenStack 之前，一直以为只有代码、Office 文档之类有版本管理，没想到数据库也有版本管理，真是大开眼界。 基于 SQLAlchemy 的数据库版本管理工具有 SQLAlchemy-Migrate 和 Alembic。前者在 OpenStack 中用得最多，目前由 OpenStack 官方维护。 本文主要摘录自 SQLAlchemy-Migrate 官方样例，以后如有需要再做">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-db-migration" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/07/04/db-migration/" class="article-date">
+  	<time datetime="2017-07-03T23:10:54.000Z" itemprop="datePublished">2017-07-04</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      数据库版本管理
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Alembic/">Alembic</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/SQLAlchemy-Migrate/">SQLAlchemy-Migrate</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/数据库/">数据库</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>没有接触 OpenStack 之前，一直以为只有代码、Office 文档之类有版本管理，没想到数据库也有版本管理，真是大开眼界。</p>
+<p>基于 SQLAlchemy 的数据库版本管理工具有 SQLAlchemy-Migrate 和 Alembic。前者在 OpenStack 中用得最多，目前由 OpenStack 官方维护。</p>
+<p>本文主要摘录自 SQLAlchemy-Migrate <a href="https://sqlalchemy-migrate.readthedocs.io/en/latest/versioning.html" target="_blank" rel="noopener">官方样例</a>，以后如有需要再做进一步探讨。</p>
+<p><strong>1. 新建一个数据库版本管理仓库</strong><br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">$ pwd</span><br><span class="line">/home/xiehongfeng100/Migrate</span><br><span class="line">$ migrate create my_repository <span class="string">"Example project"</span></span><br><span class="line">$ tree my_repository </span><br><span class="line">my_repository</span><br><span class="line">├── __init__.py</span><br><span class="line">├── __init__.pyc</span><br><span class="line">├── manage.py</span><br><span class="line">├── migrate.cfg</span><br><span class="line">├── README</span><br><span class="line">└── versions</span><br><span class="line">    ├── __init__.py</span><br><span class="line">    └── __init__.pyc</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> directory, <span class="number">7</span> files</span><br><span class="line">$ cat my_repository/migrate.cfg </span><br><span class="line">[db_settings]</span><br><span class="line"><span class="comment"># Used to identify which repository this database is versioned under.</span></span><br><span class="line"><span class="comment"># You can use the name of your project.</span></span><br><span class="line">repository_id=Example project	<span class="comment"># 我们指定的项目名称，只是我们这里并没有项目；如有项目，可写为项目名称</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># The name of the database table used to track the schema version.</span></span><br><span class="line"><span class="comment"># This name shouldn't already be used by your project.</span></span><br><span class="line"><span class="comment"># If this is changed once a database is under version control, you'll need to</span></span><br><span class="line"><span class="comment"># change the table name in each database too.</span></span><br><span class="line">version_table=migrate_version</span><br><span class="line"></span><br><span class="line"><span class="comment"># When committing a change script, Migrate will attempt to generate the</span></span><br><span class="line"><span class="comment"># sql for all supported databases; normally, if one of them fails - probably</span></span><br><span class="line"><span class="comment"># because you don't have that database installed - it is ignored and the</span></span><br><span class="line"><span class="comment"># commit continues, perhaps ending successfully.</span></span><br><span class="line"><span class="comment"># Databases in this list MUST compile successfully during a commit, or the</span></span><br><span class="line"><span class="comment"># entire commit will fail. List the databases your application will actually</span></span><br><span class="line"><span class="comment"># be using to ensure your updates to that database work properly.</span></span><br><span class="line"><span class="comment"># This must be a list; example: ['postgres','sqlite']</span></span><br><span class="line">required_dbs=[]</span><br><span class="line"></span><br><span class="line"><span class="comment"># When creating new change scripts, Migrate will stamp the new script with</span></span><br><span class="line"><span class="comment"># a version number. By default this is latest_version + 1. You can set this</span></span><br><span class="line"><span class="comment"># to 'true' to tell Migrate to use the UTC timestamp instead.</span></span><br><span class="line">use_timestamp_numbering=<span class="literal">False</span></span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p><strong>2. 新建一个 sqlite3 数据库</strong><br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ sqlite3 project.db</span><br><span class="line">SQLite version <span class="number">3.7</span><span class="number">.17</span> <span class="number">2013</span><span class="number">-05</span><span class="number">-20</span> <span class="number">00</span>:<span class="number">56</span>:<span class="number">22</span></span><br><span class="line">Enter <span class="string">".help"</span> <span class="keyword">for</span> instructions</span><br><span class="line">Enter SQL statements terminated <span class="keyword">with</span> a <span class="string">";"</span></span><br><span class="line">sqlite&gt; .databases</span><br><span class="line">seq  name             file                                                      </span><br><span class="line">---  ---------------  ----------------------------------------------------------</span><br><span class="line"><span class="number">0</span>    main             /home/xiehongfeng100/Migrate/project.db                   </span><br><span class="line">sqlite&gt; .quit</span><br></pre></td></tr></table></figure></p>
+<p><strong>3. 关联仓库和数据库</strong><br>关联仓库和数据库并为 manage.py 设置预设参数：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py version_control sqlite:///project.db my_repository</span><br><span class="line">$ migrate manage my_repository/manage.py --repository=my_repository --url=sqlite:///project.db</span><br><span class="line">$ cat my_repository/manage.py </span><br><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line"><span class="keyword">from</span> migrate.versioning.shell <span class="keyword">import</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    main(url=<span class="string">'sqlite:///project.db'</span>, debug=<span class="string">'False'</span>, repository=<span class="string">'my_repository'</span>)</span><br></pre></td></tr></table></figure></p>
+<p>可以看一下现在的数据库版本为 0：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py db_version</span><br></pre></td></tr></table></figure></p>
+<p><strong>3. 新建一个版本脚本</strong><br>我们打算新建一个数据库表 account，可以这样子做：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py script <span class="string">"Add account table"</span></span><br><span class="line">$ tree my_repository </span><br><span class="line">my_repository</span><br><span class="line">├── __init__.py</span><br><span class="line">├── __init__.pyc</span><br><span class="line">├── manage.py</span><br><span class="line">├── migrate.cfg</span><br><span class="line">├── README</span><br><span class="line">└── versions</span><br><span class="line">    ├── <span class="number">001</span>_Add_account_table.py	<span class="comment"># 自动添加的版本文件</span></span><br><span class="line">    ├── __init__.py</span><br><span class="line">    └── __init__.pyc</span><br><span class="line">$ cat my_repository/versions/<span class="number">001</span>_Add_account_table.py</span><br><span class="line"><span class="keyword">from</span> sqlalchemy <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">from</span> migrate <span class="keyword">import</span> *</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">upgrade</span><span class="params">(migrate_engine)</span>:</span>	<span class="comment"># 数据库升级，一般是增改操作</span></span><br><span class="line">    <span class="comment"># Upgrade operations go here. Don't create your own engine; bind</span></span><br><span class="line">    <span class="comment"># migrate_engine to your metadata</span></span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">downgrade</span><span class="params">(migrate_engine)</span>:</span>	<span class="comment"># 数据库降低，一般是删除操作</span></span><br><span class="line">    <span class="comment"># Operations to reverse the above upgrade go here.</span></span><br><span class="line">    <span class="keyword">pass</span></span><br></pre></td></tr></table></figure></p>
+<p>接下来，我们修改新增的文件内容为：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> sqlalchemy <span class="keyword">import</span> Table, Column, Integer, String, MetaData</span><br><span class="line"></span><br><span class="line">meta = MetaData()</span><br><span class="line"></span><br><span class="line">account = Table(</span><br><span class="line">    <span class="string">'account'</span>, meta,</span><br><span class="line">    Column(<span class="string">'id'</span>, Integer, primary_key=<span class="literal">True</span>),</span><br><span class="line">    Column(<span class="string">'login'</span>, String(<span class="number">40</span>)),</span><br><span class="line">    Column(<span class="string">'passwd'</span>, String(<span class="number">40</span>)),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">upgrade</span><span class="params">(migrate_engine)</span>:</span></span><br><span class="line">    meta.bind = migrate_engine</span><br><span class="line">    account.create()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">downgrade</span><span class="params">(migrate_engine)</span>:</span></span><br><span class="line">    meta.bind = migrate_engine</span><br><span class="line">    account.drop()</span><br></pre></td></tr></table></figure></p>
+<p>数据库升级之前最好测试一下，确保如我们预期地工作：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py test                </span><br><span class="line">Upgrading...</span><br><span class="line">done</span><br><span class="line">Downgrading...</span><br><span class="line">done</span><br><span class="line">Success</span><br></pre></td></tr></table></figure></p>
+<p>接下来就可以升级数据库啦：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py db_version </span><br><span class="line"><span class="number">0</span></span><br><span class="line">$ python my_repository/manage.py upgrade</span><br><span class="line">0 -&gt; 1... </span><br><span class="line">done</span><br><span class="line">$ python my_repository/manage.py db_version</span><br><span class="line"><span class="number">1</span></span><br><span class="line">$ sqlite3 project.db </span><br><span class="line">SQLite version <span class="number">3.7</span><span class="number">.17</span> <span class="number">2013</span><span class="number">-05</span><span class="number">-20</span> <span class="number">00</span>:<span class="number">56</span>:<span class="number">22</span></span><br><span class="line">Enter <span class="string">".help"</span> <span class="keyword">for</span> instructions</span><br><span class="line">Enter SQL statements terminated <span class="keyword">with</span> a <span class="string">";"</span></span><br><span class="line">sqlite&gt; .schema account</span><br><span class="line">CREATE TABLE account (</span><br><span class="line">	id INTEGER NOT NULL, </span><br><span class="line">	login VARCHAR(<span class="number">40</span>), </span><br><span class="line">	passwd VARCHAR(<span class="number">40</span>), </span><br><span class="line">	PRIMARY KEY (id)</span><br><span class="line">);</span><br><span class="line">sqlite&gt; .quit</span><br></pre></td></tr></table></figure>
+<p><strong>4. 编辑已有表</strong><br>为已有表添加一个新的字段 email：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py script <span class="string">"Add email column"</span></span><br><span class="line">$ tree my_repository </span><br><span class="line">my_repository</span><br><span class="line">├── __init__.py</span><br><span class="line">├── __init__.pyc</span><br><span class="line">├── manage.py</span><br><span class="line">├── migrate.cfg</span><br><span class="line">├── README</span><br><span class="line">└── versions</span><br><span class="line">    ├── <span class="number">001</span>_Add_account_table.py</span><br><span class="line">    ├── <span class="number">001</span>_Add_account_table.pyc</span><br><span class="line">    ├── <span class="number">002</span>_Add_email_column.py	<span class="comment"># 自动添加的版本文件</span></span><br><span class="line">    ├── __init__.py</span><br><span class="line">    └── __init__.pyc</span><br><span class="line"></span><br><span class="line"><span class="number">1</span> directory, <span class="number">10</span> files</span><br></pre></td></tr></table></figure></p>
+<p>编辑新增的文件内容为：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># my_repository/versions/002_Add_email_column.py </span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> sqlalchemy <span class="keyword">import</span> Table, MetaData, String, Column</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">upgrade</span><span class="params">(migrate_engine)</span>:</span></span><br><span class="line">    meta = MetaData(bind=migrate_engine)</span><br><span class="line">    account = Table(<span class="string">'account'</span>, meta, autoload=<span class="literal">True</span>)</span><br><span class="line">    emailc = Column(<span class="string">'email'</span>, String(<span class="number">128</span>))</span><br><span class="line">    emailc.create(account)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">downgrade</span><span class="params">(migrate_engine)</span>:</span></span><br><span class="line">    meta = MetaData(bind=migrate_engine)</span><br><span class="line">    account = Table(<span class="string">'account'</span>, meta, autoload=<span class="literal">True</span>)</span><br><span class="line">    account.c.email.drop()</span><br></pre></td></tr></table></figure></p>
+<p>升级：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py test</span><br><span class="line">Upgrading...</span><br><span class="line">done</span><br><span class="line">Downgrading...</span><br><span class="line">done</span><br><span class="line">Success</span><br><span class="line">$ python my_repository/manage.py upgrade</span><br><span class="line">1 -&gt; 2... </span><br><span class="line">done</span><br><span class="line">$ sqlite3 project.db </span><br><span class="line">SQLite version <span class="number">3.7</span><span class="number">.17</span> <span class="number">2013</span><span class="number">-05</span><span class="number">-20</span> <span class="number">00</span>:<span class="number">56</span>:<span class="number">22</span></span><br><span class="line">Enter <span class="string">".help"</span> <span class="keyword">for</span> instructions</span><br><span class="line">Enter SQL statements terminated <span class="keyword">with</span> a <span class="string">";"</span></span><br><span class="line">sqlite&gt; .schema account</span><br><span class="line">CREATE TABLE account (</span><br><span class="line">	id INTEGER NOT NULL, </span><br><span class="line">	login VARCHAR(<span class="number">40</span>), </span><br><span class="line">	passwd VARCHAR(<span class="number">40</span>), email VARCHAR(<span class="number">128</span>),  <span class="comment"># email 新增的字段</span></span><br><span class="line">	PRIMARY KEY (id)</span><br><span class="line">);</span><br><span class="line">sqlite&gt; .quit</span><br></pre></td></tr></table></figure></p>
+<p><strong>4. 版本回滚</strong><br>我们也可以对数据库进行降级操作：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ python my_repository/manage.py downgrade <span class="number">0</span>	<span class="comment"># 需指定要降级到的版本，这里我们是降级到版本 0</span></span><br><span class="line">1 -&gt; 0... </span><br><span class="line">done</span><br><span class="line">$ python my_repository/manage.py db_version </span><br><span class="line"><span class="number">0</span></span><br><span class="line">$ sqlite3 project.db </span><br><span class="line">SQLite version <span class="number">3.7</span><span class="number">.17</span> <span class="number">2013</span><span class="number">-05</span><span class="number">-20</span> <span class="number">00</span>:<span class="number">56</span>:<span class="number">22</span></span><br><span class="line">Enter <span class="string">".help"</span> <span class="keyword">for</span> instructions</span><br><span class="line">Enter SQL statements terminated <span class="keyword">with</span> a <span class="string">";"</span></span><br><span class="line">sqlite&gt; .schema account</span><br><span class="line">sqlite&gt; .quit</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/08/02/mysql-index/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          MySQL 索引
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/07/03/openstack-keystone-api-routes/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">OpenStack 源码系列之 Keystone：API 路由</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

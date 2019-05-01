@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：内核引导程序之“head.s” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要分析 Linux 0.11 内核引导程序head.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 我们从上一博文 Linux 内核学习笔记：内核引导程序之“setup.s”已知指令指针已跳转至内存最初始处（0x0000 0000），从 head 程序开始执行。需要注意的是，head 程序用 AT&amp;amp;T 汇编语法写成，并工作在保护模式下">
+<meta name="keywords" content="Linux,内核,引导程序,head">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：内核引导程序之“head.s”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要分析 Linux 0.11 内核引导程序head.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 我们从上一博文 Linux 内核学习笔记：内核引导程序之“setup.s”已知指令指针已跳转至内存最初始处（0x0000 0000），从 head 程序开始执行。需要注意的是，head 程序用 AT&amp;amp;T 汇编语法写成，并工作在保护模式下">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置dsesfsgs.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置栈.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置IDT.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/中断描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置GDT.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/重新调整dsesfsgs.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/页表填充.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/页表填充完毕.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置CR0CR3.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/system模块在内存中的映像.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/执行ret.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.582Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：内核引导程序之“head.s”">
+<meta name="twitter:description" content="本文主要分析 Linux 0.11 内核引导程序head.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 我们从上一博文 Linux 内核学习笔记：内核引导程序之“setup.s”已知指令指针已跳转至内存最初始处（0x0000 0000），从 head 程序开始执行。需要注意的是，head 程序用 AT&amp;amp;T 汇编语法写成，并工作在保护模式下">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part4/设置dsesfsgs.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-boot-part4" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/19/linux-kenel-0-11-topic-boot-part4/" class="article-date">
+  	<time datetime="2016-02-19T02:05:10.000Z" itemprop="datePublished">2016-02-19</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：内核引导程序之“head.s”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/head/">head</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/引导程序/">引导程序</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要分析 Linux 0.11 内核引导程序<code>head.s</code>关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。</p>
+<p>我们从上一博文 <a href="http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/">Linux 内核学习笔记：内核引导程序之“setup.s”</a>已知指令指针已跳转至内存最初始处（0x0000 0000），从 head 程序开始执行。需要注意的是，head 程序用 AT&amp;T 汇编语法写成，并工作在保护模式下。</p>
+<h1 id="设置-DS、ES、FS、GS"><a href="#设置-DS、ES、FS、GS" class="headerlink" title="设置 DS、ES、FS、GS"></a><strong>设置 DS、ES、FS、GS</strong></h1><p>这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">.text</span><br><span class="line">.globl _idt,_gdt,_pg_dir,_tmp_floppy_area</span><br><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	movl $<span class="number">0x10</span>,%eax</span><br><span class="line">	mov %ax,%ds</span><br><span class="line">	mov %ax,%es</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	mov %ax,%gs</span><br></pre></td></tr></table></figure></p>
+<p>因为处理器已经工作在保护模式下，所以这些段寄存器都表示段选择子。0x10 写成 16 位二进制形式为 0b0000 0000 0001 0000，所以值为该数的段选择子：请求特权级为 0（RPL=00）、所指向的描述符存放在 GDT （TI=0）、所指向的描述符索引为 2（DI=0000 0000 0001 0）。</p>
+<a id="more"></a>
+<p>DS、ES、FS、GS 段选择子所指向的段描述符可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part4/设置dsesfsgs.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="设置系统栈"><a href="#设置系统栈" class="headerlink" title="设置系统栈"></a><strong>设置系统栈</strong></h1><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line">	lss _stack_start,%esp</span><br></pre></td></tr></table></figure>
+<p><code>lss</code>是 Load Stack Segment Register 的缩写，跟上一博文 <a href="http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/">Linux 内核学习笔记：内核引导程序之“setup.s”</a>的 lds 类似，是将操作数的值传送给指定寄存器<code>ss:esp</code>。</p>
+<p>stack_start 定义在 kenel/sched.c 文件中：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">long</span> user_stack [ PAGE_SIZE&gt;&gt;<span class="number">2</span> ] ;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">	<span class="keyword">long</span> * a;</span><br><span class="line">	<span class="keyword">short</span> b;</span><br><span class="line">	&#125; stack_start = &#123; &amp; user_stack [PAGE_SIZE&gt;&gt;<span class="number">2</span>] , <span class="number">0x10</span> &#125;;</span><br></pre></td></tr></table></figure></p>
+<p>这段代码有两个重要的点：  </p>
+<ul>
+<li>stack_start 经 C 语言编译器编译后，会被符号修饰为 <code>_stack_start</code>，这样 head.s 和 sched.c 各自编译后的文件就能够链接在一起</li>
+<li>&amp;user_stack [PAGE_SIZE&gt;&gt;2] 实际上是越界访问，但这样是能够通过编译的。之所以这样写，是考虑到栈“从高地址向低地址增长”的特性。&amp;user_stack [PAGE_SIZE&gt;&gt;2] 的值实际为 &amp;user_stack [PAGE_SIZE&gt;&gt;2 - 1] + 1，代表的是栈的<code>边界值</code>。</li>
+</ul>
+<p><code>lss _stack_start,%esp</code>是将结构体 stact_start 的值传送到<code>ss:esp</code>，即令 ss=0x10（段选择子）和 esp=&amp; user_stack [PAGE_SIZE&gt;&gt;2]。</p>
+<p>栈设置结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/设置栈.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="设置-IDT"><a href="#设置-IDT" class="headerlink" title="设置 IDT"></a><strong>设置 IDT</strong></h1><p>设置 IDT 部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line">	call setup_idt</span><br><span class="line">	......</span><br><span class="line"></span><br><span class="line">setup_idt:</span><br><span class="line">	lea ignore_int,%edx</span><br><span class="line">	movl $<span class="number">0x00080000</span>,%eax</span><br><span class="line">	movw %dx,%ax		<span class="comment">/* selector = 0x0008 = cs */</span></span><br><span class="line">	movw $<span class="number">0x8E00</span>,%dx		<span class="comment">/* interrupt gate - dpl=0, present */</span></span><br><span class="line"></span><br><span class="line">	lea _idt,%edi</span><br><span class="line">	mov $<span class="number">256</span>,%ecx</span><br><span class="line">rp_sidt:</span><br><span class="line">	......</span><br><span class="line">	lidt idt_descr	# 重新设置 idt</span><br><span class="line">	ret</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">ignore_int:</span><br><span class="line">	.....</span><br><span class="line">	pushl $int_msg</span><br><span class="line">	call _printk</span><br><span class="line">	......</span><br><span class="line">	iret</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">.word <span class="number">0</span></span><br><span class="line">idt_descr:			<span class="meta"># idt 属性：limit 和 base</span></span><br><span class="line">	.word <span class="number">256</span>*<span class="number">8</span><span class="number">-1</span>		<span class="meta"># idt contains 256 entries</span></span><br><span class="line">	.<span class="keyword">long</span> _idt</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">	.align <span class="number">3</span></span><br><span class="line">_idt:	.fill <span class="number">256</span>,<span class="number">8</span>,<span class="number">0</span>		# <span class="number">256</span> 项，每项 <span class="number">8</span> 个字节，全部初始化为 <span class="number">0</span>。</span><br></pre></td></tr></table></figure></p>
+<p>IDT 设置结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/设置IDT.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>另外，有两点需要注意：  </p>
+<ul>
+<li>IDT 的基地址（由 lidt 加载到 IDTR）实际为内存对齐后（.align 3，2^3，按 8 字节方式对齐内存）的 _idt 在 head 模块中的偏移值。</li>
+<li>整个 IDT 都是空的（.fill 256,8,0）。</li>
+</ul>
+<p>注：<strong>中断描述符格式</strong>（也可参考之前博文 <a href="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/">Linux 内核学习笔记：预备知识之“存储器管理基础”</a>的“门描述符”小节）<br><img src="/images/os/linux-kenel-0.11/boot/part4/中断描述符格式.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="设置-GDT"><a href="#设置-GDT" class="headerlink" title="设置 GDT"></a><strong>设置 GDT</strong></h1><p>设置 IDT 部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line">	call setup_gdt</span><br><span class="line">	......</span><br><span class="line"></span><br><span class="line">setup_gdt:</span><br><span class="line">	lgdt gdt_descr	# 重新设置 gdt</span><br><span class="line">	ret</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">.word <span class="number">0</span></span><br><span class="line">gdt_descr:</span><br><span class="line">	.word 256*8-1		# so does gdt (not that that's any</span><br><span class="line">	.<span class="keyword">long</span> _gdt		<span class="meta"># magic number, but it works for me :^)</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">_gdt:	.quad <span class="number">0x0000000000000000</span>	<span class="comment">/* NULL descriptor */</span></span><br><span class="line">	.quad <span class="number">0x00c09a0000000fff</span>	<span class="comment">/* 16Mb */</span></span><br><span class="line">	.quad <span class="number">0x00c0920000000fff</span>	<span class="comment">/* 16Mb */</span></span><br><span class="line">	.quad <span class="number">0x0000000000000000</span>	<span class="comment">/* TEMPORARY - don't use */</span></span><br><span class="line">	.fill <span class="number">252</span>,<span class="number">8</span>,<span class="number">0</span>			<span class="comment">/* space for LDT's and TSS's etc */</span></span><br></pre></td></tr></table></figure></p>
+<p>IDT 设置结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/设置GDT.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>另外，有几点需要注意：  </p>
+<ul>
+<li>跟设置 IDT 的不一样，GDT 共设置了 4 个项，余下的 252 个项初始化为 0。</li>
+<li><p>GDT 第 1、2 个描述符指向的段的段限长由原来的 <a href="http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/">8MB</a> 扩展为现在的 16MB，如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/重新调整dsesfsgs.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+</li>
+<li><p>之前在<code>startup_32</code>开始处设置了 ds、es、fs、gs 和 ss，但它们所指向的原描述符所指向的段的段限长为 8MB，所以当访问 8MB 以上的地址空间时，将会产生段限长超限报警。为了防止这类可能发生的情况，在这里需要对段寄存器（段选择子）重新设置：  </p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line">	call setup_idt</span><br><span class="line">	call setup_gdt</span><br><span class="line">	movl $<span class="number">0x10</span>,%eax		<span class="meta"># reload all the segment registers</span></span><br><span class="line">	mov %ax,%ds		<span class="meta"># after changing gdt. CS was already</span></span><br><span class="line">	mov %ax,%es		# reloaded in 'setup_gdt'</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	mov %ax,%gs</span><br><span class="line">	lss _stack_start,%esp	# 重新设置 ss</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h1 id="检查-A20-是否已打开"><a href="#检查-A20-是否已打开" class="headerlink" title="检查 A20 是否已打开"></a><strong>检查 A20 是否已打开</strong></h1><p>A20 是否已打开影响到保护模式是否有效。检查代码如下：<br><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line"><span class="number">1</span>:	incl %eax		<span class="meta"># check that A20 really IS enabled</span></span><br><span class="line">	movl %eax,<span class="number">0x000000</span>	<span class="meta"># loop forever <span class="meta-keyword">if</span> it isn<span class="meta-string">'t</span></span></span><br><span class="line">	cmpl %eax,0x100000</span><br><span class="line">	je 1b			#'1b'表示向后（backward）跳转到标号 1 去（1:	incl %eax）</span><br><span class="line">				#若是'5f'则表示向前（forward）跳转到标号 5 去</span><br></pre></td></tr></table></figure></p>
+<p>《Linux 内核完全注释》对这段程序有一个简明解释：  </p>
+<blockquote>
+<p>采用的方法是向内存地址 0x000000 处写入任意一个数值，然后看内存地址 0x100000 (1M)处是否也是这个数值。如果一直相同的话，就一直比较下去，即死循环、死机，表示 A20 线没有选通，结果内核就不能够使用 1MB 以上内存。</p>
+</blockquote>
+<h1 id="检查-x87-协处理器"><a href="#检查-x87-协处理器" class="headerlink" title="检查 x87 协处理器"></a><strong>检查 x87 协处理器</strong></h1><p>这部分代码为：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:</span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * NOTE! 486 should set bit 16, to check for write-protect in supervisor</span></span><br><span class="line"><span class="comment"> * mode. Then it would be unnecessary with the "verify_area()"-calls.</span></span><br><span class="line"><span class="comment"> * 486 users probably want to set the NE (#5) bit also, so as to use</span></span><br><span class="line"><span class="comment"> * int 16 for math errors.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">	movl %cr0,%eax		<span class="meta"># check math chip</span></span><br><span class="line">	andl $<span class="number">0x80000011</span>,%eax	# Save PG,PE,ET</span><br><span class="line"><span class="comment">/* "orl $0x10020,%eax" here for 486 might be good */</span></span><br><span class="line">	orl $<span class="number">2</span>,%eax		<span class="meta"># set MP</span></span><br><span class="line">	movl %eax,%cr0</span><br><span class="line">	call check_x87</span><br><span class="line">	jmp after_page_tables</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * We depend on ET to be correct. This checks for 287/387.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">check_x87:</span><br><span class="line">	fninit</span><br><span class="line">	fstsw %ax</span><br><span class="line">	cmpb $<span class="number">0</span>,%al</span><br><span class="line">	je <span class="number">1f</span>			<span class="comment">/* no coprocessor: have to set bits */</span></span><br><span class="line">	movl %cr0,%eax</span><br><span class="line">	xorl $<span class="number">6</span>,%eax		<span class="comment">/* reset MP, set EM */</span></span><br><span class="line">	movl %eax,%cr0</span><br><span class="line">	ret</span><br><span class="line">.align <span class="number">2</span></span><br><span class="line"><span class="number">1</span>:	.byte <span class="number">0xDB</span>,<span class="number">0xE4</span>		<span class="comment">/* fsetpm for 287, ignored by 387 */</span></span><br><span class="line">	ret</span><br></pre></td></tr></table></figure></p>
+<p>《Linux 内核设计的艺术》对 x87 协处理器有一段简要说明：  </p>
+<blockquote>
+<p>为了弥补 x86 系列在进行浮点计算时的不足，Intel 于 1980 年推出了 x87 系列数学协处理器，那时是一个外置的、可选的芯片。1989 年，Intel 发布了 486 处理器。自从 486 开始，以后的 CPU 一般都内置了协处理器。这样，对于 486 以前的计算机而言，操作系统检验 x87 协处理器是否存在就非常有必要了。</p>
+</blockquote>
+<h1 id="设置分页管理系统"><a href="#设置分页管理系统" class="headerlink" title="设置分页管理系统"></a><strong>设置分页管理系统</strong></h1><p>这部分代码为：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">_pg_dir:	<span class="comment">/* 标识页目录表存储位置（0x0000 0000，因为 _pg_dir 在 head 模块头部） */</span></span><br><span class="line">startup_32:</span><br><span class="line">	......</span><br><span class="line">	jmp after_page_tables</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * I put the kernel page tables right after the page directory,</span></span><br><span class="line"><span class="comment"> * using 4 of them to span 16 Mb of physical memory. People with</span></span><br><span class="line"><span class="comment"> * more than 16MB will have to expand this.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">.org <span class="number">0x1000</span></span><br><span class="line">pg0:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x2000</span></span><br><span class="line">pg1:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x3000</span></span><br><span class="line">pg2:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x4000</span></span><br><span class="line">pg3:</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">after_page_tables:</span><br><span class="line">	pushl $<span class="number">0</span>		# These are the parameters to main :-)</span><br><span class="line">	pushl $<span class="number">0</span></span><br><span class="line">	pushl $<span class="number">0</span></span><br><span class="line">	pushl $L6		<span class="meta"># return address for main, <span class="meta-keyword">if</span> it decides to.</span></span><br><span class="line">	pushl $_main</span><br><span class="line">	jmp setup_paging</span><br><span class="line">L6:</span><br><span class="line">	jmp L6			<span class="meta"># main should never return here, but</span></span><br><span class="line">				<span class="meta"># just in case, we know what happens.</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">setup_paging:</span><br><span class="line">	movl $<span class="number">1024</span>*<span class="number">5</span>,%ecx		<span class="comment">/* 5 pages - pg_dir+4 page tables */</span></span><br><span class="line">	xorl %eax,%eax</span><br><span class="line">	xorl %edi,%edi			<span class="comment">/* pg_dir is at 0x000 */</span></span><br><span class="line">	cld;rep;stosl</span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">		下面几行的 7 需看成二进制的 111，是页属性，代表 u/s、r/w、present</span></span><br><span class="line"><span class="comment">		111 代表：用户 u、读写 rw、存在 p</span></span><br><span class="line"><span class="comment">		000 代表：内核 s、只读 r、不存在</span></span><br><span class="line"><span class="comment">	*/</span></span><br><span class="line">	movl $pg0+<span class="number">7</span>,_pg_dir		<span class="comment">/* set present bit/user r/w */</span></span><br><span class="line">	movl $pg1+<span class="number">7</span>,_pg_dir+<span class="number">4</span>		<span class="comment">/*  --------- " " --------- */</span></span><br><span class="line">	movl $pg2+<span class="number">7</span>,_pg_dir+<span class="number">8</span>		<span class="comment">/*  --------- " " --------- */</span></span><br><span class="line">	movl $pg3+<span class="number">7</span>,_pg_dir+<span class="number">12</span>		<span class="comment">/*  --------- " " --------- */</span></span><br><span class="line">	movl $pg3+<span class="number">4092</span>,%edi</span><br><span class="line">	movl $<span class="number">0xfff007</span>,%eax		<span class="comment">/*  16Mb - 4096 + 7 (r/w user,p) */</span></span><br><span class="line">	<span class="built_in">std</span></span><br><span class="line"><span class="number">1</span>:	stosl			<span class="comment">/* fill pages backwards - more efficient :-) */</span></span><br><span class="line">	subl $<span class="number">0x1000</span>,%eax</span><br><span class="line">	jge <span class="number">1b</span></span><br><span class="line">	xorl %eax,%eax		<span class="comment">/* pg_dir is at 0x0000 */</span></span><br><span class="line">	movl %eax,%cr3		<span class="comment">/* cr3 - page directory start */</span></span><br><span class="line">	movl %cr0,%eax</span><br><span class="line">	orl $<span class="number">0x80000000</span>,%eax</span><br><span class="line">	movl %eax,%cr0		<span class="comment">/* set paging (PG) bit */</span></span><br><span class="line">	ret			<span class="comment">/* this also flushes prefetch-queue */</span></span><br></pre></td></tr></table></figure></p>
+<p>这部分程序要分成一下几点进行解读：  </p>
+<h2 id="页表目录、页表建立"><a href="#页表目录、页表建立" class="headerlink" title="页表目录、页表建立"></a><strong>页表目录、页表建立</strong></h2><h3 id="内存清零"><a href="#内存清零" class="headerlink" title="内存清零"></a><strong>内存清零</strong></h3><p>首先对 5 页内存（1页目录 + 4 页页表）清零：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">.align <span class="number">2</span>	<span class="comment">/* 按 4 (2^2)字节方式对齐内存地址边界 */</span></span><br><span class="line">setup_paging:</span><br><span class="line">	movl $<span class="number">1024</span>*<span class="number">5</span>,%ecx		<span class="comment">/* 5 pages - pg_dir+4 page tables */</span></span><br><span class="line">	xorl %eax,%eax</span><br><span class="line">	xorl %edi,%edi			<span class="comment">/* pg_dir is at 0x000 */</span></span><br><span class="line">	cld;rep;stosl</span><br></pre></td></tr></table></figure></p>
+<p>其中 stosl 解释如下：  </p>
+<ul>
+<li><code>stosl</code>：每次保存的是 4 个字节。<ul>
+<li>ecx 控制循环次数</li>
+<li>每次循环将 eax 的值保存到 es:edi （es 为段选择子）指向的内存</li>
+<li>若 EFLAGS 中的方向标志位 DF=0 （使用 cld 指令），则 edi 自增 4 （因为比较的是 Long，所以递增 4）；若 DF=1（使用 std 指令），则 edi 自减 4</li>
+<li>rep 表示当 ecx&gt;0 时，循环继续；反之停止</li>
+<li>在这个程序中，每循环 1024 次，清零的内存范围是 1024*4=4096 字节，恰好是一个页。</li>
+<li><strong>注意：</strong>xorl %eax,%eax 和 xorl %edi,%edi 只在最循环最开始执行一次</li>
+</ul>
+</li>
+</ul>
+<h3 id="页表目录填充"><a href="#页表目录填充" class="headerlink" title="页表目录填充"></a><strong>页表目录填充</strong></h3><p>接下来是将 4 个页表注册到页表目录中：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">.org <span class="number">0x1000</span></span><br><span class="line">pg0:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x2000</span></span><br><span class="line">pg1:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x3000</span></span><br><span class="line">pg2:</span><br><span class="line"></span><br><span class="line">.org <span class="number">0x4000</span></span><br><span class="line">pg3:</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">setup_paging:</span><br><span class="line">	......</span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">		下面几行的 7 需看成二进制的 111，是页属性，代表 u/s、r/w、present</span></span><br><span class="line"><span class="comment">		111 代表：用户 u、读写 rw、存在 p</span></span><br><span class="line"><span class="comment">		000 代表：内核 s、只读 r、不存在</span></span><br><span class="line"><span class="comment">	*/</span></span><br><span class="line">	movl $pg0+<span class="number">7</span>,_pg_dir		<span class="comment">/* set present bit/user r/w */</span></span><br><span class="line">	movl $pg1+<span class="number">7</span>,_pg_dir+<span class="number">4</span>		<span class="comment">/*  --------- " " --------- */</span></span><br><span class="line">	movl $pg2+<span class="number">7</span>,_pg_dir+<span class="number">8</span>		<span class="comment">/*  --------- " " --------- */</span></span><br><span class="line">	movl $pg3+<span class="number">7</span>,_pg_dir+<span class="number">12</span>		<span class="comment">/*  --------- " " --------- */</span></span><br></pre></td></tr></table></figure></p>
+<p>因为一个<a href="http://xiehongfeng100.github.io/2016/01/22/linux-kenel-0-11-topic-necessary-preparation-part3/">页表目录项</a>为 32 位，所以 _pg_dir 每次递增 4 个字节。</p>
+<h2 id="页表填充"><a href="#页表填充" class="headerlink" title="页表填充"></a><strong>页表填充</strong></h2><p>页表填充代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">.align <span class="number">2</span></span><br><span class="line">setup_paging:</span><br><span class="line">	......</span><br><span class="line">	movl $pg3+<span class="number">4092</span>,%edi</span><br><span class="line">	movl $<span class="number">0xfff007</span>,%eax		<span class="comment">/*  16Mb - 4096 + 7 (r/w user,p) */</span></span><br><span class="line">					<span class="comment">/*  7 需看成二进制的 111，是页属性 */</span></span><br><span class="line">	<span class="built_in">std</span></span><br><span class="line"><span class="number">1</span>:	stosl			<span class="comment">/* fill pages backwards - more efficient :-) */</span></span><br><span class="line">	subl $<span class="number">0x1000</span>,%eax</span><br><span class="line">	jge <span class="number">1b</span>			<span class="comment">/* '1b'表示向后（backward）跳转到标号 1 去（1:	stosl）*/</span></span><br><span class="line">				<span class="comment">/*  如果小于 0 表示全填好了  */</span></span><br></pre></td></tr></table></figure></p>
+<p>有几点需要解释下：  </p>
+<ul>
+<li>\$pg3+4092：表示第 4 个页表的最后一个页表项的起始位置（1023*4）。</li>
+<li>\$0xfff007：存储到第 4 个页表的最后一个页表项的内容。这里 7 表示页属性，0xfff000 为该页表项所指向的<a href="http://xiehongfeng100.github.io/2016/01/22/linux-kenel-0-11-topic-necessary-preparation-part3/">页基址（也称为页号）</a>。 该地址刚好是 16MB 内存的最后一页的地址。</li>
+</ul>
+<p>填充结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/页表填充.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>另外，每次循环， </p>
+<ul>
+<li>eax（初始值为 \$0xfff007，7 为页属性） 递减 \$0x1000 （4KB，一个页大小），</li>
+<li>edi（初始值为 \$pg3+4092） 按 4 (std，表示 4 个字节)递减</li>
+<li>将 eax 内容（即页表项）存储到内存 edi 处<br>这样直到循环结束，刚好能将 4 个页表填满。每个页表有 4KB/4B=1024 个页表项。4 个页表支持的寻址范围为 4 * 1024 * 4KB = 16MB，恰好是 Linux 0.11 支持的寻址范围。</li>
+</ul>
+<p>4 个页表最终填充完毕结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/页表填充完毕.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h2 id="设置-CR3-并启动分页机制"><a href="#设置-CR3-并启动分页机制" class="headerlink" title="设置 CR3 并启动分页机制"></a><strong>设置 CR3 并启动分页机制</strong></h2><p>这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">.align <span class="number">2</span></span><br><span class="line">setup_paging:</span><br><span class="line">	......</span><br><span class="line">	xorl %eax,%eax		<span class="comment">/* pg_dir is at 0x0000 */</span></span><br><span class="line">	movl %eax,%cr3		<span class="comment">/* cr3 - page directory start */</span></span><br><span class="line">	movl %cr0,%eax</span><br><span class="line">	orl $<span class="number">0x80000000</span>,%eax</span><br><span class="line">	movl %eax,%cr0		<span class="comment">/* set paging (PG) bit */</span></span><br></pre></td></tr></table></figure></p>
+<p>关于 CR0 和 CR3 请参考之前博文 <a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">Linux 内核学习笔记：预备知识之“寄存器模型”</a>。</p>
+<p>设置完成后结果如下：<br><img src="/images/os/linux-kenel-0.11/boot/part4/设置CR0CR3.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<hr>
+<p>到这里为止，system 模块在内存中的映像如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part4/system模块在内存中的映像.png" alt>图片来源：《Linux 内核完全注释》   </p>
+<h1 id="跳转至-main-函数"><a href="#跳转至-main-函数" class="headerlink" title="跳转至 main 函数"></a><strong>跳转至 main 函数</strong></h1><p>这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">after_page_tables:</span><br><span class="line">	pushl $<span class="number">0</span>		# These are the parameters to main :-)</span><br><span class="line">	pushl $<span class="number">0</span></span><br><span class="line">	pushl $<span class="number">0</span></span><br><span class="line">	pushl $L6		<span class="meta"># return address for main, <span class="meta-keyword">if</span> it decides to.</span></span><br><span class="line">	pushl $_main</span><br><span class="line">	jmp setup_paging</span><br><span class="line">L6:</span><br><span class="line">	jmp L6			<span class="meta"># main should never return here, but</span></span><br><span class="line">				<span class="meta"># just in case, we know what happens.</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">setup_paging:</span><br><span class="line">	......</span><br><span class="line">	ret			<span class="comment">/* this also flushes prefetch-queue */</span></span><br></pre></td></tr></table></figure></p>
+<p>分页系统设置完成后，就开始返回（<code>ret</code>），将 main 函数地址弹出给 EIP：<br><img src="/images/os/linux-kenel-0.11/boot/part4/执行ret.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<p><strong>注意</strong>：main 函数经 C 语言编译器编译后被符号修饰为<code>_main</code>。</p>
+<p>接下来就<code>开始执行 main 函数</code>了。敬请查阅接下来博文！</p>
+<p>需要注意的是，<code>系统中断现在还是关闭的！</code></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/20/reading-sam-waltons-autobiography/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          富甲美国：沃尔玛创始人山姆·沃尔顿自传
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/02/18/linux-kenel-0-11-topic-boot-part3/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：内核引导程序之“setup.s”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#设置-DS、ES、FS、GS"><span class="toc-number">1.</span> <span class="toc-text">设置 DS、ES、FS、GS</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置系统栈"><span class="toc-number">2.</span> <span class="toc-text">设置系统栈</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置-IDT"><span class="toc-number">3.</span> <span class="toc-text">设置 IDT</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置-GDT"><span class="toc-number">4.</span> <span class="toc-text">设置 GDT</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#检查-A20-是否已打开"><span class="toc-number">5.</span> <span class="toc-text">检查 A20 是否已打开</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#检查-x87-协处理器"><span class="toc-number">6.</span> <span class="toc-text">检查 x87 协处理器</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置分页管理系统"><span class="toc-number">7.</span> <span class="toc-text">设置分页管理系统</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#页表目录、页表建立"><span class="toc-number">7.1.</span> <span class="toc-text">页表目录、页表建立</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#内存清零"><span class="toc-number">7.1.1.</span> <span class="toc-text">内存清零</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#页表目录填充"><span class="toc-number">7.1.2.</span> <span class="toc-text">页表目录填充</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#页表填充"><span class="toc-number">7.2.</span> <span class="toc-text">页表填充</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#设置-CR3-并启动分页机制"><span class="toc-number">7.3.</span> <span class="toc-text">设置 CR3 并启动分页机制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#跳转至-main-函数"><span class="toc-number">8.</span> <span class="toc-text">跳转至 main 函数</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

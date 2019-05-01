@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：内核引导程序之“bootsect.s” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要分析 Linux 0.11 内核引导程序bootsect.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 从上一博文 Linux 内核学习笔记：内核引导程序概况及 BIOS 我们知道，bootsect 模块需要由 BIOS 来将其拷贝至内存。下边我们先来看这一过程。 加载 bootsect 模块这一部分仍属于 BIOS 部分，不属于 Lin">
+<meta name="keywords" content="Linux,内核,引导程序,bootsect">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：内核引导程序之“bootsect.s”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/16/linux-kenel-0-11-topic-boot-part2/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要分析 Linux 0.11 内核引导程序bootsect.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 从上一博文 Linux 内核学习笔记：内核引导程序概况及 BIOS 我们知道，bootsect 模块需要由 BIOS 来将其拷贝至内存。下边我们先来看这一过程。 加载 bootsect 模块这一部分仍属于 BIOS 部分，不属于 Lin">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/linux-0-1-1内核在1-4-4MB磁盘上的分布情况.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/加载bootsect模块.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/实模式下内存规划.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/跳转到go处继续执行.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/加载setup程序.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/加载system模块.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/确认根设备号.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.575Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：内核引导程序之“bootsect.s”">
+<meta name="twitter:description" content="本文主要分析 Linux 0.11 内核引导程序bootsect.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 从上一博文 Linux 内核学习笔记：内核引导程序概况及 BIOS 我们知道，bootsect 模块需要由 BIOS 来将其拷贝至内存。下边我们先来看这一过程。 加载 bootsect 模块这一部分仍属于 BIOS 部分，不属于 Lin">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part2/linux-0-1-1内核在1-4-4MB磁盘上的分布情况.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-boot-part2" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/16/linux-kenel-0-11-topic-boot-part2/" class="article-date">
+  	<time datetime="2016-02-16T11:43:57.000Z" itemprop="datePublished">2016-02-16</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：内核引导程序之“bootsect.s”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/bootsect/">bootsect</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/引导程序/">引导程序</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要分析 Linux 0.11 内核引导程序<code>bootsect.s</code>关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。</p>
+<p>从上一博文 <a href="http://xiehongfeng100.github.io/2016/01/30/linux-kenel-0-11-topic-boot-part1/">Linux 内核学习笔记：内核引导程序概况及 BIOS</a> 我们知道，bootsect 模块需要由 BIOS 来将其拷贝至内存。下边我们先来看这一过程。</p>
+<h1 id="加载-bootsect-模块"><a href="#加载-bootsect-模块" class="headerlink" title="加载 bootsect 模块"></a><strong>加载 bootsect 模块</strong></h1><p>这一部分仍属于 BIOS 部分，不属于 Linux 引导部分。</p>
+<p>bootsect 模块（由 bootsect.s 汇编而成）放在磁盘（启动设备）的第 1 扇区（0 盘面 0 磁道 1 扇区）。第 1 扇区也称为启动扇区（boot sector）。在 1.44MB 磁盘上，其跟 setup 模块和 system 模块的分布情况如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part2/linux-0-1-1内核在1-4-4MB磁盘上的分布情况.png" alt>图片来源：《Linux 内核完全注释》<br>（bootsect 模块占用了第 1 个扇区，setup 模块占用了随后的 4 个扇区，Linux 0.11 内核 system 模块占用了接下的约 240 个扇区。1.44MB 磁盘总共有 2880 个扇区，除了被以上 3 个模块占用，还有 2630 多个扇区未被使用。这些未用空间可用来存放一个基本的<code>根文件系统</code>，从而创建出使用单张磁盘就能让系统运转起来的集成盘来。）</p>
+<a id="more"></a>
+<p>BIOS 通过<code>int 0x19</code>中断将软盘第 1 扇区内容（也即 bootsect 模块）拷贝至内存 0x07C00 处。需要注意的是，该中断的服务程序是由 BIOS 提前设计好的，需要跟操作系统的区分开来。就如《Linux 内核设计的艺术》所说的：  </p>
+<blockquote>
+<p>无论 Linux 0.11 的内核是如何设计的，这段 BIOS 程序（即 int 0x19 的服务程序）所要做的就是“找到软盘”并“加载第一扇区”，其余的它什么都不知道，也不必知道。</p>
+</blockquote>
+<p>bootsect 模块的加载可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part2/加载bootsect模块.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p><code>bootsect 模块的加载非常重要。这意味着计算机自开机以来，内存中第一次有了 Linux 操作系统自己的代码（虽然只是启动代码）。接下来 setup 模块和</code> <a href="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-overview/"><code>system 模块（包括了 head、main、kenel、mm、fs、lib 模块）</code></a><code>的加载都由 bootsect 模块完成。</code></p>
+<p>关于硬盘（或软盘）的基础知识可参考之前博文 <a href="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/">Linux 内核学习笔记：预备知识之“硬盘基础知识”</a>。</p>
+<h1 id="实模式下内存规划"><a href="#实模式下内存规划" class="headerlink" title="实模式下内存规划"></a><strong>实模式下内存规划</strong></h1><p>内存规划部分源代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">!</span><br><span class="line">! SYS_SIZE is the number of clicks (16 bytes) to be loaded.</span><br><span class="line">! <span class="number">0x3000</span> is <span class="number">0x30000</span> bytes = <span class="number">196</span>kB, more than enough <span class="keyword">for</span> current</span><br><span class="line">! versions of linux</span><br><span class="line">!</span><br><span class="line">SYSSIZE = <span class="number">0x3000</span></span><br><span class="line">!</span><br><span class="line">!	bootsect.s		(C) <span class="number">1991</span> Linus Torvalds</span><br><span class="line">!</span><br><span class="line">! bootsect.s is loaded at <span class="number">0x7c00</span> by the bios-startup routines, <span class="keyword">and</span> moves</span><br><span class="line">! iself out of the way to address <span class="number">0x90000</span>, <span class="keyword">and</span> jumps there.</span><br><span class="line">!</span><br><span class="line">! It then loads 'setup' directly after itself (0x90200), and the system</span><br><span class="line">! at <span class="number">0x10000</span>, <span class="keyword">using</span> BIOS interrupts. </span><br><span class="line">!</span><br><span class="line">! NOTE! currently system is at most <span class="number">8</span>*<span class="number">65536</span> bytes (<span class="number">512</span>KB) <span class="keyword">long</span>. This should be no</span><br><span class="line">! problem, even in the future. I want to keep it simple. This <span class="number">512</span> kB</span><br><span class="line">! kernel size should be enough, especially as <span class="keyword">this</span> doesn't contain the</span><br><span class="line">! buffer cache as in minix</span><br><span class="line">!</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">SETUPLEN = <span class="number">4</span>				! nr of setup-sectors</span><br><span class="line">BOOTSEG  = <span class="number">0x07c0</span>			! original address of boot-sector</span><br><span class="line">INITSEG  = <span class="number">0x9000</span>			! we move boot here - out of the way</span><br><span class="line">SETUPSEG = <span class="number">0x9020</span>			! setup starts here</span><br><span class="line">SYSSEG   = <span class="number">0x1000</span>			! system loaded at <span class="number">0x10000</span> (<span class="number">65536</span>).</span><br><span class="line">ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading</span><br><span class="line"></span><br><span class="line">! ROOT_DEV:	<span class="number">0x000</span> - same type of floppy as boot.</span><br><span class="line">!		<span class="number">0x301</span> - first partition on first drive etc</span><br><span class="line">ROOT_DEV = <span class="number">0x306</span></span><br></pre></td></tr></table></figure></p>
+<p>用图可表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part2/实模式下内存规划.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>其中，</p>
+<ul>
+<li><code>SYSSIZE = 0x3000</code>：这个参数（196KB）限定了即将加载的 system 模块的最大长度。实际上，system 模块在磁盘只占用了约 240 个扇区（240 * 512B = 120KB）。</li>
+<li><code>512 KB</code>：该参数说明 system 模块的最大长度为 512KB，保证了 bootsect 模块在复制自身和加载 system 模块至新的位置时，模块之间不会互相重叠。详细请见上一博文 <a href="http://xiehongfeng100.github.io/2016/01/30/linux-kenel-0-11-topic-boot-part1/">Linux 内核学习笔记：内核引导程序概况及 BIOS</a> “Linux 0.11 内核引导程序概况”部分。</li>
+<li><code>ROOT_DEV = 0x306</code>指明了根文件系统设备是<a href="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/">第 2 个硬盘个的第 1 个分区</a>。</li>
+</ul>
+<h1 id="复制-bootsect"><a href="#复制-bootsect" class="headerlink" title="复制 bootsect"></a><strong>复制 bootsect</strong></h1><p>bootsect 模块将其自身（512B）从内存物理地址<code>0x07C00(BOOTSEG)</code>处复制到<code>0x90000(INITSEG)</code>。代码如下:<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">entry start</span><br><span class="line">start:</span><br><span class="line">	mov	ax,#BOOTSEG</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	ax,#INITSEG</span><br><span class="line">	mov	es,ax</span><br><span class="line">	mov	cx,#<span class="number">256</span></span><br><span class="line">	sub	si,si</span><br><span class="line">	sub	di,di</span><br><span class="line">	rep</span><br><span class="line">	movw</span><br><span class="line">	jmpi	go,INITSEG</span><br><span class="line">go:	mov	ax,cs</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	es,ax</span><br><span class="line">! put <span class="built_in">stack</span> at <span class="number">0x9ff00</span>.</span><br><span class="line">	mov	ss,ax</span><br><span class="line">	mov	sp,#<span class="number">0xFF00</span>		! arbitrary value &gt;&gt;<span class="number">512</span></span><br></pre></td></tr></table></figure></p>
+<p>其中，重点解释如下：  </p>
+<h2 id="复制过程"><a href="#复制过程" class="headerlink" title="复制过程"></a><strong>复制过程</strong></h2><p>这部分核心代码是：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">mov	ax,#BOOTSEG</span><br><span class="line">mov	ds,ax</span><br><span class="line">mov	ax,#INITSEG</span><br><span class="line">mov	es,ax</span><br><span class="line">mov	cx,#<span class="number">256</span></span><br><span class="line">sub	si,si</span><br><span class="line">sub	di,di</span><br><span class="line">rep</span><br><span class="line">movw</span><br></pre></td></tr></table></figure></p>
+<p>ds (0x07C0) 和 si (0x0000) 联合使用，构成了源地址 0x07C00；es (0x9000) 和 di (0x0000) 联合使用，构成了目的地址 0x90000；cx (256) 指出了需要复制的“字”（movw）数（1 个字 2 个字节，共 512 个字节，也即第 1 扇区的字节数）。</p>
+<p>这个过程其实还隐藏了一个点，即<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/"><code>方向标志位（Direction Flag） DF</code></a>的值。在这里，方向标志位为 0，表示在执行串操作，地址按递增的方向变化。</p>
+<p>关于这部分，<a href="http://zhidao.baidu.com/question/130424698.html" target="_blank" rel="noopener">百度知道</a>有一个不错的解答：  </p>
+<blockquote>
+<ul>
+<li>先说说 MOVSB（MOVe String Byte）：即字符串传送指令，这条指令按字节传送数据。通过 SI 和 DI 这两个寄存器控制字符串的源地址和目标地址，比如 <code>DS:SI</code> 这段地址的 N 个字节复制到 <code>ES:DI</code> 指向的地址，复制后 DS:SI 的内容保持不变。</li>
+<li>而 <code>REP</code>（REPeat）指令就是“重复”的意思，术语叫做“重复前缀指令”，因为既然是传递字符串，则不可能一个字（节）一个字（节）地传送，所以需要有一个寄存器来控制串长度。这个寄存器就是 <code>CX</code>，指令每次执行前都会判断 CX 的值是否为 0（为 0 结束重复，不为 0，CX 的值减 1），以此来设定重复执行的次数。因此设置好 CX 的值之后就可以用 REP MOVSB 了。</li>
+<li><code>CLD</code>（CLear Direction flag）则是清方向标志位，也就是使 <code>DF</code> 的值为0，在执行串操作时，使地址按递增的方式变化，这样便于调整相关段的的当前指针。这条指令与 <code>STD</code>（SeT Direction flag）的执行结果相反，后者置 DF 的值为 1。</li>
+</ul>
+</blockquote>
+<h2 id="跳转至新位置"><a href="#跳转至新位置" class="headerlink" title="跳转至新位置"></a><strong>跳转至新位置</strong></h2><p>这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">	jmpi	go,INITSEG	<span class="meta"># go 表示的是 go 标志的代码段在 bootsect 模块中的偏移值。所以该语句的意思是</span></span><br><span class="line">				# 指令指针跳转到新位置（INITSEG）后接着原来的执行顺序（go）继续执行下去</span><br><span class="line">go:	mov	ax,cs</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	es,ax</span><br><span class="line">	......</span><br></pre></td></tr></table></figure></p>
+<p>jmpi 的语法是<code>jmpi offset:segment</code>，表示跳转到 segment * 16 + offset 处。所以这部分代码的意思就是指令指针跳转到新位置（INITSEG）后接着原来的执行顺序（go）继续执行下去。可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part2/跳转到go处继续执行.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h2 id="es-的作用"><a href="#es-的作用" class="headerlink" title="es 的作用"></a><strong>es 的作用</strong></h2><p>通过上边的分析，当指令指针跳转到新位置后，cs 的值位 0x9000，通过赋值，es 的值也变为 0x9000。</p>
+<p>为 es 赋值是为接下来加载 setup 模块做准备。且看下文。</p>
+<h1 id="加载-setup-模块"><a href="#加载-setup-模块" class="headerlink" title="加载 setup 模块"></a><strong>加载 setup 模块</strong></h1><p>bootsect 模块借助 BIOS 的<code>int 0x13</code>中断加载 setup 模块。核心代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">! load the setup-sectors directly after the bootblock.</span><br><span class="line">! Note that 'es' is already set up.</span><br><span class="line"></span><br><span class="line">load_setup:</span><br><span class="line">	mov	dx,#<span class="number">0x0000</span>		! drive <span class="number">0</span>, head <span class="number">0</span></span><br><span class="line">	mov	cx,#<span class="number">0x0002</span>		! sector <span class="number">2</span>, track <span class="number">0</span></span><br><span class="line">	mov	bx,#<span class="number">0x0200</span>		! address = <span class="number">512</span>, in INITSEG</span><br><span class="line">	mov	ax,#<span class="number">0x0200</span>+SETUPLEN	! service <span class="number">2</span>, nr of sectors</span><br><span class="line">	<span class="keyword">int</span>	<span class="number">0x13</span>			! read it</span><br><span class="line">	jnc	ok_load_setup		! ok - <span class="keyword">continue</span></span><br><span class="line">	mov	dx,#<span class="number">0x0000</span></span><br><span class="line">	mov	ax,#<span class="number">0x0000</span>		! reset the diskette</span><br><span class="line">	<span class="keyword">int</span>	<span class="number">0x13</span></span><br><span class="line">	j	load_setup</span><br></pre></td></tr></table></figure></p>
+<p>这里需要重点解释的是<code>int 0x13</code>中断用于从磁盘读数据到内存中：  </p>
+<ul>
+<li>入口参数<ul>
+<li>(ah)=int 0x13 的功能号（2 表示读扇区）</li>
+<li>(al)=读取的扇区数</li>
+<li>(ch)=磁道号</li>
+<li>(cl)=扇区号</li>
+<li>(dh)=磁头号</li>
+<li>(dl)=驱动器号（软驱从 0 开始，0：软驱 A，1：软驱 B；硬盘从 80h 开始，80h:硬盘 C，81h：硬盘 D）</li>
+<li><code>es:bx</code>-&gt; 指向接收数据的内存区</li>
+</ul>
+</li>
+<li>返回参数<ul>
+<li>操作成功：(ah)=0，(al)=读入的扇区数</li>
+<li>操作失败：(ah)=出错代码</li>
+</ul>
+</li>
+</ul>
+<p>所以，上述代码就是将磁盘中紧接着 bootsect 模块后的 4 个扇区（setup 模块）读取到 0x90200 处（紧接 bootsect 模块在内存中的新位置的末端）。加载结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part2/加载setup程序.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="加载-system-模块"><a href="#加载-system-模块" class="headerlink" title="加载 system 模块"></a><strong>加载 system 模块</strong></h1><p>相对于加载 setup 模块，加载 system 模块需要加载大约 240 个扇区，所需时间自然更长。由于是长时间操作软盘，所以需要对软盘设备进行更多的监控，对读盘结果不断地进行检测。因此，加载 system 模块的代码也相对复杂：　　<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">! ok, we've written the message, now</span><br><span class="line">! <span class="function">we want to load the <span class="title">system</span> <span class="params">(at <span class="number">0x10000</span>)</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line">	mov	ax,#SYSSEG</span><br><span class="line">	mov	es,ax		! segment of <span class="number">0x010000</span></span><br><span class="line">	call	read_it</span><br><span class="line">	......</span><br><span class="line">! This routine loads the system at address <span class="number">0x10000</span>, making sure</span><br><span class="line">! no <span class="number">64</span>kB boundaries are crossed. We <span class="keyword">try</span> to load it as fast as</span><br><span class="line">! possible, loading whole tracks whenever we can.</span><br><span class="line">!</span><br><span class="line">! in:	es - <span class="function">starting address <span class="title">segment</span> <span class="params">(normally <span class="number">0x1000</span>)</span></span></span><br><span class="line">!</span><br><span class="line">sread:	.word <span class="number">1</span>+SETUPLEN	! sectors read of current track</span><br><span class="line">head:	.word <span class="number">0</span>			! current head</span><br><span class="line">track:	.word <span class="number">0</span>			! current track</span><br><span class="line"></span><br><span class="line">read_it:</span><br><span class="line">	mov ax,es</span><br><span class="line">	test ax,#<span class="number">0x0fff</span></span><br><span class="line">die:	jne die			! es must be at <span class="number">64</span>kB boundary</span><br><span class="line">	xor bx,bx		! bx is starting address within segment</span><br><span class="line">rp_read:</span><br><span class="line">	mov ax,es</span><br><span class="line">	cmp ax,#ENDSEG		! have we loaded all yet?</span><br><span class="line">	jb ok1_read</span><br><span class="line">	ret</span><br><span class="line">ok1_read:</span><br><span class="line">	......</span><br><span class="line">ok２_read:</span><br><span class="line">	......</span><br><span class="line">ok４_read:</span><br><span class="line">	......</span><br><span class="line">ok３_read:</span><br><span class="line">	......</span><br><span class="line">read_track:</span><br><span class="line">	......</span><br><span class="line">bad_rt:</span><br><span class="line">	......</span><br></pre></td></tr></table></figure></p>
+<p>加载结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/boot/part2/加载system模块.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="确认根设备号"><a href="#确认根设备号" class="headerlink" title="确认根设备号"></a><strong>确认根设备号</strong></h1><p>在加载完 system 模块后，还需确认根设备号：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">	......</span><br><span class="line">	call	read_it</span><br><span class="line">	call	kill_motor</span><br><span class="line"></span><br><span class="line">! After that we check which root-device to use. If the device is</span><br><span class="line">! defined (!= <span class="number">0</span>), nothing is done <span class="keyword">and</span> the given device is used.</span><br><span class="line">! Otherwise, either /dev/PS0 (<span class="number">2</span>,<span class="number">28</span>) <span class="keyword">or</span> /dev/at0 (<span class="number">2</span>,<span class="number">8</span>), depending</span><br><span class="line">! on the number of sectors that the BIOS reports currently.</span><br><span class="line"></span><br><span class="line">	seg cs	！（仅！！！）表示下一条语句（mov ax,root_dev）的操作数在 cs 段寄存器所指的段内</span><br><span class="line">		！关于 seg，还可参考 oldlinux 上的一个[解答](http:<span class="comment">//www.oldlinux.org/oldlinux/viewthread.php?tid=13381)</span></span><br><span class="line">	mov	ax,root_dev</span><br><span class="line">	cmp	ax,#<span class="number">0</span></span><br><span class="line">	jne	root_defined</span><br><span class="line">	seg cs</span><br><span class="line">	mov	bx,sectors</span><br><span class="line">	mov	ax,#<span class="number">0x0208</span>		! /dev/ps0 - <span class="number">1.2</span>Mb</span><br><span class="line">	cmp	bx,#<span class="number">15</span></span><br><span class="line">	je	root_defined</span><br><span class="line">	mov	ax,#<span class="number">0x021c</span>		! /dev/PS0 - <span class="number">1.44</span>Mb</span><br><span class="line">	cmp	bx,#<span class="number">18</span></span><br><span class="line">	je	root_defined</span><br><span class="line">undef_root:</span><br><span class="line">	jmp undef_root</span><br><span class="line">root_defined:</span><br><span class="line">	seg cs</span><br><span class="line">	mov	root_dev,ax</span><br><span class="line">	......</span><br><span class="line">.org <span class="number">508</span></span><br><span class="line">root_dev:</span><br><span class="line">	.word ROOT_DEV</span><br><span class="line">boot_flag:</span><br><span class="line">	.word <span class="number">0xAA55</span></span><br></pre></td></tr></table></figure></p>
+<p>上述代码可用图表述如下：<br><img src="/images/os/linux-kenel-0.11/boot/part2/确认根设备号.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<hr>
+<p>最终，通过执行下边这一语句，指令指针跳转至 0x90200 处，开始执行 setup 模块：　　<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">! after that (everyting loaded), we jump to</span><br><span class="line">! the setup-routine loaded directly after</span><br><span class="line">! the bootblock:</span><br><span class="line"></span><br><span class="line">	jmpi	<span class="number">0</span>,SETUPSEG</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/18/linux-kenel-0-11-topic-boot-part3/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：内核引导程序之“setup.s”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/30/linux-kenel-0-11-topic-boot-part1/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：内核引导程序概况及 BIOS</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#加载-bootsect-模块"><span class="toc-number">1.</span> <span class="toc-text">加载 bootsect 模块</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#实模式下内存规划"><span class="toc-number">2.</span> <span class="toc-text">实模式下内存规划</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#复制-bootsect"><span class="toc-number">3.</span> <span class="toc-text">复制 bootsect</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#复制过程"><span class="toc-number">3.1.</span> <span class="toc-text">复制过程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#跳转至新位置"><span class="toc-number">3.2.</span> <span class="toc-text">跳转至新位置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#es-的作用"><span class="toc-number">3.3.</span> <span class="toc-text">es 的作用</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#加载-setup-模块"><span class="toc-number">4.</span> <span class="toc-text">加载 setup 模块</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#加载-system-模块"><span class="toc-number">5.</span> <span class="toc-text">加载 system 模块</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#确认根设备号"><span class="toc-number">6.</span> <span class="toc-text">确认根设备号</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

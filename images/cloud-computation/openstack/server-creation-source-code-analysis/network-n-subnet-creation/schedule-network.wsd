@@ -1,0 +1,168 @@
+@startuml
+
+title Network 调度 -- 为 network 绑定 DHCP Agents（可以不止一个）
+
+participant dhcp_agent_notify_api as "neutron.api.rpc.agentnotifiers.dhcp_rpc_agent_api::DhcpAgentNotifyAPI"
+participant ml2_plugin as "neutron.plugins.ml2.plugin::Ml2Plugin"
+participant weight_scheduler as "neutron.scheduler.dhcp_agent_scheduler::WeightScheduler"
+participant dhcp_filter as "neutron.scheduler.dhcp_agent_scheduler::DhcpFilter"
+
+activate dhcp_agent_notify_api
+
+note over dhcp_agent_notify_api #6EDF64
+**_schedule_network 函数**主要做了两件事：
+1. 为 network 绑定合适的 DHCP Agents（可以不止一个），
+   **这部分是我们这个 UML 图的重点**
+2. 将 network create 信息通过 RPC 通知每一个 DHCP Agent，
+   **这部分我们放到下一个小结**
+````
+* neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py
+class DhcpAgentNotifyAPI(object):
+    def _schedule_network(self, context, network, existing_agents):
+        """Schedule the network to new agents
+
+        :return: all agents associated with the network
+        """
+        # 1. 选择并绑定 DHCP Agents（可以不止一个）
+        new_agents = self.plugin.schedule_network(context, network) or []
+        if new_agents:
+            # 2. 将 network create 信息通过 RPC 通知每一个 DHCP Agent
+            for agent in new_agents:
+                self._cast_message(
+                    context, 'network_create_end',
+                    {'network': {'id': network['id']}}, agent['host'])
+````
+end note
+
+activate dhcp_agent_notify_api
+dhcp_agent_notify_api->ml2_plugin: call neutron.plugins.ml2.plugin::Ml2Plugin::schedule_network
+
+activate ml2_plugin
+ml2_plugin->weight_scheduler: call neutron.scheduler.dhcp_agent_scheduler::WeightScheduler::schedule
+
+activate weight_scheduler
+note over weight_scheduler
+__注意__
+WeightScheduler 初始化的同时也初始化了一个 Filter -- DhcpFilter。
+后边会用到该 Filter，这里先简单看一下代码：
+````
+* neutron/scheduler/dhcp_agent_scheduler.py
+class WeightScheduler(base_scheduler.BaseWeightScheduler, AutoScheduler):
+
+    def _\_init__(self):
+        super(WeightScheduler, self).__init__(DhcpFilter())
+
+class DhcpFilter(base_resource_filter.BaseResourceFilter):
+	...
+
+* neutron/scheduler/base_scheduler.py
+class BaseWeightScheduler(BaseScheduler):
+    """Choose agents based on load."""
+
+    def _\_init__(self, resource_filter):
+        self.resource_filter = resource_filter
+````
+end note
+
+note over weight_scheduler #EB9898
+**schedule 函数**主要做了 3 个工作：
+1. （利用 DhcpFilter）过滤出“network”可用的（network hostable） DHCP Agent
+2. 根据第 1 步返回的结果选择负载（load）最小的 Agent
+3. 将“network-DhcpAgent”绑定关系（注意一个 network 可以绑定到多个 Agent）
+   记录到 networkdhcpagentbindings 表中，并将每个 agent 的负载（load）加 1
+
+下边我们分别来看看。
+end note
+
+group **schedule 函数**第 1 步：
+weight_scheduler->dhcp_filter: call neutron.scheduler.dhcp_agent_scheduler::DhcpFilter::filter_agents()
+
+activate dhcp_filter
+note over dhcp_filter
+filter_agents 函数做的事情其实挺多的，不过最重要的两点在于：
+1. 获得所有可用的(hostable)的 DHCP Agent
+2. 根据 Agent 所在节点(如控制节点)的 mechanism driver(linuxbridge) 
+   是否支持传入的 network 的类型(如 VLAN)，过滤出支持的 Agent。
+   调用函数：DhcpFilter::_filter_agents_with_network_access
+end note
+
+dhcp_filter-->weight_scheduler: return (network) hostable dhcp agent, etc.
+deactivate dhcp_filter
+end
+
+group **schedule 函数**第 2 步：
+weight_scheduler->weight_scheduler: call self.select()
+
+activate weight_scheduler
+note over weight_scheduler
+这里的 select 函数还是比较简单的，只是根据 Agents 的负载（load）
+高低来确定最终的 Agents（load 最小的 num_agents_needed 个）：
+````
+* neutron/scheduler/base_scheduler.py
+class BaseWeightScheduler(BaseScheduler):
+    """Choose agents based on load."""
+
+    def select(self, plugin, context, resource_hostable_agents,
+               resource_hosted_agents, num_agents_needed):
+        chosen_agents = sorted(resource_hostable_agents,
+                           key=attrgetter('load'))[0:num_agents_needed]
+        return chosen_agents
+````
+end note
+
+weight_scheduler-->weight_scheduler: return agents weighted by load
+deactivate weight_scheduler
+end
+
+group **schedule 函数**第 3 步：
+weight_scheduler->dhcp_filter: call neutron.scheduler.dhcp_agent_scheduler::DhcpFilter::bind()
+
+activate dhcp_filter
+note over dhcp_filter
+bind 函数主要做了以下两件事：
+1. 将“network-DhcpAgent”绑定关系（注意一个 network 可以绑定到多个 Agent）
+   记录到 networkdhcpagentbindings 表中
+2. 将每个选中的 agent 的负载（load）加 1
+````
+* neutron/scheduler/dhcp_agent_scheduler.py
+class DhcpFilter(base_resource_filter.BaseResourceFilter):
+
+    def bind(self, context, agents, network_id):
+        """Bind the network to the agents."""
+        # customize the bind logic
+        bound_agents = agents[:]
+        for agent in agents:	# 可以有多个 agent
+            # saving agent_id to use it after rollback to avoid
+            # DetachedInstanceError
+            agent_id = agent.id
+            binding = ndab_model.NetworkDhcpAgentBinding()
+            binding.dhcp_agent_id = agent_id
+            binding.network_id = network_id
+            try:
+                # 添加“network-DhcpAgent”绑定关系记录到 networkdhcpagentbindings 表中
+                with db_api.autonested_transaction(context.session):
+                    context.session.add(binding)
+                    ...
+        # 调用父类 bind 函数，为每个 agent 的 load 加 1
+        super(DhcpFilter, self).bind(context, bound_agents, network_id)
+````
+end note
+
+dhcp_filter-->weight_scheduler: return
+deactivate dhcp_filter
+end
+
+weight_scheduler-->ml2_plugin: return (chosen) Dhcp Agents
+deactivate weight_scheduler
+
+ml2_plugin-->dhcp_agent_notify_api: return (chosen) Dhcp Agents
+deactivate ml2_plugin
+
+note over dhcp_agent_notify_api #6EDF64
+DhcpAgentNotifyAPI::_schedule_network 函数的第 2 步就是：
+将 network create 信息通过 RPC 通知每一个 DHCP Agent。
+
+**这部分我们放到下一个小结**
+end note
+
+@enduml

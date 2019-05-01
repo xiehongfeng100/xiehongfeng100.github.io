@@ -1,0 +1,89 @@
+@startuml
+
+title Network 调度 -- RPC 调用概览
+
+participant dhcp_agent_notify_api as "neutron.api.rpc.agentnotifiers.dhcp_rpc_agent_api::DhcpAgentNotifyAPI"
+participant dhcp_agent as "neutron.agent.dhcp.agent::DhcpAgent"
+participant dhcp_rpc_callback as "neutron.api.rpc.handlers.dhcp_rpc::DhcpRpcCallback"
+participant dnsmasq as "neutron.agent.linux.dhcp::Dnsmasq"
+
+activate dhcp_agent_notify_api
+note over dhcp_agent_notify_api #6EDF64
+**_schedule_network 函数**主要做了两件事：
+1. 为 network 绑定合适的 DHCP Agents（可以不止一个），
+   **这部分我们在上一小节已经详细说明过**
+2. 将 network create 信息通过 RPC 通知每一个 DHCP Agent，
+   **这部分是本 UML 重点**
+````
+* neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py
+class DhcpAgentNotifyAPI(object):
+    def _schedule_network(self, context, network, existing_agents):
+        # 1. 选择并绑定 DHCP Agents（可以不止一个） -- 见上一小节
+        new_agents = self.plugin.schedule_network(context, network) or []
+        if new_agents:
+            # 2. 将 network create 信息通过 RPC 通知每一个 DHCP Agent -- **本 UML 重点**
+            for agent in new_agents:
+                self._cast_message(
+                    context, 'network_create_end',
+                    {'network': {'id': network['id']}}, agent['host'])
+````
+end note
+
+dhcp_agent_notify_api->dhcp_agent_notify_api: call self._cast_message()
+
+activate dhcp_agent_notify_api
+note over dhcp_agent_notify_api
+_cast_message 函数定义如下：
+````
+* neutron/api/rpc/agentnotifiers/dhcp_rpc_agent_api.py
+class DhcpAgentNotifyAPI(object):
+    def _cast_message(self, context, method, payload, host,
+                      topic=topics.DHCP_AGENT):
+        """Cast the payload to the dhcp agent running on the host."""
+        # method 为 network_create_end
+        cctxt = self.client.prepare(topic=topic, server=host)
+        cctxt.cast(context, method, payload=payload)
+````
+最终会 RPC 调用到 DHCP Agent 的 RPC 服务（Endpoints）。
+end note
+
+dhcp_agent_notify_api->dhcp_agent: **rpc cast** neutron.agent.dhcp.agent::DhcpAgent::network_create_end()
+
+activate dhcp_agent
+dhcp_agent->dhcp_agent: call self.enable_dhcp_helper()
+
+activate dhcp_agent
+note over dhcp_agent
+**enable_dhcp_helper 函数**主要做了以下两件事：
+1. RPC Call（注意不是 Cast）到 Core Plugin 的 RPC 服务（Endpoints），
+   **请求 network 相关信息（还包括 network 的 subnets、ports）**。具体
+   服务的 Endpoint 是 neutron.api.rpc.handlers.dhcp_rpc::DhcpRpcCallback
+2. **为 network 配置 DHCP**。这部分是重点。
+
+下边简要展示这两步。
+end note
+
+group enable_dhcp_helper 函数第 1 步：
+dhcp_agent->dhcp_rpc_callback: **rpc call** neutron.api.rpc.handlers.dhcp_rpc::DhcpRpcCallback::get_network_info()
+activate dhcp_rpc_callback
+dhcp_rpc_callback-->dhcp_agent: return network 相关信息
+deactivate dhcp_rpc_callback
+end
+
+group enable_dhcp_helper 函数第 2 步：
+dhcp_agent->dnsmasq: call neutron.agent.linux.dhcp::Dnsmasq::enable()
+activate dnsmasq
+dnsmasq-->dhcp_agent: return
+deactivate dnsmasq
+end
+
+dhcp_agent-->dhcp_agent: return
+deactivate dhcp_agent
+
+dhcp_agent-->dhcp_agent_notify_api: return
+deactivate dhcp_agent
+
+dhcp_agent_notify_api-->dhcp_agent_notify_api: return
+deactivate dhcp_agent_notify_api
+
+@enduml

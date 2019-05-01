@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：预备知识之“存储器管理基础” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="该篇博文主要对存储器管理涉及的一些知识点进行总结，为接下来的存储器模型博文做好准备。《32 位微型计算机接口技术及应用》一书将作为主要参考资料。 博文最后有一大图，算是上篇博文跟这篇博文的大总结吧！ 段的定义段是实现分段管理机制的基础。实模式和保护模式对段的定义是完全不同的。    实模式的段的定义比较单一，段基地址以被 16 整除为边界，段长固定为 64KB，无保护机制。   保护模式下，（由于">
+<meta name="keywords" content="Linux,内核,微处理器,存储器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：预备知识之“存储器管理基础”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="该篇博文主要对存储器管理涉及的一些知识点进行总结，为接下来的存储器模型博文做好准备。《32 位微型计算机接口技术及应用》一书将作为主要参考资料。 博文最后有一大图，算是上篇博文跟这篇博文的大总结吧！ 段的定义段是实现分段管理机制的基础。实模式和保护模式对段的定义是完全不同的。    实模式的段的定义比较单一，段基地址以被 16 整除为边界，段长固定为 64KB，无保护机制。   保护模式下，（由于">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/存储段描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/系统段描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/门描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/中断门陷阱门任务门描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/段选择子格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/大总结.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/32位CPU系统级寄存器和数据结构.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.585Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：预备知识之“存储器管理基础”">
+<meta name="twitter:description" content="该篇博文主要对存储器管理涉及的一些知识点进行总结，为接下来的存储器模型博文做好准备。《32 位微型计算机接口技术及应用》一书将作为主要参考资料。 博文最后有一大图，算是上篇博文跟这篇博文的大总结吧！ 段的定义段是实现分段管理机制的基础。实模式和保护模式对段的定义是完全不同的。    实模式的段的定义比较单一，段基地址以被 16 整除为边界，段长固定为 64KB，无保护机制。   保护模式下，（由于">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/necessary-preparation/part2/存储段描述符格式.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-necessary-preparation-part2" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/" class="article-date">
+  	<time datetime="2016-01-21T12:54:59.000Z" itemprop="datePublished">2016-01-21</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：预备知识之“存储器管理基础”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/存储器/">存储器</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/微处理器/">微处理器</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>该篇博文主要对存储器管理涉及的一些知识点进行总结，为接下来的存储器模型博文做好准备。<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书将作为主要参考资料。</p>
+<p><em>博文最后有一大图，算是<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">上篇博文</a>跟这篇博文的大总结吧！</em></p>
+<h1 id="段的定义"><a href="#段的定义" class="headerlink" title="段的定义"></a><strong>段的定义</strong></h1><p>段是实现分段管理机制的基础。实模式和保护模式对段的定义是完全不同的。  </p>
+<ul>
+<li>实模式的段的定义比较单一，<code>段基地址以被 16 整除为边界，段长固定为 64KB，无保护机制。</code>  </li>
+<li>保护模式下，（由于引入保护机制）每个段由<code>段基地址（Base）</code>、<code>段限长（Limit）</code>和<code>段属性（Attributes）</code>3 个要素进行定义：  </li>
+</ul>
+<a id="more"></a>
+<ol>
+<li>段基地址（Base）：描述段的开始地址，长 32 位。段可以从 32 位线性地址空间中的任何一个字节开始，而不像实模式下段的边界必须能够被 16 整除。</li>
+<li>段限长（Limit）：描述段的大小，长 20 位。每个段的长度是可变的，最大长度与粒度 G（Granularity）有关：G=0 表示以字节为单位，20 位的最大长度是 1MB，增量为 1B；G=1 表示以 4KB 位单位，20 位的最大长度是 4GB，增量为 4KB。</li>
+<li>段属性（Attributes）：描述段的保护属性。它是对段访问的<code>合法性</code>进行检查的主要根据。这一部分是保护模式为实现保护功能而赋予段的新的含义。段属性还可以使微处理器的保护模式支持 32 位和 16 位程序，这取决于代码段的属性。</li>
+</ol>
+<p>以上对段的定义是通过对段设置描述符实现的，即<code>段描述符就是用来描述一个段的 3 个参数的</code>。而段描述符需要段选择子来检索得到。整个流程如下：<br><code>段选择子 -&gt; 段描述符 -&gt; 段的 3 个参数。</code></p>
+<h1 id="段的类型"><a href="#段的类型" class="headerlink" title="段的类型"></a><strong>段的类型</strong></h1><p>保护模式下虚拟地址空间的段，可分为存储段、系统段和门三大类。  </p>
+<h2 id="存储段"><a href="#存储段" class="headerlink" title="存储段"></a><strong>存储段</strong></h2><p>存储段是存储代码和数据的存储器段，包括了<code>代码段、数据段和堆栈段</code>。  </p>
+<h2 id="系统段"><a href="#系统段" class="headerlink" title="系统段"></a><strong>系统段</strong></h2><p>系统段包括了<code>局部描述符表（Local Descriptor Table, LDT）段</code>和<code>任务状态段（Task State Segment）</code>。这两个段是保护模式新增加的，不是用于存放代码和数据，而是作为特殊用途：LDT 段在访问某一个任务中的局部数据与代码时使用，TSS 在处理任务切换时使用。</p>
+<p><strong>注意：</strong>局部描述符表 LDT 跟局部描述符表‘段’是不一样的。</p>
+<h3 id="局部描述符表段"><a href="#局部描述符表段" class="headerlink" title="局部描述符表段"></a><strong>局部描述符表段</strong></h3><p><code>局部描述符表段用于存放局部描述符表 LDT。</code></p>
+<p>一个任务可能涉及多个局部代码段与局部数据段，因此需要有多个局部描述符来定义这些代码段和数据段。为了管理这些局部描述符，就需要建立局部描述符表，这个表放在局部描述符表段。</p>
+<p>取得局部描述符的流程如下（取得 LDT 描述符过程可参考上篇<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">博文</a>“局部描述符表寄存器”部分）：<br><code>LDTR</code> -&gt; <code>GDT</code> -&gt; <code>LDT 描述符</code> -&gt; <code>LDT 段</code> -&gt; <code>LDT</code> -&gt; <code>（N 个）局部描述符</code></p>
+<h3 id="任务状态段"><a href="#任务状态段" class="headerlink" title="任务状态段"></a><strong>任务状态段</strong></h3><h4 id="任务状态段的作用"><a href="#任务状态段的作用" class="headerlink" title="任务状态段的作用"></a><strong>任务状态段的作用</strong></h4><ul>
+<li><p><strong>从实模式“保护现场”和“恢复现场”说起</strong><br>在实模式的单一任务环境下，如果出现了程序转移（如硬件中断），微处理器会将‘被中断程序’中的寄存器（如 CS:EIP）保存到堆栈中，这叫保护现场；待中断服务程序完成后，再将堆栈中保存的内容或状态送回到各寄存器，以便原来的程序继续运行，这叫恢复现场。</p>
+</li>
+<li><p><strong>保护模式</strong><br>与实模式的类似，在保护模式的多任务系统中，当发生任务切换时，被暂时中止或挂起的任务的现场信息必须完整地保存下来，否则中止结束后无法返回原来的任务继续执行。但是，<code>保护模式下一个任务执行时所涉及的现场信息很复杂，远远不是几个寄存器就可以把它们保存下来的，所以每个任务都需要有一个空间（地方）来保存这些状态信息，把保存这些状态信息的空间叫做任务状态段 TSS。</code>所以，TSS 里面保存的不是代码和数据，而是一些特殊用途的现场信息。<code>TSS 存放着一个任务的全部运行状态信息。</code></p>
+</li>
+</ul>
+<p>每个任务都有自己的 TSS。</p>
+<h4 id="任务状态段的信息"><a href="#任务状态段的信息" class="headerlink" title="任务状态段的信息"></a><strong>任务状态段的信息</strong></h4><p>TSS 的内容包括了主体部分和扩展部分的信息。详细可参考<a href="http://baike.baidu.com/link?url=S5DO5wgHNFC-_2WsTmuJXr5mDUbIyDxaqoWomyh93VvVf9755zDGVRY--xnX5H5rmtr8crah-XLZXIY2EgV_1_" target="_blank" rel="noopener">《32 位微型计算机接口技术及应用》</a>一书第 5.2.2 节。</p>
+<h2 id="门"><a href="#门" class="headerlink" title="门"></a><strong>门</strong></h2><p>门包括调用门、中断门、陷阱门和任务门。门也是保护模式新添加的。其实，门并不是段，但是，<code>由它可以通向一个程序的入口或一个任务的入口</code>，而程序在存储器中表现为代码段，因此，门与代码段有关。</p>
+<h1 id="段描述符"><a href="#段描述符" class="headerlink" title="段描述符"></a><strong>段描述符</strong></h1><p>在保护模式下，每一个段都用一个相应的描述符（8 字节长）来描述。可以说，<code>一提到段就必有相应的段描述符，而一提到描述符就一定是针对相应的段来说的。</code></p>
+<h2 id="存储段描述符"><a href="#存储段描述符" class="headerlink" title="存储段描述符"></a><strong>存储段描述符</strong></h2><p>存储段描述符格式如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/存储段描述符格式.png" alt>  </p>
+<p>上表中使用不连续字段来存放段基地址和段限长的原因是为了跟 80286 兼容。</p>
+<p>其中，存储段属性的<code>TYPE</code>字段的<code>最高位</code>意义：</p>
+<ul>
+<li>0：数据段</li>
+<li>1：代码段</li>
+</ul>
+<p>段描述符类型指示位 <code>DT</code>:</p>
+<ul>
+<li>1：存储段描述符</li>
+<li>0：系统描述符或门描述符</li>
+</ul>
+<h2 id="系统段描述符"><a href="#系统段描述符" class="headerlink" title="系统段描述符"></a><strong>系统段描述符</strong></h2><p>系统段描述符格式如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/系统段描述符格式.png" alt>  </p>
+<h2 id="门描述符"><a href="#门描述符" class="headerlink" title="门描述符"></a><strong>门描述符</strong></h2><p>门描述符并不描述一个内存段，而是<code>描述程序转移的入口点，即描述目标程序的代码段的段基地址和偏移量及其属性。这种描述符提供了从一个程序代码段通向另一个程序代码段的门。通过这种门，可以调用一个程序或中断转移到一个程序，用于任务内特权级的改变和任务间的切换。</code></p>
+<p>按程序控制转移的途径不同，门描述符的类型可分为：调用门描述符、任务门描述符、中断门描述符和陷阱门描述符。</p>
+<p>门描述符的一般格式如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/门描述符格式.png" alt>  </p>
+<p>跟存储段和系统段描述符（段基地址、段限长和段属性）不同的是，门描述符：</p>
+<ul>
+<li>选择子：用来从描述符表中选择（检索）段描述符，从而得到相应的段基地址，即程序转移的入口的段基地址。</li>
+<li>段偏移量：用于指定程序转移入口的段偏移量。</li>
+</ul>
+<p>具体地，中断门描述符、陷阱门描述符和任务门描述符格式如下：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/中断门陷阱门任务门描述符格式.png" alt>图片来源：《Linux 内核完全注释》  </p>
+<h1 id="描述符表"><a href="#描述符表" class="headerlink" title="描述符表"></a><strong>描述符表</strong></h1><p><code>一个任务可能会使用多个段，每个段需要一个描述符来描述。</code>为了便于组织管理，32 位微处理器把描述符汇集成线性表，<code>由描述符组成的线性表称为描述符表。</code></p>
+<p><code>描述符表本身在内存中也占用一个段。</code>在一个描述符表中所包含的描述符的个数根据需要确定，可多可少，但最多只能包含 8192 个（参考上一<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">博文</a>“全局描述符表寄存器”部分）。</p>
+<h2 id="全局描述符表-GDT"><a href="#全局描述符表-GDT" class="headerlink" title="全局描述符表 GDT"></a><strong>全局描述符表 GDT</strong></h2><p>GDT 中所包含的描述符是<code>每一个任务“都可访问的段”</code>的描述符，即可共享的段的描述符，如可包含代码段和数据段的描述符、各任务的 LDT 段的描述符、TSS 的描述符、调用门和任务门描述符等。</p>
+<p>GDT 由伪描述符的 48 位指针（直接当成 GDTR 来理解就行了，参考上一<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">博文</a>“全局描述符表寄存器”部分）来描述。</p>
+<p>GDT 的第一个描述符总是空描述符，定义时全写 0。</p>
+<h2 id="局部描述符表-LDT"><a href="#局部描述符表-LDT" class="headerlink" title="局部描述符表 LDT"></a><strong>局部描述符表 LDT</strong></h2><p>LDT 所包含的描述符是任务自己的代码段、数据段和堆栈段的描述符，以及任务所使用的一些门描述符。</p>
+<p><code>LDT 包含的描述符所描述的这些段是一个任务私有而其他任务不能共享的。</code></p>
+<p>LDT 本身也是一个段，需要一个 LDT 段描述符来描述它。这个描述符存放在 GDT 中。</p>
+<p>其余参考上一<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">博文</a>“局部描述符表寄存器”部分。</p>
+<h2 id="中断描述符表-IDT"><a href="#中断描述符表-IDT" class="headerlink" title="中断描述符表 IDT"></a><strong>中断描述符表 IDT</strong></h2><p>在保护模式下，32 位微处理器不使用实模式下的中断向量表 IVT，而是使用 IDT。IDT 所包含的描述符是中断门、陷阱门和任务门描述符。也就是说，<code>在保护模式下，32 位微处理器只有通过中断门、陷阱门或任务门才能够转移到对应的中断服务程序或异常处理程序。</code></p>
+<p>值得注意的是，实模式（16 位）中断机制使用的是中断向量表 IVT，起始位置固定在 0x00000 处；保护模式（32 位）使用的是中断描述符表 IDT，位置是不固定的，由 IDTR 指定。</p>
+<p>其余参考上一<a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">博文</a>“中断描述符表寄存器”部分。</p>
+<h1 id="段选择子"><a href="#段选择子" class="headerlink" title="段选择子"></a><strong>段选择子</strong></h1><p>实模式下存储单元的地址由段基地址和段内偏移两部分组成，而保护模式下存储单元的地址由段选择子和段内偏移两部分组成。</p>
+<p><code>段选择子是一个检索描述符的索引。</code>当程序请求使用一个存储段时，可利用它从描述符表中选取（检索）段描述符，找到描述符后，就可以得到段基地址。因此，<code>段选择子并不是段基地址，但通过它能够获得段基地址。</code>有了描述符才能确定段基地址，把段基址加上偏移量就能得到线性地址。这样一来，就把虚拟空间中的由选择子和偏移量两部分构成的二位虚拟地址映射成一维线性地址。</p>
+<p><code>段选择子特指选择的是“存储段”描述符。</code></p>
+<p>段选择子的格式如下表所示：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/段选择子格式.png" alt>  </p>
+<ul>
+<li>描述符索引 DI：指描述符在描述符表中的序号，用 13 位表示，故可检索 8192 个描述符。</li>
+<li>描述符表指示位 TI: 为 0 表示从 GDT 选取描述符；为 1 表示从 LDT 中选取描述符。</li>
+<li>请求特权级 RPL（Request Privilege Level）：用于特权检查，实现特权级保护。</li>
+</ul>
+<p><strong>值得指出的是，</strong>在 GDT 中的第 0 个描述符总是不被微处理器访问，一般把它置成全 0，叫做空描述符。因此，当选择子 3 个字段的值分别为 DI=0，TI=0，RPL=任意值 时，并不对应于 GDT 的第 0 个描述符，而叫做空选择子。然而，但选择子 3 个字段的值分别为 DI=0，TI=1，RPL=任意值 时，就不是空选择子，而是指向当前任务 LDT 的第 0 个描述符。</p>
+<h1 id="大总结"><a href="#大总结" class="headerlink" title="大总结"></a><strong>大总结</strong></h1><p>最后，只想说的是，来个大总结吧（画了一晚上…累）：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/大总结.png" alt>  </p>
+<p>PS. 后来在网上看到一个画的更加不错的：<br><img src="/images/os/linux-kenel-0.11/necessary-preparation/part2/32位CPU系统级寄存器和数据结构.png" alt><a href="http://blog.chinaunix.net/uid-27717694-id-3943419.html" target="_blank" rel="noopener">图片来源</a>  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/22/linux-kenel-0-11-topic-necessary-preparation-part3/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：预备知识之“存储器模型”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：预备知识之“寄存器模型”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#段的定义"><span class="toc-number">1.</span> <span class="toc-text">段的定义</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#段的类型"><span class="toc-number">2.</span> <span class="toc-text">段的类型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#存储段"><span class="toc-number">2.1.</span> <span class="toc-text">存储段</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#系统段"><span class="toc-number">2.2.</span> <span class="toc-text">系统段</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#局部描述符表段"><span class="toc-number">2.2.1.</span> <span class="toc-text">局部描述符表段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#任务状态段"><span class="toc-number">2.2.2.</span> <span class="toc-text">任务状态段</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#任务状态段的作用"><span class="toc-number">2.2.2.1.</span> <span class="toc-text">任务状态段的作用</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#任务状态段的信息"><span class="toc-number">2.2.2.2.</span> <span class="toc-text">任务状态段的信息</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#门"><span class="toc-number">2.3.</span> <span class="toc-text">门</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#段描述符"><span class="toc-number">3.</span> <span class="toc-text">段描述符</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#存储段描述符"><span class="toc-number">3.1.</span> <span class="toc-text">存储段描述符</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#系统段描述符"><span class="toc-number">3.2.</span> <span class="toc-text">系统段描述符</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#门描述符"><span class="toc-number">3.3.</span> <span class="toc-text">门描述符</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#描述符表"><span class="toc-number">4.</span> <span class="toc-text">描述符表</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#全局描述符表-GDT"><span class="toc-number">4.1.</span> <span class="toc-text">全局描述符表 GDT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#局部描述符表-LDT"><span class="toc-number">4.2.</span> <span class="toc-text">局部描述符表 LDT</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#中断描述符表-IDT"><span class="toc-number">4.3.</span> <span class="toc-text">中断描述符表 IDT</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#段选择子"><span class="toc-number">5.</span> <span class="toc-text">段选择子</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#大总结"><span class="toc-number">6.</span> <span class="toc-text">大总结</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

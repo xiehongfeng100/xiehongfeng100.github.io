@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 基本网络设备 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要介绍个人在学习过程中遇到的一些 Linux 基本网络设备，如 tun/tap、bridge、veth 等。文中参考了一些优秀博文，非常感谢这些文章作者的辛勤付出！ 网络命名空间对于命名空间，博文 Network namespaces 有一个精辟的总结：  namespaces limit what you can see.  作者这是拿 namespaces 和 cgroups 进行了比较">
+<meta name="keywords" content="Linux,Namespace,Tun,Tap,LinuxBridge,Veth">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 基本网络设备">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/12/07/net-linux-basic-network-devices/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要介绍个人在学习过程中遇到的一些 Linux 基本网络设备，如 tun/tap、bridge、veth 等。文中参考了一些优秀博文，非常感谢这些文章作者的辛勤付出！ 网络命名空间对于命名空间，博文 Network namespaces 有一个精辟的总结：  namespaces limit what you can see.  作者这是拿 namespaces 和 cgroups 进行了比较">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/basic-network-devices/how-physical-network-device-works.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/basic-network-devices/how-tun-works.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/basic-network-devices/create-vpn-based-on-tun.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/basic-network-devices/veth.png">
+<meta property="og:updated_time" content="2019-05-01T07:14:01.782Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 基本网络设备">
+<meta name="twitter:description" content="本文主要介绍个人在学习过程中遇到的一些 Linux 基本网络设备，如 tun/tap、bridge、veth 等。文中参考了一些优秀博文，非常感谢这些文章作者的辛勤付出！ 网络命名空间对于命名空间，博文 Network namespaces 有一个精辟的总结：  namespaces limit what you can see.  作者这是拿 namespaces 和 cgroups 进行了比较">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/network/basic-network-devices/how-physical-network-device-works.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-net-linux-basic-network-devices" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/12/07/net-linux-basic-network-devices/" class="article-date">
+  	<time datetime="2016-12-07T11:26:13.000Z" itemprop="datePublished">2016-12-07</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 基本网络设备
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/LinuxBridge/">LinuxBridge</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Namespace/">Namespace</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tap/">Tap</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tun/">Tun</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Veth/">Veth</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/网络/">网络</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要介绍个人在学习过程中遇到的一些 Linux 基本网络设备，如 tun/tap、bridge、veth 等。文中参考了一些优秀博文，非常感谢这些文章作者的辛勤付出！</p>
+<h1 id="网络命名空间"><a href="#网络命名空间" class="headerlink" title="网络命名空间"></a><strong>网络命名空间</strong></h1><p>对于命名空间，博文 <a href="http://blogs.igalia.com/dpino/2016/04/10/network-namespaces/" target="_blank" rel="noopener">Network namespaces</a> 有一个精辟的总结：</p>
+<blockquote>
+<p>namespaces limit what you can see.</p>
+</blockquote>
+<p>作者这是拿 <a href="https://en.wikipedia.org/wiki/Linux_namespaces" target="_blank" rel="noopener">namespaces</a> 和 <a href="https://en.wikipedia.org/wiki/Cgroups" target="_blank" rel="noopener">cgroups</a> 进行了比较，原句大意为：<code>cgroups 控制了你能使用的资源数量，而 namespaces 则限制了你所能看到的资源。</code></p>
+<p>Linux 内核提供了 6 种类型的命名空间：pid、net、mnt、uts、ipc 和 user，这里我们只涉及 net namespace，即网络命名空间。<code>每一个网络命名空间都有独立的网络栈（网卡、路由表、iptable 规则等）。</code>它经常被用来隔离网络设备和服务，只有拥有同样命名空间的设备才能看到彼此。</p>
+<p>跟网络命名空间相关的命令如下：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span> ip netns help</span><br><span class="line">Usage: ip netns list</span><br><span class="line">       ip netns add NAME</span><br><span class="line">       ip netns set NAME NETNSID</span><br><span class="line">       ip [-all] netns delete [NAME]</span><br><span class="line">       ip netns identify [PID]</span><br><span class="line">       ip netns pids NAME</span><br><span class="line">       ip [-all] netns exec [NAME] cmd ...</span><br><span class="line">       ip netns monitor</span><br><span class="line">       ip netns list-id</span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<h1 id="Tun-Tap"><a href="#Tun-Tap" class="headerlink" title="Tun/Tap"></a><strong>Tun/Tap</strong></h1><p>对于 Tun、Tap，博文 <a href="http://www.naturalborncoder.com/virtualization/2014/10/17/understanding-tun-tap-interfaces/" target="_blank" rel="noopener">Understanding TUN TAP Interfaces</a> 概括得很不错（这里就不翻译了…）：</p>
+<blockquote>
+<p><strong>TUN Interfaces</strong><br>TUN devices work at the <code>IP level or layer three level</code> of the network stack and are usually <code>point-to-point connections. A typical use for a TUN device is establishing VPN connections since it gives the VPN software a chance to encrypt the data before it gets put on the wire.</code> Since a TUN device works at layer three it can only accept IP packets and in some cases only IPv4. If you need to run any other protocol over a TUN device you’re out of luck. Additionally because TUN devices work at layer three they can’t be used in bridges and don’t typically support broadcasting.</p>
+</blockquote>
+<blockquote>
+<p><strong>TAP Interfaces</strong><br>TAP devices, in contrast, work at the <code>Ethernet level or layer two</code> and therefore behave very much like a real network adaptor. Since they are running at layer two they can transport any layer three protocol and <code>aren’t limited to point-to-point connections. TAP devices can be part of a bridge and are commonly used in virtualization systems to provide virtual network adaptors to multiple guest machines.</code> Since TAP devices work at layer two they will forward broadcast traffic which normally makes them a poor choice for VPN connections as the VPN link is typically much narrower than a LAN network (and usually more expensive).</p>
+</blockquote>
+<h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a><strong>概念</strong></h2><p>在 <a href="http://vtun.sourceforge.net/tun/faq.html" target="_blank" rel="noopener">Tun/Tap 通用驱动 FAQ</a> 页面上，作者对 Tun、Tap 这两种设备有一个很明确的定义。另外，博文<a href="https://blog.kghost.info/2013/03/27/linux-network-tun/" target="_blank" rel="noopener">网络虚拟化技术（二）: TUN/TAP MACVLAN MACVTAP</a>的图画的太漂亮易懂！下边将结合这两篇博文介绍 Tun、Tap。</p>
+<h3 id="物理网卡"><a href="#物理网卡" class="headerlink" title="物理网卡"></a><strong>物理网卡</strong></h3><p>我们先来看一下物理网卡是怎么工作的，如下图：<br><img src="/images/network/basic-network-devices/how-physical-network-device-works.png" alt><a href="https://blog.kghost.info/2013/03/27/linux-network-tun/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>物理网卡接收到数据包后把它交给内核的 Network Stack 处理，然后通过 Socket API 通知给用户程序。</p>
+<h3 id="Tun"><a href="#Tun" class="headerlink" title="Tun"></a><strong>Tun</strong></h3><p>Tun 是一个虚拟的<code>点对点</code>的网络设备。Tun 驱动程序为 IP 隧道技术提供底层的内核支持，并为用户空间应用程序提供了两个接口：</p>
+<ul>
+<li>/dev/tunX    字符设备（可能为 /dev/net/tun）</li>
+<li>tunX    虚拟点对点接口</li>
+</ul>
+<p>用户空间应用程序可以向 /dev/tunX 写 IP 帧，内核会从 tunX 接口接收到该帧；同时，内核向 tunX 写入的数据也能被用户空间的应用程序从 /dev/tunX 读取到。如下图所示：<br><img src="/images/network/basic-network-devices/how-tun-works.png" alt><a href="https://blog.kghost.info/2013/03/27/linux-network-tun/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>博文<a href="https://blog.kghost.info/2013/03/27/linux-network-tun/" target="_blank" rel="noopener">网络虚拟化技术（二）: TUN/TAP MACVLAN MACVTAP</a>还说到了如何基于 Tun 设备搭建一个 UDP VPN：<br><img src="/images/network/basic-network-devices/create-vpn-based-on-tun.png" alt><a href="https://blog.kghost.info/2013/03/27/linux-network-tun/" target="_blank" rel="noopener">图片来源</a><br><code>数据包会通过内核网络栈两次。但是经过 App 的处理后，数据包可能已经加密，并且原有的 IP 头被封装在 UDP 内部，所以第二次通过网络栈内核看到的是截然不同的网络包。</code></p>
+<p><strong>译注：</strong>这是很多 VPN 的实现原理，切记！</p>
+<h3 id="Tap"><a href="#Tap" class="headerlink" title="Tap"></a><strong>Tap</strong></h3><p>Tap 是一个虚拟的<code>以太</code>网络设备。Tap 驱动程序为以太网隧道技术提供底层的内核支持，并为用户空间应用程序提供了两个接口：</p>
+<ul>
+<li>/dev/tapX    字符设备</li>
+<li>tapX    虚拟以太网设备</li>
+</ul>
+<p>工作流程跟 Tun 的类似。</p>
+<h3 id="Tun-和-Tap-区别"><a href="#Tun-和-Tap-区别" class="headerlink" title="Tun 和 Tap 区别"></a><strong>Tun 和 Tap 区别</strong></h3><p>两者区别在于：</p>
+<ul>
+<li>TUN 设备的 /dev/tunX 文件收发的是 IP 层数据包，只能工作在 IP 层，无法与物理网卡做 bridge，但是可以通过三层交换（如 ip_forward）与物理网卡连通。</li>
+<li>TAP 设备的 /dev/tapX 文件收发的是 MAC 层数据包，拥有 MAC 层功能，可以与物理网卡做 bridge，支持 MAC 层广播</li>
+</ul>
+<h2 id="Tun-Tap-设备管理"><a href="#Tun-Tap-设备管理" class="headerlink" title="Tun/Tap 设备管理"></a><strong>Tun/Tap 设备管理</strong></h2><p>用 ip tuntap 即可对 Tun/Tap 设备进行管理（也可用已弃用的工具 tunctl）：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ ip tuntap help                                                                                                                              </span><br><span class="line">Usage: ip tuntap &#123; add | del &#125; [ dev PHYS_DEV ] </span><br><span class="line">          [ mode &#123; tun | tap &#125; ] [ user USER ] [ group GROUP ]</span><br><span class="line">          [ one_queue ] [ pi ] [ vnet_hdr ] [ multi_queue ]</span><br><span class="line"></span><br><span class="line">Where: USER  := &#123; STRING | NUMBER &#125;</span><br><span class="line">       GROUP := &#123; STRING | NUMBER &#125;</span><br></pre></td></tr></table></figure></p>
+<p>如创建删除：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip tuntap add tap0 mode tap</span><br><span class="line">$ sudo ip tuntap del tap0 mode tap</span><br></pre></td></tr></table></figure></p>
+<h1 id="Bridge"><a href="#Bridge" class="headerlink" title="Bridge"></a><strong>Bridge</strong></h1><p>网桥（Bridge）的话，目前知道的有两种，一种是 Linux 自带的，另一种是 OpenvSwitch 创建的。网桥类似于交换机，工作在链路层，不需要路由功能，理论上不可以配置 IP，但特别的是它<code>可以配置 IP</code>，这样做主要为了方便对网桥进行管理。</p>
+<h2 id="Linux-Bridge"><a href="#Linux-Bridge" class="headerlink" title="Linux Bridge"></a>Linux Bridge</h2><h3 id="管理工具-brctl"><a href="#管理工具-brctl" class="headerlink" title="管理工具 brctl"></a><strong>管理工具 brctl</strong></h3><p>Linux 原生的网桥可以用 brctl 工具进行管理。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ brctl -h                                                                                                                                                           </span><br><span class="line">Usage: brctl [commands]</span><br><span class="line">commands:</span><br><span class="line">	addbr     	&lt;bridge&gt;		add bridge</span><br><span class="line">	delbr     	&lt;bridge&gt;		delete bridge</span><br><span class="line">	addif     	&lt;bridge&gt; &lt;device&gt;	add interface to bridge</span><br><span class="line">	delif     	&lt;bridge&gt; &lt;device&gt;	delete interface from bridge</span><br><span class="line">	hairpin   	&lt;bridge&gt; &lt;port&gt; &#123;on|off&#125;	turn hairpin on/off</span><br><span class="line">	setageing 	&lt;bridge&gt; &lt;time&gt;		set ageing time</span><br><span class="line">	setbridgeprio	&lt;bridge&gt; &lt;prio&gt;		set bridge priority</span><br><span class="line">	setfd     	&lt;bridge&gt; &lt;time&gt;		set bridge forward delay</span><br><span class="line">	sethello  	&lt;bridge&gt; &lt;time&gt;		set hello time</span><br><span class="line">	setmaxage 	&lt;bridge&gt; &lt;time&gt;		set max message age</span><br><span class="line">	setpathcost	&lt;bridge&gt; &lt;port&gt; &lt;cost&gt;	set path cost</span><br><span class="line">	setportprio	&lt;bridge&gt; &lt;port&gt; &lt;prio&gt;	set port priority</span><br><span class="line">	show      	[ &lt;bridge&gt; ]		show a list of bridges</span><br><span class="line">	showmacs  	&lt;bridge&gt;		show a list of mac addrs</span><br><span class="line">	showstp   	&lt;bridge&gt;		show bridge stp info</span><br><span class="line">	stp       	&lt;bridge&gt; &#123;on|off&#125;	turn stp on/off</span><br></pre></td></tr></table></figure></p>
+<p>详细的用法可参考这篇博文 <a href="https://wiki.linuxfoundation.org/networking/bridge" target="_blank" rel="noopener">bridge</a>。</p>
+<p>记得在把网卡加到网桥后，执行<code>dhclient mybridge</code>使配置正常。</p>
+<h3 id="要点记录"><a href="#要点记录" class="headerlink" title="要点记录"></a><strong>要点记录</strong></h3><ol>
+<li>已经挂载到网桥上的设备，这些设备以后的通信就得通过该网桥，而且这些设备已配置的 IP 都将无用（链路层）</li>
+<li>往往将原物理网卡的 IP 配置给网桥，以便于对网桥进行管理</li>
+<li>如果机器只有一个网卡，把网卡加入网桥的一瞬间会导致连接断开（详细原因参考博文<a href="http://blog.csdn.net/dog250/article/details/26078487" target="_blank" rel="noopener">一个关于Linux Bridge配置的吐嘈</a>）</li>
+</ol>
+<h2 id="OpenvSwitch-Bridge"><a href="#OpenvSwitch-Bridge" class="headerlink" title="OpenvSwitch Bridge"></a><strong>OpenvSwitch Bridge</strong></h2><p><em>有待添加</em></p>
+<h1 id="Veth"><a href="#Veth" class="headerlink" title="Veth"></a><strong>Veth</strong></h1><p>Veth 是 Virtual Ethernet 的缩写，也是一种网络设备，不过它是成对存在的，称为 Veth Pair，主要用于不同网络命名空间之间的通信，如下图所示：<br><img src="/images/network/basic-network-devices/veth.png" alt><a href="http://blog.chinaunix.net/uid-27017686-id-5057025.html" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>新建一个 Veth Pair 的命令也很简单：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip link add veth00 type veth peer name veth01</span><br></pre></td></tr></table></figure></p>
+<p>使用例子可参考：</p>
+<ul>
+<li><a href="https://blog.kghost.info/2013/03/01/linux-network-emulator/" target="_blank" rel="noopener">网络虚拟化技术（一）: Linux网络虚拟化</a></li>
+<li><a href="https://heychenbin.github.io/post/veth-pair/" target="_blank" rel="noopener">veth pair</a></li>
+</ul>
+<hr>
+<p>最后，关于 Veth 和 Tap 的区别，我看 StackOverflow 有一个<a href="http://stackoverflow.com/questions/25641630/virtual-networking-devices-in-linux" target="_blank" rel="noopener">问题</a>写的挺好的：</p>
+<blockquote>
+<p><code>Veth</code> is a special net devices which were created in pair, I consider it as a method to change the traffic’s direction, that is, when the out direction traffic is sent to veth device from Linux protocol stack, it was sent to another its mirror veth device, so the mirror one treats it as a in direction traffic and put it back to Linux protocol stack for further usage.</p>
+<p><code>Tap</code> device is logical net device but have different with any other one: it allows user space program directly injecting traffic into Linux protocol stack, as well as it can retrieve traffic from the stack. It opens a tunnel to Linux protocol stack at level 2(or tun device at level 3) in user space, the stack will consider data from user space as in direction traffic.</p>
+</blockquote>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/12/09/net-tun-tap-interface-tutorial/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          【译】 Tun/Tap 设备导论
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/12/06/python-logging-cookbook/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">【译】 Logging Cookbook</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#网络命名空间"><span class="toc-number">1.</span> <span class="toc-text">网络命名空间</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Tun-Tap"><span class="toc-number">2.</span> <span class="toc-text">Tun/Tap</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#概念"><span class="toc-number">2.1.</span> <span class="toc-text">概念</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#物理网卡"><span class="toc-number">2.1.1.</span> <span class="toc-text">物理网卡</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Tun"><span class="toc-number">2.1.2.</span> <span class="toc-text">Tun</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Tap"><span class="toc-number">2.1.3.</span> <span class="toc-text">Tap</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Tun-和-Tap-区别"><span class="toc-number">2.1.4.</span> <span class="toc-text">Tun 和 Tap 区别</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tun-Tap-设备管理"><span class="toc-number">2.2.</span> <span class="toc-text">Tun/Tap 设备管理</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Bridge"><span class="toc-number">3.</span> <span class="toc-text">Bridge</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux-Bridge"><span class="toc-number">3.1.</span> <span class="toc-text">Linux Bridge</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#管理工具-brctl"><span class="toc-number">3.1.1.</span> <span class="toc-text">管理工具 brctl</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#要点记录"><span class="toc-number">3.1.2.</span> <span class="toc-text">要点记录</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenvSwitch-Bridge"><span class="toc-number">3.2.</span> <span class="toc-text">OpenvSwitch Bridge</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Veth"><span class="toc-number">4.</span> <span class="toc-text">Veth</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

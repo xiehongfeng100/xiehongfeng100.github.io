@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>协程和并发课程【部分八~九】 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="此文紧接上文协程和并发课程【部分五~七】。 第八部分：栈引起的问题Trampolining当程序涉及协程时，我们不能调用使用了 yield （可以挂起）的子函数。yield 语句只能在最上层挂起协程。例如在以下例子中，foo() 函数并不会因为调用了可以被挂起的 bar() 函数就能够被挂起：12345def bar():    yielddef foo():    bar() 去除这个限制的方法">
+<meta name="keywords" content="Python,yield,生成器,协程,Trampolining">
+<meta property="og:type" content="article">
+<meta property="og:title" content="协程和并发课程【部分八~九】">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/05/01/coroutines-and-cocurrency-course-part-8-to-9/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="此文紧接上文协程和并发课程【部分五~七】。 第八部分：栈引起的问题Trampolining当程序涉及协程时，我们不能调用使用了 yield （可以挂起）的子函数。yield 语句只能在最上层挂起协程。例如在以下例子中，foo() 函数并不会因为调用了可以被挂起的 bar() 函数就能够被挂起：12345def bar():    yielddef foo():    bar() 去除这个限制的方法">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-control-flow.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-control-flow-explain.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-os-1.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-os-2.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-os-3.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-os-4.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-os-5.png">
+<meta property="og:updated_time" content="2019-05-01T05:53:15.669Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="协程和并发课程【部分八~九】">
+<meta name="twitter:description" content="此文紧接上文协程和并发课程【部分五~七】。 第八部分：栈引起的问题Trampolining当程序涉及协程时，我们不能调用使用了 yield （可以挂起）的子函数。yield 语句只能在最上层挂起协程。例如在以下例子中，foo() 函数并不会因为调用了可以被挂起的 bar() 函数就能够被挂起：12345def bar():    yielddef foo():    bar() 去除这个限制的方法">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/concurrency/coroutines-and-currency-course/trampolining-control-flow.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-coroutines-and-cocurrency-course-part-8-to-9" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/05/01/coroutines-and-cocurrency-course-part-8-to-9/" class="article-date">
+  	<time datetime="2017-05-01T03:17:37.000Z" itemprop="datePublished">2017-05-01</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      协程和并发课程【部分八~九】
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Python/">Python</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Trampolining/">Trampolining</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/yield/">yield</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/协程/">协程</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/生成器/">生成器</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/并发/">并发</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>此文紧接上文<a href="http://xiehongfeng100.github.io/2017/04/30/coroutines-and-cocurrency-course-part-5-to-7/">协程和并发课程【部分五~七】</a>。</p>
+<h1 id="第八部分：栈引起的问题"><a href="#第八部分：栈引起的问题" class="headerlink" title="第八部分：栈引起的问题"></a><strong>第八部分：栈引起的问题</strong></h1><h2 id="Trampolining"><a href="#Trampolining" class="headerlink" title="Trampolining"></a><strong>Trampolining</strong></h2><p>当程序涉及协程时，我们不能调用使用了 yield （可以挂起）的子函数。yield 语句只能在最上层挂起协程。例如在以下例子中，foo() 函数并不会因为调用了可以被挂起的 bar() 函数就能够被挂起：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">def bar():</span><br><span class="line">    yield</span><br><span class="line"></span><br><span class="line">def foo():</span><br><span class="line">    bar()</span><br></pre></td></tr></table></figure></p>
+<p>去除这个限制的方法之一就是无栈 Python。具体的实现技巧叫 <a href="https://en.wikipedia.org/wiki/Trampoline_(computing" target="_blank" rel="noopener">Trampolining</a>)，中文译名跳床。这中文译名怪怪的，我们还是叫 Tramplining 吧。例如，下边就是利用了该技巧的简单例子：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># trampoline.py</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># A simple of example of trampoling between coroutines</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># A subroutine</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">add</span><span class="params">(x, y)</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> x + y</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># A function that calls a subroutine</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    r = <span class="keyword">yield</span> add(<span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">    <span class="keyword">print</span> r</span><br><span class="line">    <span class="keyword">yield</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">()</span>:</span></span><br><span class="line">    m = main()</span><br><span class="line">    <span class="comment"># An example of a "trampoline"</span></span><br><span class="line">    sub = m.send(<span class="literal">None</span>)</span><br><span class="line">    result = sub.send(<span class="literal">None</span>)</span><br><span class="line">    m.send(result)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">run()</span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p>作者对此还用流程图进行了解释：<br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-control-flow.png" alt><br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-control-flow-explain.png" alt>  </p>
+<h2 id="改进操作系统"><a href="#改进操作系统" class="headerlink" title="改进操作系统"></a><strong>改进操作系统</strong></h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment"># pyos8.py  -  The Python Operating System</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Step 7 : Support for coroutine trampolines (subroutines)</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> types</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment">#                       === Tasks ===</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Task</span><span class="params">(object)</span>:</span></span><br><span class="line">    taskid = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, target)</span>:</span></span><br><span class="line">        Task.taskid += <span class="number">1</span></span><br><span class="line">        self.tid = Task.taskid  <span class="comment"># Task ID</span></span><br><span class="line">        self.target = target  <span class="comment"># Target coroutine</span></span><br><span class="line">        self.sendval = <span class="literal">None</span>  <span class="comment"># Value to send</span></span><br><span class="line">        self.stack = []  <span class="comment"># Call stack</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Run a task until it hits the next yield statement</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                result = self.target.send(self.sendval)</span><br><span class="line">                <span class="keyword">if</span> isinstance(result, SystemCall):</span><br><span class="line">                    <span class="keyword">return</span> result</span><br><span class="line">                <span class="keyword">if</span> isinstance(result, types.GeneratorType):</span><br><span class="line">                    self.stack.append(self.target)</span><br><span class="line">                    self.sendval = <span class="literal">None</span></span><br><span class="line">                    self.target = result</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="keyword">if</span> <span class="keyword">not</span> self.stack:</span><br><span class="line">                        <span class="keyword">return</span></span><br><span class="line">                    self.sendval = result</span><br><span class="line">                    self.target = self.stack.pop()</span><br><span class="line">            <span class="keyword">except</span> StopIteration:</span><br><span class="line">                <span class="keyword">if</span> <span class="keyword">not</span> self.stack: <span class="keyword">raise</span></span><br><span class="line">                self.sendval = <span class="literal">None</span></span><br><span class="line">                self.target = self.stack.pop()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment">#                      === Scheduler ===</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="keyword">from</span> Queue <span class="keyword">import</span> Queue</span><br><span class="line"><span class="keyword">import</span> select</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Scheduler</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.ready = Queue()</span><br><span class="line">        self.taskmap = &#123;&#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment"># Tasks waiting for other tasks to exit</span></span><br><span class="line">        self.exit_waiting = &#123;&#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment"># I/O waiting</span></span><br><span class="line">        self.read_waiting = &#123;&#125;</span><br><span class="line">        self.write_waiting = &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">new</span><span class="params">(self, target)</span>:</span></span><br><span class="line">        newtask = Task(target)</span><br><span class="line">        self.taskmap[newtask.tid] = newtask</span><br><span class="line">        self.schedule(newtask)</span><br><span class="line">        <span class="keyword">return</span> newtask.tid</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">exit</span><span class="params">(self, task)</span>:</span></span><br><span class="line">        <span class="keyword">print</span> <span class="string">"Task %d terminated"</span> % task.tid</span><br><span class="line">        <span class="keyword">del</span> self.taskmap[task.tid]</span><br><span class="line">        <span class="comment"># Notify other tasks waiting for exit</span></span><br><span class="line">        <span class="keyword">for</span> task <span class="keyword">in</span> self.exit_waiting.pop(task.tid, []):</span><br><span class="line">            self.schedule(task)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">waitforexit</span><span class="params">(self, task, waittid)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> waittid <span class="keyword">in</span> self.taskmap:</span><br><span class="line">            self.exit_waiting.setdefault(waittid, []).append(task)</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># I/O waiting</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">waitforread</span><span class="params">(self, task, fd)</span>:</span></span><br><span class="line">        self.read_waiting[fd] = task</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">waitforwrite</span><span class="params">(self, task, fd)</span>:</span></span><br><span class="line">        self.write_waiting[fd] = task</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">iopoll</span><span class="params">(self, timeout)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self.read_waiting <span class="keyword">or</span> self.write_waiting:</span><br><span class="line">            r, w, e = select.select(self.read_waiting,</span><br><span class="line">                                    self.write_waiting, [], timeout)</span><br><span class="line">            <span class="keyword">for</span> fd <span class="keyword">in</span> r:</span><br><span class="line">                self.schedule(self.read_waiting.pop(fd))</span><br><span class="line">            <span class="keyword">for</span> fd <span class="keyword">in</span> w:</span><br><span class="line">                self.schedule(self.write_waiting.pop(fd))</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">iotask</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            <span class="keyword">if</span> self.ready.empty():</span><br><span class="line">                self.iopoll(<span class="literal">None</span>)</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                self.iopoll(<span class="number">0</span>)</span><br><span class="line">            <span class="keyword">yield</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">schedule</span><span class="params">(self, task)</span>:</span></span><br><span class="line">        self.ready.put(task)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">mainloop</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.new(self.iotask())</span><br><span class="line">        <span class="keyword">while</span> self.taskmap:</span><br><span class="line">            task = self.ready.get()</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                result = task.run()</span><br><span class="line">                <span class="keyword">if</span> isinstance(result, SystemCall):</span><br><span class="line">                    result.task = task</span><br><span class="line">                    result.sched = self</span><br><span class="line">                    result.handle()</span><br><span class="line">                    <span class="keyword">continue</span></span><br><span class="line">            <span class="keyword">except</span> StopIteration:</span><br><span class="line">                self.exit(task)</span><br><span class="line">                <span class="keyword">continue</span></span><br><span class="line">            self.schedule(task)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment">#                   === System Calls ===</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SystemCall</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Return a task's ID number</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">GetTid</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.task.sendval = self.task.tid</span><br><span class="line">        self.sched.schedule(self.task)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Create a new task</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">NewTask</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, target)</span>:</span></span><br><span class="line">        self.target = target</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        tid = self.sched.new(self.target)</span><br><span class="line">        self.task.sendval = tid</span><br><span class="line">        self.sched.schedule(self.task)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Kill a task</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">KillTask</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, tid)</span>:</span></span><br><span class="line">        self.tid = tid</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        task = self.sched.taskmap.get(self.tid, <span class="literal">None</span>)</span><br><span class="line">        <span class="keyword">if</span> task:</span><br><span class="line">            task.target.close()</span><br><span class="line">            self.task.sendval = <span class="literal">True</span></span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            self.task.sendval = <span class="literal">False</span></span><br><span class="line">        self.sched.schedule(self.task)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Wait for a task to exit</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">WaitTask</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, tid)</span>:</span></span><br><span class="line">        self.tid = tid</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        result = self.sched.waitforexit(self.task, self.tid)</span><br><span class="line">        self.task.sendval = result</span><br><span class="line">        <span class="comment"># If waiting for a non-existent task,</span></span><br><span class="line">        <span class="comment"># return immediately without waiting</span></span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> result:</span><br><span class="line">            self.sched.schedule(self.task)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Wait for reading</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ReadWait</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, f)</span>:</span></span><br><span class="line">        self.f = f</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        fd = self.f.fileno()</span><br><span class="line">        self.sched.waitforread(self.task, fd)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># Wait for writing</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">WriteWait</span><span class="params">(SystemCall)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, f)</span>:</span></span><br><span class="line">        self.f = f</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self)</span>:</span></span><br><span class="line">        fd = self.f.fileno()</span><br><span class="line">        self.sched.waitforwrite(self.task, fd)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment">#                      === Library Functions ===</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">Accept</span><span class="params">(sock)</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> ReadWait(sock)</span><br><span class="line">    <span class="keyword">yield</span> sock.accept()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">Send</span><span class="params">(sock, buffer)</span>:</span></span><br><span class="line">    <span class="keyword">while</span> buffer:</span><br><span class="line">        <span class="keyword">yield</span> WriteWait(sock)</span><br><span class="line">        len = sock.send(buffer)</span><br><span class="line">        buffer = buffer[len:]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">Recv</span><span class="params">(sock, maxbytes)</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> ReadWait(sock)</span><br><span class="line">    <span class="keyword">yield</span> sock.recv(maxbytes)</span><br><span class="line"></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"><span class="comment">#                      === Example ===</span></span><br><span class="line"><span class="comment"># ------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Look at the echoserver.py script for an example</span></span><br></pre></td></tr></table></figure>
+<p>作者解释如下：<br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-os-1.png" alt><br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-os-2.png" alt><br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-os-3.png" alt><br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-os-4.png" alt><br><img src="/images/concurrency/coroutines-and-currency-course/trampolining-os-5.png" alt>  </p>
+<h2 id="改进回显服务器"><a href="#改进回显服务器" class="headerlink" title="改进回显服务器"></a><strong>改进回显服务器</strong></h2><p>现在所有的 I/O 操作都是都是子协程了：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># echoserver.py</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># A concurrent echo server using coroutines</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> pyos8 <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">from</span> socket <span class="keyword">import</span> *</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">handle_client</span><span class="params">(client, addr)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Connection from"</span>, addr</span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        data = <span class="keyword">yield</span> Recv(client, <span class="number">65536</span>)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> data:</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        <span class="keyword">yield</span> Send(client, data)</span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Client closed"</span></span><br><span class="line">    client.close()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">server</span><span class="params">(port)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Server starting"</span></span><br><span class="line">    sock = socket(AF_INET, SOCK_STREAM)</span><br><span class="line">    sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, <span class="number">1</span>)</span><br><span class="line">    sock.bind((<span class="string">""</span>, port))</span><br><span class="line">    sock.listen(<span class="number">5</span>)</span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        client, addr = <span class="keyword">yield</span> Accept(sock)</span><br><span class="line">        <span class="keyword">yield</span> NewTask(handle_client(client, addr))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">sched = Scheduler()</span><br><span class="line">sched.new(server(<span class="number">45000</span>))</span><br><span class="line">sched.mainloop()</span><br></pre></td></tr></table></figure></p>
+<h2 id="非阻塞-I-O"><a href="#非阻塞-I-O" class="headerlink" title="非阻塞 I/O"></a><strong>非阻塞 I/O</strong></h2><p>除了上边的做法，我们还可以用非阻塞 I/O 重新封装原生 socket（这也是一些协程库的做法，如 <a href="https://greenlet.readthedocs.io/en/latest/" target="_blank" rel="noopener">Greenlet</a>）：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># sockwrap.py</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># Coroutine wrapper around a socket object</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> pyos8 <span class="keyword">import</span> *</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Socket</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, sock)</span>:</span></span><br><span class="line">        self.sock = sock</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">accept</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">yield</span> ReadWait(self.sock)</span><br><span class="line">        client, addr = self.sock.accept()</span><br><span class="line">        <span class="keyword">yield</span> Socket(client), addr</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">send</span><span class="params">(self, buffer)</span>:</span></span><br><span class="line">        <span class="keyword">while</span> buffer:</span><br><span class="line">            <span class="keyword">yield</span> WriteWait(self.sock)</span><br><span class="line">            len = self.sock.send(buffer)</span><br><span class="line">            buffer = buffer[len:]</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">recv</span><span class="params">(self, maxbytes)</span>:</span></span><br><span class="line">        <span class="keyword">yield</span> ReadWait(self.sock)</span><br><span class="line">        <span class="keyword">yield</span> self.sock.recv(maxbytes)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">close</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">yield</span> self.sock.close()</span><br></pre></td></tr></table></figure></p>
+<p>这样，回显服务器就可以这样子写了：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># echoserver2.py</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># A concurrent echo server using coroutines</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> pyos8 <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">from</span> socket <span class="keyword">import</span> *</span><br><span class="line"><span class="keyword">from</span> sockwrap <span class="keyword">import</span> Socket</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">handle_client</span><span class="params">(client, addr)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Connection from"</span>, addr</span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        data = <span class="keyword">yield</span> client.recv(<span class="number">65536</span>)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> data:</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        <span class="keyword">yield</span> client.send(data)</span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Client closed"</span></span><br><span class="line">    <span class="keyword">yield</span> client.close()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">server</span><span class="params">(port)</span>:</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">"Server starting"</span></span><br><span class="line">    rawsock = socket(AF_INET, SOCK_STREAM)</span><br><span class="line">    rawsock.setsockopt(SOL_SOCKET, SO_REUSEADDR, <span class="number">1</span>)</span><br><span class="line">    rawsock.bind((<span class="string">""</span>, port))</span><br><span class="line">    rawsock.listen(<span class="number">1024</span>)</span><br><span class="line"></span><br><span class="line">    sock = Socket(rawsock)</span><br><span class="line">    <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">        client, addr = <span class="keyword">yield</span> sock.accept()</span><br><span class="line">        <span class="keyword">yield</span> NewTask(handle_client(client, addr))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">sched = Scheduler()</span><br><span class="line">sched.new(server(<span class="number">45000</span>))</span><br><span class="line">sched.mainloop()</span><br></pre></td></tr></table></figure></p>
+<h2 id="基于-Twisted-回显服务器"><a href="#基于-Twisted-回显服务器" class="headerlink" title="基于 Twisted 回显服务器"></a><strong>基于 Twisted 回显服务器</strong></h2><p>下例取自 Twisted 官方例子：<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/python</span></span><br><span class="line"><span class="comment"># Copyright (c) 2001-2004 Twisted Matrix Laboratories.</span></span><br><span class="line"><span class="comment"># See LICENSE for details.</span></span><br><span class="line"></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> twisted.internet.protocol <span class="keyword">import</span> Protocol, Factory</span><br><span class="line"><span class="keyword">from</span> twisted.internet <span class="keyword">import</span> reactor</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">### Protocol Implementation</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># This is just about the simplest possible protocol</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Echo</span><span class="params">(Protocol)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">connectionMade</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">print</span> <span class="string">"Got a connection"</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">dataReceived</span><span class="params">(self, data)</span>:</span></span><br><span class="line">        <span class="string">"""As soon as any data is received, write it back."""</span></span><br><span class="line">        self.transport.write(data)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    f = Factory()</span><br><span class="line">    f.protocol = Echo</span><br><span class="line">    reactor.listenTCP(<span class="number">45000</span>, f)</span><br><span class="line">    reactor.run()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    main()</span><br></pre></td></tr></table></figure></p>
+<h1 id="第-9-部分：终言"><a href="#第-9-部分：终言" class="headerlink" title="第 9 部分：终言"></a><strong>第 9 部分：终言</strong></h1><h2 id="未来主题"><a href="#未来主题" class="headerlink" title="未来主题"></a><strong>未来主题</strong></h2><p>在我们的任务调度器上，我们还可以继续探索：</p>
+<ul>
+<li>任务间通信</li>
+<li>对阻塞操作处理（如数据库访问）</li>
+<li>协程多任务和线程</li>
+<li>错误处理</li>
+</ul>
+<h2 id="生成器"><a href="#生成器" class="headerlink" title="生成器"></a><strong>生成器</strong></h2><p>生成器其实远比大家认识的要强大：</p>
+<ul>
+<li>自定义迭代模式</li>
+<li>处理流水线和数据流</li>
+<li>事件处理</li>
+<li>多任务协作</li>
+</ul>
+<h2 id="yield-使用场景"><a href="#yield-使用场景" class="headerlink" title="yield 使用场景"></a><strong>yield 使用场景</strong></h2><p>yield 常用使用场景：</p>
+<ul>
+<li>迭代（数据生产者）</li>
+<li>接收数据（消费者）</li>
+<li>陷阱（多任务协作）</li>
+</ul>
+<hr>
+<p>终于结束了….</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/05/07/python-plugin-stevedore/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          插件动态加载之 Stevedore
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/04/30/coroutines-and-cocurrency-course-part-5-to-7/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">协程和并发课程【部分五~七】</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#第八部分：栈引起的问题"><span class="toc-number">1.</span> <span class="toc-text">第八部分：栈引起的问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Trampolining"><span class="toc-number">1.1.</span> <span class="toc-text">Trampolining</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#改进操作系统"><span class="toc-number">1.2.</span> <span class="toc-text">改进操作系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#改进回显服务器"><span class="toc-number">1.3.</span> <span class="toc-text">改进回显服务器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#非阻塞-I-O"><span class="toc-number">1.4.</span> <span class="toc-text">非阻塞 I/O</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基于-Twisted-回显服务器"><span class="toc-number">1.5.</span> <span class="toc-text">基于 Twisted 回显服务器</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#第-9-部分：终言"><span class="toc-number">2.</span> <span class="toc-text">第 9 部分：终言</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#未来主题"><span class="toc-number">2.1.</span> <span class="toc-text">未来主题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#生成器"><span class="toc-number">2.2.</span> <span class="toc-text">生成器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#yield-使用场景"><span class="toc-number">2.3.</span> <span class="toc-text">yield 使用场景</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

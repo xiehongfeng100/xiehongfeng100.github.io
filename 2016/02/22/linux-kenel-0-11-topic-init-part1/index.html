@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="在上一博文 Linux 内核学习笔记：内核引导程序之“head.s”最后我们提到，执行完 head 程序，指令指针就跳转至 main 函数，即从 main 函数开始执行。 main 函数定义在 init/main.c 文件（在 init 目录下，只有一个文件 main.c），是 Linux 0.11 的初始化程序，负责设备环境初始化并激活进程 0。 本文主要分析 main 函数功能，大部分参考自《">
+<meta name="keywords" content="Linux,内核,中断,硬盘,内存规划,虚拟盘,根设备">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/22/linux-kenel-0-11-topic-init-part1/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="在上一博文 Linux 内核学习笔记：内核引导程序之“head.s”最后我们提到，执行完 head 程序，指令指针就跳转至 main 函数，即从 main 函数开始执行。 main 函数定义在 init/main.c 文件（在 init 目录下，只有一个文件 main.c），是 Linux 0.11 的初始化程序，负责设备环境初始化并激活进程 0。 本文主要分析 main 函数功能，大部分参考自《">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/设置根设备硬盘.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/内存规划.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/虚拟盘设置与初始化.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/最终内存规划格局.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/内核真实所占内存.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/异常处理类中断服务程序挂接.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/中断描述符格式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/trap_init代码的执行效果.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/中断描述符拼接代码.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/以除零错误为例子详细分析中断描述符拼接代码.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/以除零错误为例子详细分析中断描述符拼接效果.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.583Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接">
+<meta name="twitter:description" content="在上一博文 Linux 内核学习笔记：内核引导程序之“head.s”最后我们提到，执行完 head 程序，指令指针就跳转至 main 函数，即从 main 函数开始执行。 main 函数定义在 init/main.c 文件（在 init 目录下，只有一个文件 main.c），是 Linux 0.11 的初始化程序，负责设备环境初始化并激活进程 0。 本文主要分析 main 函数功能，大部分参考自《">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/init/part1/设置根设备硬盘.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-init-part1" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/22/linux-kenel-0-11-topic-init-part1/" class="article-date">
+  	<time datetime="2016-02-22T01:09:05.000Z" itemprop="datePublished">2016-02-22</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：初始化程序（第 1 部分） —— 内存规划、中断服务程序挂接
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/中断/">中断</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内存规划/">内存规划</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/根设备/">根设备</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/硬盘/">硬盘</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/虚拟盘/">虚拟盘</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>在上一博文 <a href="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/">Linux 内核学习笔记：内核引导程序之“head.s”</a>最后我们提到，执行完 head 程序，指令指针就跳转至 main 函数，即从 main 函数开始执行。</p>
+<p>main 函数定义在 init/main.c 文件（在 init 目录下，只有一个文件 main.c），是 Linux 0.11 的初始化程序，负责设备环境初始化并激活进程 0。</p>
+<p>本文主要分析 main 函数功能，大部分参考自《Linux 内核设计的艺术》一书，小部分参考自《Linux 内核完全注释》。</p>
+<h1 id="设置根设备、硬盘"><a href="#设置根设备、硬盘" class="headerlink" title="设置根设备、硬盘"></a><strong>设置根设备、硬盘</strong></h1><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * This is set up by the setup-routine at boot-time</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DRIVE_INFO (*(struct drive_info *)0x90080)</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> ORIG_ROOT_DEV (*(unsigned short *)0x901FC)</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">drive_info</span> &#123;</span> <span class="keyword">char</span> dummy[<span class="number">32</span>]; &#125; drive_info;	<span class="comment">// 硬盘基本参数表大小为 16B。这个结构体可以存放两个硬盘的参数表。</span></span><br><span class="line">							<span class="comment">// 而且这两个表在内存中本来就是相邻的</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span>	</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Interrupts are still disabled. Do necessary setups, then</span></span><br><span class="line"><span class="comment"> * enable them</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"> 	ROOT_DEV = ORIG_ROOT_DEV;	<span class="comment">// fs/super.c -&gt; int ROOT_DEV = 0;</span></span><br><span class="line"> 	drive_info = DRIVE_INFO;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<a id="more"></a>
+<p>程序执行结果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part1/设置根设备硬盘.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<p><strong>注：</strong><code>根设备就是根文件系统所在的设备。</code></p>
+<h1 id="内存规划"><a href="#内存规划" class="headerlink" title="内存规划"></a><strong>内存规划</strong></h1><p>除了内核代码、数据所占的内存空间外，其余物理内存主要分为 3 个部分：  </p>
+<ul>
+<li>缓冲区：作为主机与外设进行数据交互的中转站</li>
+<li>虚拟盘区：可选区域。如果选用，则可以将外设上的数据先复制进虚拟盘区，然后加以使用</li>
+<li>主内存区：进程代码运行的区域，也包括内核管理进程的数据结构</li>
+</ul>
+<p>内存规划代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * This is set up by the setup-routine at boot-time</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> EXT_MEM_K (*(unsigned short *)0x90002)	<span class="comment">// Linux 内核学习笔记：内核引导程序之“setup.s” -&gt; http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span>	</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Interrupts are still disabled. Do necessary setups, then</span></span><br><span class="line"><span class="comment"> * enable them</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">	......</span><br><span class="line">	memory_end = (<span class="number">1</span>&lt;&lt;<span class="number">20</span>) + (EXT_MEM_K&lt;&lt;<span class="number">10</span>);	<span class="comment">// 内存大小（MB）=1MB+扩展内存（KB）*1024</span></span><br><span class="line">	memory_end &amp;= <span class="number">0xfffff000</span>;		<span class="comment">// 按页的倍数取整，忽略内存末端不足一页的地方</span></span><br><span class="line">	<span class="keyword">if</span> (memory_end &gt; <span class="number">16</span>*<span class="number">1024</span>*<span class="number">1024</span>)</span><br><span class="line">		memory_end = <span class="number">16</span>*<span class="number">1024</span>*<span class="number">1024</span>;</span><br><span class="line">	<span class="keyword">if</span> (memory_end &gt; <span class="number">12</span>*<span class="number">1024</span>*<span class="number">1024</span>) </span><br><span class="line">		buffer_memory_end = <span class="number">4</span>*<span class="number">1024</span>*<span class="number">1024</span>;</span><br><span class="line">	<span class="keyword">else</span> <span class="keyword">if</span> (memory_end &gt; <span class="number">6</span>*<span class="number">1024</span>*<span class="number">1024</span>)</span><br><span class="line">		buffer_memory_end = <span class="number">2</span>*<span class="number">1024</span>*<span class="number">1024</span>;</span><br><span class="line">	<span class="keyword">else</span></span><br><span class="line">		buffer_memory_end = <span class="number">1</span>*<span class="number">1024</span>*<span class="number">1024</span>;</span><br><span class="line">	main_memory_start = buffer_memory_end;	<span class="comment">// 缓冲区之后就是主内存</span></span><br><span class="line">	......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>上述代码可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/init/part1/内存规划.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<h1 id="设置虚拟盘空间并初始化"><a href="#设置虚拟盘空间并初始化" class="headerlink" title="设置虚拟盘空间并初始化"></a><strong>设置虚拟盘空间并初始化</strong></h1><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> RAMDISK</span></span><br><span class="line">	<span class="comment">// Makefile -&gt;</span></span><br><span class="line">	<span class="comment">// # if you want the ram-disk device, define this to be the size in blocks.</span></span><br><span class="line">	<span class="comment">// RAMDISK = #-DRAMDISK=512</span></span><br><span class="line">	main_memory_start += rd_init(main_memory_start, RAMDISK*<span class="number">1024</span>);</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/blk.h -------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> NR_BLK_DEV	7		<span class="comment">// 块设备数量</span></span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">blk_dev_struct</span> &#123;</span>			<span class="comment">// 块设备数据结构</span></span><br><span class="line">	<span class="keyword">void</span> (*request_fn)(<span class="keyword">void</span>);</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">request</span> * <span class="title">current_request</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">if</span> (MAJOR_NR == 1)			<span class="comment">// 内存盘主设备号为 1：Linux 内核学习笔记：预备知识之“硬盘基础知识” -&gt; http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-necessary-preparation-part8/</span></span></span><br><span class="line"><span class="comment">/* ram disk */</span>				<span class="comment">// RAM 盘（内存虚拟盘）</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_NAME <span class="meta-string">"ramdisk"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DEVICE_REQUEST do_rd_request	<span class="comment">// 设备请求函数</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 2)</span></span><br><span class="line"><span class="comment">/* floppy */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">elif</span> (MAJOR_NR == 3)</span></span><br><span class="line"><span class="comment">/* harddisk */</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/ll_rw_blk.c ------------------- // ll:low level</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">blk_dev_struct</span> <span class="title">blk_dev</span>[<span class="title">NR_BLK_DEV</span>] = &#123;</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* no_dev */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* dev mem */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* dev fd */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* dev hd */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* dev ttyx */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;,		<span class="comment">/* dev tty */</span></span><br><span class="line">	&#123; <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;		<span class="comment">/* dev lp */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/blk_drv/ramdisk.c ---------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAJOR_NR 1</span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">do_rd_request</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Returns amount of memory which needs to be reserved.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">rd_init</span><span class="params">(<span class="keyword">long</span> mem_start, <span class="keyword">int</span> length)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span>	i;</span><br><span class="line">	<span class="keyword">char</span>	*cp;</span><br><span class="line"></span><br><span class="line">	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;	<span class="comment">// 挂接 do_rd_request()</span></span><br><span class="line">	rd_start = (<span class="keyword">char</span> *) mem_start;</span><br><span class="line">	rd_length = length;</span><br><span class="line">	cp = rd_start;</span><br><span class="line">	<span class="keyword">for</span> (i=<span class="number">0</span>; i &lt; length; i++)</span><br><span class="line">		*cp++ = <span class="string">'\0'</span>;</span><br><span class="line">	<span class="keyword">return</span>(length);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>注：在之前博文 <a href="http://xiehongfeng100.github.io/2016/01/29/linux-kenel-0-11-topic-overview/">Linux 内核学习笔记：Linux 0.11 内核概述</a>中，我们假定了在内存中开辟了 2MB 内存作为虚拟盘。</p>
+<p>上述代码可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/init/part1/虚拟盘设置与初始化.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<p>最终内存规划格局如下：<br><img src="/images/os/linux-kenel-0.11/init/part1/最终内存规划格局.png" alt>图片来源：《Linux 内核设计的艺术》    </p>
+<h1 id="内存管理结构-mem-map-初始化"><a href="#内存管理结构-mem-map-初始化" class="headerlink" title="内存管理结构 mem_map 初始化"></a><strong>内存管理结构 mem_map 初始化</strong></h1><p>这部分代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	mem_init(main_memory_start,memory_end);</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// mm/memory.c ---------------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> LOW_MEM 0x100000				<span class="comment">// 内存低端 1MB，为内核专用，线性地址跟物理地址一样</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> PAGING_MEMORY (15*1024*1024)		<span class="comment">// 可用于分页的内存最多只有 15MB (除了内核要用到的 1MB)</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> PAGING_PAGES (PAGING_MEMORY&gt;&gt;12)		<span class="comment">// 分页后的物理内存页数</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAP_NR(addr) (((addr)-LOW_MEM)&gt;&gt;12)	<span class="comment">// 指定内存地址映射为页号</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> USED 100					<span class="comment">// 页面被占用标志</span></span></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">long</span> HIGH_MEMORY = <span class="number">0</span>;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="keyword">char</span> mem_map [ PAGING_PAGES ] = &#123;<span class="number">0</span>,&#125;;</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mem_init</span><span class="params">(<span class="keyword">long</span> start_mem, <span class="keyword">long</span> end_mem)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> i;</span><br><span class="line"></span><br><span class="line">	HIGH_MEMORY = end_mem;</span><br><span class="line">	<span class="keyword">for</span> (i=<span class="number">0</span> ; i&lt;PAGING_PAGES ; i++)	<span class="comment">// 可用于分页的内存最多只有 15MB (除了内核要用到的 1MB)</span></span><br><span class="line">		mem_map[i] = USED;</span><br><span class="line">	i = MAP_NR(start_mem);		<span class="comment">// 计算“可使用”起始内存的页面号，在这里 start_mem 为 6MB （虚拟盘之后）</span></span><br><span class="line">	end_mem -= start_mem;		<span class="comment">// 计算可用的内存块大小，即主内存区大小</span></span><br><span class="line">	end_mem &gt;&gt;= <span class="number">12</span>;			<span class="comment">// 计算主内存区可用的页面数</span></span><br><span class="line">	<span class="keyword">while</span> (end_mem--&gt;<span class="number">0</span>)		<span class="comment">// 将这些页面对应的页面引用计数数组清零</span></span><br><span class="line">		mem_map[i++]=<span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>mem_map[] 对 1MB 以上的内存分页进行管理，记录每一个页面的使用次数。mem_init() 函数首先将所有的内存页面使用次数均设置成 USED，然后再将主内存区的所有页面使用计数清零。系统以后只把使用计数为 0 的页面视为空闲页面。</p>
+<p>很明显，Linux 0.11 对内存 0~1MB 和 1MB~16MB 采用的是不同的分页管理方法。按照《Linux 内核设计的艺术》的说法：  </p>
+<blockquote>
+<ul>
+<li>内核采用分页管理方法，线性地址和物理地址完全一样，是一一映射的，等价于内核可以直接获得物理地址。</li>
+<li>用户进程则不然，线性地址和物理地址差异很大，之间没有可递推的逻辑关系。</li>
+<li>操作系统的设计者的目的就是让用户进程无法通过线性地址推算出具体的物理地址，让内核能够访问用户进程，用户进程不能访问其他的用户进程，更不能访问内核。</li>
+<li>1MB 以内（0~1023KB）是内核代码和只有由内核掌控的大部分数据所在内存空间，是绝对不允许用户进程访问的。1MB 以上，特别是主内存区主要是用户进程的代码、数据所在的内存空间，所以采用专门用来管理用户进程的分页管理方法，这套方法当然不能用在内核上。</li>
+</ul>
+</blockquote>
+<p><strong>注：</strong>在 1MB 内区域，<code>内核和缓冲区低端一起只占用了 0~639KB （即 0~0x9FFFF） 的共 640KB 的内存区域</code>，640KB~1023KB （即 0xA0000~0xFFFFF）的区域由 ROM BIOS &amp; VGA <a href="http://xiehongfeng100.github.io/2016/01/30/linux-kenel-0-11-topic-boot-part1/">内存映射 I/O</a> 所占。如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part1/内核真实所占内存.png" alt>图片来源：《Linux 内核设计的艺术》    </p>
+<h1 id="异常处理类中断服务程序挂接"><a href="#异常处理类中断服务程序挂接" class="headerlink" title="异常处理类中断服务程序挂接"></a><strong>异常处理类中断服务程序挂接</strong></h1><p><code>trap_init()</code> 函数将中断、异常处理的服务程序与 IDT 进行挂接，重建中断服务体系（在 <a href="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/">head.s</a> 中，IDT 的 256 均为空）。挂接之后的结果如下图所示:<br><img src="/images/os/linux-kenel-0.11/init/part1/异常处理类中断服务程序挂接.png" alt>图片来源：《Linux 内核设计的艺术》   </p>
+<p>具体执行代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// init/main.c ---------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	......</span><br><span class="line">	trap_init();</span><br><span class="line">	......</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// kenel/traps.c -------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">trap_init</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> i;</span><br><span class="line"></span><br><span class="line">	set_trap_gate(<span class="number">0</span>,&amp;divide_error);</span><br><span class="line">	set_trap_gate(<span class="number">1</span>,&amp;debug);</span><br><span class="line">	set_trap_gate(<span class="number">2</span>,&amp;nmi);</span><br><span class="line">	set_system_gate(<span class="number">3</span>,&amp;int3);	<span class="comment">/* int3-5 can be called from all */</span></span><br><span class="line">	set_system_gate(<span class="number">4</span>,&amp;overflow);</span><br><span class="line">	set_system_gate(<span class="number">5</span>,&amp;bounds);</span><br><span class="line">	set_trap_gate(<span class="number">6</span>,&amp;invalid_op);		<span class="comment">// 无效指令</span></span><br><span class="line">	set_trap_gate(<span class="number">7</span>,&amp;device_not_available);</span><br><span class="line">	set_trap_gate(<span class="number">8</span>,&amp;double_fault);</span><br><span class="line">	set_trap_gate(<span class="number">9</span>,&amp;coprocessor_segment_overrun);</span><br><span class="line">	set_trap_gate(<span class="number">10</span>,&amp;invalid_TSS);</span><br><span class="line">	set_trap_gate(<span class="number">11</span>,&amp;segment_not_present);</span><br><span class="line">	set_trap_gate(<span class="number">12</span>,&amp;stack_segment);	<span class="comment">// 栈异常</span></span><br><span class="line">	set_trap_gate(<span class="number">13</span>,&amp;general_protection);</span><br><span class="line">	set_trap_gate(<span class="number">14</span>,&amp;page_fault);</span><br><span class="line">	set_trap_gate(<span class="number">15</span>,&amp;reserved);</span><br><span class="line">	set_trap_gate(<span class="number">16</span>,&amp;coprocessor_error);	<span class="comment">// 协处理器错误</span></span><br><span class="line">	<span class="keyword">for</span> (i=<span class="number">17</span>;i&lt;<span class="number">48</span>;i++)</span><br><span class="line">		set_trap_gate(i,&amp;reserved);</span><br><span class="line">	set_trap_gate(<span class="number">45</span>,&amp;irq13);		<span class="comment">// 协处理器</span></span><br><span class="line">	outb_p(inb_p(<span class="number">0x21</span>)&amp;<span class="number">0xfb</span>,<span class="number">0x21</span>);		<span class="comment">// 允许主 8259A 芯片的 IRQ2 中断请求</span></span><br><span class="line">	outb(inb_p(<span class="number">0xA1</span>)&amp;<span class="number">0xdf</span>,<span class="number">0xA1</span>);		<span class="comment">// 允许从 8259A 芯片的 IRQ13 中断请求</span></span><br><span class="line">	set_trap_gate(<span class="number">39</span>,&amp;parallel_interrupt);	<span class="comment">// 并行口</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _set_gate(gate_addr,type,dpl,addr) \</span></span><br><span class="line">__asm__ (<span class="string">"movw %%dx,%%ax\n\t"</span> \</span><br><span class="line">	<span class="string">"movw %0,%%dx\n\t"</span> \</span><br><span class="line">	<span class="string">"movl %%eax,%1\n\t"</span> \</span><br><span class="line">	<span class="string">"movl %%edx,%2"</span> \</span><br><span class="line">	: \</span><br><span class="line">	: <span class="string">"i"</span> ((<span class="keyword">short</span>) (<span class="number">0x8000</span>+(dpl&lt;&lt;<span class="number">13</span>)+(type&lt;&lt;<span class="number">8</span>))), \</span><br><span class="line">	<span class="string">"o"</span> (*((<span class="keyword">char</span> *) (gate_addr))), \</span><br><span class="line">	<span class="string">"o"</span> (*(<span class="number">4</span>+(<span class="keyword">char</span> *) (gate_addr))), \</span><br><span class="line">	<span class="string">"d"</span> ((<span class="keyword">char</span> *) (addr)),<span class="string">"a"</span> (<span class="number">0x00080000</span>))</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> set_trap_gate(n,addr) \</span></span><br><span class="line">	_set_gate(&amp;idt[n],<span class="number">15</span>,<span class="number">0</span>,addr)</span><br></pre></td></tr></table></figure></p>
+<p>这些代码的目的就是要<code>拼接</code>出之前博文 <a href="http://xiehongfeng100.github.io/2016/02/19/linux-kenel-0-11-topic-boot-part4/">Linux 内核学习笔记：内核引导程序之“head.s”</a> 所提到的<code>中断描述符</code>：<br><img src="/images/os/linux-kenel-0.11/init/part1/中断描述符格式.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>代码的执行效果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part1/trap_init代码的执行效果.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>对于<code>中断描述符拼接</code>，重要的是上述代码中的汇编代码部分：<br><img src="/images/os/linux-kenel-0.11/init/part1/中断描述符拼接代码.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>关于这段代码，《Linux 内核设计的艺术》以除零错误为例子详细分析了这段汇编代码：<br><img src="/images/os/linux-kenel-0.11/init/part1/以除零错误为例子详细分析中断描述符拼接代码.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>拼接效果如下图所示：<br><img src="/images/os/linux-kenel-0.11/init/part1/以除零错误为例子详细分析中断描述符拼接效果.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/22/linux-kenel-0-11-topic-init-part2/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：初始化程序（第 2 部分） —— 请求项、人机交互、开机启动时间
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/02/20/reading-sam-waltons-autobiography/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">富甲美国：沃尔玛创始人山姆·沃尔顿自传</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#设置根设备、硬盘"><span class="toc-number">1.</span> <span class="toc-text">设置根设备、硬盘</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#内存规划"><span class="toc-number">2.</span> <span class="toc-text">内存规划</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置虚拟盘空间并初始化"><span class="toc-number">3.</span> <span class="toc-text">设置虚拟盘空间并初始化</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#内存管理结构-mem-map-初始化"><span class="toc-number">4.</span> <span class="toc-text">内存管理结构 mem_map 初始化</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#异常处理类中断服务程序挂接"><span class="toc-number">5.</span> <span class="toc-text">异常处理类中断服务程序挂接</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

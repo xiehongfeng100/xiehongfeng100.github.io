@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：时钟中断 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="之前在学习内核的时候，清楚时钟中断的重要性，但所参考的书籍貌似都不大重视这一个，所以也就没有好好研究一下。今天想好好研究一下的缘由在于毕业论文所参考的一篇论文涉及到了时钟中断服务程序 do_timer。这篇文章名叫 OS support for detecting Trojan circuit attacks，作者是 Gedare Bloom、Bhagirath Narahar 和 Rahul S">
+<meta name="keywords" content="Linux,内核,时钟">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：时钟中断">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/03/14/linux-kenel-0-11-topic-timer-interrupt/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="之前在学习内核的时候，清楚时钟中断的重要性，但所参考的书籍貌似都不大重视这一个，所以也就没有好好研究一下。今天想好好研究一下的缘由在于毕业论文所参考的一篇论文涉及到了时钟中断服务程序 do_timer。这篇文章名叫 OS support for detecting Trojan circuit attacks，作者是 Gedare Bloom、Bhagirath Narahar 和 Rahul S">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/timer-interrupt/针对拒绝攻击系统架构.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/timer-interrupt/权限提升攻击.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/timer-interrupt/Xneomai对Linux的扩展.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/timer-interrupt/Xenomai实时进程调度.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.589Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：时钟中断">
+<meta name="twitter:description" content="之前在学习内核的时候，清楚时钟中断的重要性，但所参考的书籍貌似都不大重视这一个，所以也就没有好好研究一下。今天想好好研究一下的缘由在于毕业论文所参考的一篇论文涉及到了时钟中断服务程序 do_timer。这篇文章名叫 OS support for detecting Trojan circuit attacks，作者是 Gedare Bloom、Bhagirath Narahar 和 Rahul S">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/timer-interrupt/针对拒绝攻击系统架构.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-timer-interrupt" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/03/14/linux-kenel-0-11-topic-timer-interrupt/" class="article-date">
+  	<time datetime="2016-03-14T07:50:03.000Z" itemprop="datePublished">2016-03-14</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：时钟中断
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/时钟/">时钟</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>之前在学习内核的时候，清楚时钟中断的重要性，但所参考的书籍貌似都不大重视这一个，所以也就没有好好研究一下。今天想好好研究一下的缘由在于毕业论文所参考的一篇论文涉及到了时钟中断服务程序 <em>do_timer</em>。这篇文章名叫 <a href="http://pan.baidu.com/s/1hsJa5H6" target="_blank" rel="noopener"><code>OS support for detecting Trojan circuit attacks</code></a>，作者是 Gedare Bloom、Bhagirath Narahar 和 Rahul Simha。</p>
+<p>下边我们就先来看看这篇文章所涉及到的时钟中断部分。</p>
+<h1 id="引子：硬件木马实时检测"><a href="#引子：硬件木马实时检测" class="headerlink" title="引子：硬件木马实时检测"></a><strong>引子：硬件木马实时检测</strong></h1><p>硬件木马研究是我个人的硕士毕业论文方向。硬件木马跟软件木马类似，是指对电子电路或设计的恶意修改，从而导致电子设备的异常运行。鉴于硬件木马对集成电路所造成的巨大威胁，我们需要对其进行检测或者防御。而文章 <a href="http://pan.baidu.com/s/1hsJa5H6" target="_blank" rel="noopener"><code>OS support for detecting Trojan circuit attacks</code></a>所涉及的就是对硬件木马的实时（Run-time）检测。其中，跟时钟中断相关的是针对<code>拒绝服务攻击</code>（Denial of Service, DoS）的实时监测。</p>
+<p>拒绝服务攻击具体指的是对 CPU（Central Processing Unit）的攻击。为了检测这种攻击，作者提出了如下图所示的系统架构。作者假定操作系统和管家电路（Guard）是可信的。其中，作者使用的操作系统是 Linux，每 1ms 就会发生一次时钟中断，且该中断服务程序是与平台无关的 <em>do_timer</em> 函数。作者通过修改该函数，在每一个时钟中断发生时向该管家电路发送一个心跳（Liveness）。另外，管家电路的时钟，会在系统发生时钟中断时，与 CPU 的时钟同步。当管家电路在收到操作系统发给它的心跳后，会设置其看门狗定时器的值为一个随机值，开始倒数。</p>
+<p>当 CPU 被硬件木马攻击而导致挂起（也即拒绝服务）时，CPU 不再响应系统时钟中断，意味着管家电路的时钟不会被同步，也意味着看门狗定时器的值也不会被重置。这样，当看门狗定时器值递减为 0 时，管家电路就认为CPU没有正常工作、遭受了拒绝服务攻击，这时管家电路可以对 CPU 进行复位或者告诉用户。</p>
+<p><img src="/images/os/linux-kenel-0.11/timer-interrupt/针对拒绝攻击系统架构.png" alt>  </p>
+<a id="more"></a>
+<p><strong>注</strong><br>另外，这篇文章还针对<code>权限提升攻击</code>提出了具体的检测方案。因为该方案设计到内核，所以暂将该方案写到该博文中，虽然它跟本文主题毫无关系。</p>
+<p>权限提升攻击需要软硬件协同。首先，硬件木马被恶意软件触发，关闭系统的内存保护（Memory protect, MP）。没有内存保护，所有进程都可以访问内存的任何地方。接着，如下图所示，恶意软件访问操作系统的进程链表，并搜索该链表，找到该软件对应的进程控制块（Process control block, PCB），将其有效用户 ID（Effective user ID, euid）改为0，也即将其权限提升至跟超级用户一样，这样该软件就可以像超级用户一样为所欲为了。</p>
+<p><img src="/images/os/linux-kenel-0.11/timer-interrupt/权限提升攻击.png" alt>  </p>
+<p>上述恶意软件攻击过程可用类似C语言伪代码表示如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 代码段：攻击伪代码</span></span><br><span class="line">task = <span class="number">0xc07093e0</span>;      <span class="comment">/* 进程链表头指针 */</span></span><br><span class="line">pid_offset = <span class="number">464</span>;       <span class="comment">/* 进程 ID 在进程控制块（PCB）中的偏移量 */</span></span><br><span class="line">euid_offset = <span class="number">676</span>;      <span class="comment">/* 有效用户 ID 在进程控制块中的偏移量 */</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 恶意软件告诉硬件木马关闭内存保护 */</span></span><br><span class="line">disable_prot();</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 寻找进程号为 my_pid 的进程控制块 */</span></span><br><span class="line"><span class="keyword">do</span> &#123;</span><br><span class="line">	task = next_task(task);</span><br><span class="line">&#125; <span class="keyword">while</span> (*(task+pid_offset) != my_pid);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 将进程有效用户 ID 改为 0，即提升该进程的权限为超级用户 */</span></span><br><span class="line">*(task+euid_offset) = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 恶意软件告诉硬件木马开启内存保护 */</span></span><br><span class="line">enable_prot();</span><br></pre></td></tr></table></figure></p>
+<p>针对该攻击，作者提出在硬件和操作系统 Linux 之间再加一层内核层 <a href="http://pan.baidu.com/s/1pLR9I59" target="_blank" rel="noopener">Xenomai 实时框架</a>，如下图所示。Xenomai 只是拓展了 Linux 内核，算是 Linux 内核的一部分。Xenomai 能够提供实时进程调度。当没有实时进程（Real-time task）的时候，Xenomai 触发 Linux 内核的进程调度模块；反之则使用 Xenomai 的实时进程调度模块。</p>
+<p><img src="/images/os/linux-kenel-0.11/timer-interrupt/Xneomai对Linux的扩展.png" alt>Xneomai 对 Linux 的扩展  </p>
+<p>作者通过新建一个实时进程，来实现对内存保护标志位的检查。作者经过测试，扫描一次进程链表所需时间在 15~20 微秒，所以将实时进程被调度的时间周期定为 15 微秒。如下图所示，每过 15 微秒，该实时进程就对内存保护标志位进行检查，确保系统安全；当该进程被挂起时，Xenomai 触发 Linux 内核的进程调度模块，由 Linux 内核对进程进行调度。</p>
+<p><img src="/images/os/linux-kenel-0.11/timer-interrupt/Xenomai实时进程调度.png" alt>Xenomai实时进程调度。其中，浅蓝色的代表的是实时进程，深绿色代表的是常规的Linux进程调度时间  </p>
+<h1 id="时钟中断"><a href="#时钟中断" class="headerlink" title="时钟中断"></a><strong>时钟中断</strong></h1><p>时钟中断是 Linux 内核工作的脉搏，是进程调度的基础。</p>
+<h2 id="时钟中断设置"><a href="#时钟中断设置" class="headerlink" title="时钟中断设置"></a><strong>时钟中断设置</strong></h2><p>时钟中断是由计数器 8254 间隔定时产生的。在 Linux 0.11 中，该定时器被设置为每个 10ms 产生一次时钟中断，具体代码如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/sched.c -------------------------------</span></span><br><span class="line">outb_p(<span class="number">0x36</span>,<span class="number">0x43</span>);		<span class="comment">/* binary, mode 3, LSB/MSB, ch 0 */</span>	<span class="comment">// 设置定时器</span></span><br><span class="line">outb_p(LATCH &amp; <span class="number">0xff</span> , <span class="number">0x40</span>);	<span class="comment">/* LSB */</span>	<span class="comment">// 每 10 毫秒一次时钟中断</span></span><br><span class="line">outb(LATCH &gt;&gt; <span class="number">8</span> , <span class="number">0x40</span>);	<span class="comment">/* MSB */</span>		</span><br><span class="line">set_intr_gate(<span class="number">0x20</span>,&amp;timer_interrupt);		<span class="comment">// 设置时钟中断，进程调度基础</span></span><br><span class="line">outb(inb_p(<span class="number">0x21</span>)&amp;~<span class="number">0x01</span>,<span class="number">0x21</span>);			<span class="comment">// 允许时钟中断</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// include/asm/system.h ------------------------</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> set_intr_gate(n,addr) \</span></span><br><span class="line">	_set_gate(&amp;idt[n],<span class="number">14</span>,<span class="number">0</span>,addr)</span><br></pre></td></tr></table></figure></p>
+<p>8254 计数器总共有 6 个工作方式。在 Linux 0.11 中，该计数器被设置为工作在方式 2 —— <code>频率发生器（Rate Generator）</code>：  </p>
+<blockquote>
+<p>该方式的功能类似于一个 N 分频器。通常用于产生一个实时时钟中断。初始状态下 OUT（计数器输出） 为高电平。当计数值递减为 1 时，OUT 变为低电平后再变为高电平。间隔时间为一个 CLK 脉冲宽度。此时计数器会重新加载初始值并重复上述过程。因此，对于初始计数值为 N 的情况，会在每 N 个时钟脉冲时输出一个低电平脉冲信号。在这种方式下 GATE（计数器的门控制输入端） 可控制计数的暂停和继续。当 GATE 变高时会让计数器重新加载初始值并开始重新计数。</p>
+</blockquote>
+<p>关于 8254 详细信息请参考《Linux 内核完全注释》（修正版 V3.0）第 8.7 节。</p>
+<p>另外，时钟中断处理程序如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/system_call.s -------------------------</span></span><br><span class="line">.align <span class="number">2</span></span><br><span class="line">_timer_interrupt:</span><br><span class="line">	push %ds		<span class="meta"># save ds,es and put kernel data space</span></span><br><span class="line">	push %es		<span class="meta"># into them. %fs is used by _system_call</span></span><br><span class="line">	push %fs</span><br><span class="line">	pushl %edx		<span class="meta"># we save %eax,%ecx,%edx as gcc doesn<span class="meta-string">'t</span></span></span><br><span class="line">	pushl %ecx		# save those across function calls. %ebx</span><br><span class="line">	pushl %ebx		<span class="meta"># is saved as we use that in ret_sys_call</span></span><br><span class="line">	pushl %eax</span><br><span class="line">	movl $<span class="number">0x10</span>,%eax</span><br><span class="line">	mov %ax,%ds</span><br><span class="line">	mov %ax,%es</span><br><span class="line">	movl $<span class="number">0x17</span>,%eax</span><br><span class="line">	mov %ax,%fs</span><br><span class="line">	incl _jiffies</span><br><span class="line">	movb $<span class="number">0x20</span>,%al		# EOI to interrupt controller #<span class="number">1</span></span><br><span class="line">	outb %al,$<span class="number">0x20</span></span><br><span class="line">	movl CS(%esp),%eax</span><br><span class="line">	andl $<span class="number">3</span>,%eax		# %<span class="function">eax is <span class="title">CPL</span> <span class="params">(<span class="number">0</span> <span class="keyword">or</span> <span class="number">3</span>, <span class="number">0</span>=supervisor)</span></span></span><br><span class="line">	pushl %eax</span><br><span class="line">	call _do_timer		# 'do_timer(long CPL)' does everything from</span><br><span class="line">	addl $<span class="number">4</span>,%esp		<span class="meta"># task switching to accounting ...</span></span><br><span class="line">	jmp ret_from_sys_call</span><br></pre></td></tr></table></figure></p>
+<p>其中，<em>do_timer</em> 是时钟中断服务程序。</p>
+<h2 id="时钟中断服务程序-do-timer"><a href="#时钟中断服务程序-do-timer" class="headerlink" title="时钟中断服务程序 do_timer"></a><strong>时钟中断服务程序 do_timer</strong></h2><p><em>do_timer</em> 定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// kenel/sched.c -------------------------------</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">do_timer</span><span class="params">(<span class="keyword">long</span> cpl)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">extern</span> <span class="keyword">int</span> beepcount;</span><br><span class="line">	<span class="function"><span class="keyword">extern</span> <span class="keyword">void</span> <span class="title">sysbeepstop</span><span class="params">(<span class="keyword">void</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (beepcount)</span><br><span class="line">		<span class="keyword">if</span> (!--beepcount)</span><br><span class="line">			sysbeepstop();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (cpl)	<span class="comment">// 一般用户程序</span></span><br><span class="line">		current-&gt;utime++;</span><br><span class="line">	<span class="keyword">else</span>	<span class="comment">// 内核程序</span></span><br><span class="line">		current-&gt;stime++;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (next_timer) &#123;</span><br><span class="line">		next_timer-&gt;jiffies--;</span><br><span class="line">		<span class="keyword">while</span> (next_timer &amp;&amp; next_timer-&gt;jiffies &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">			<span class="keyword">void</span> (*fn)(<span class="keyword">void</span>);</span><br><span class="line">			</span><br><span class="line">			fn = next_timer-&gt;fn;</span><br><span class="line">			next_timer-&gt;fn = <span class="literal">NULL</span>;</span><br><span class="line">			next_timer = next_timer-&gt;next;</span><br><span class="line">			(fn)();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (current_DOR &amp; <span class="number">0xf0</span>)</span><br><span class="line">		do_floppy_timer();</span><br><span class="line">	<span class="keyword">if</span> ((--current-&gt;counter)&gt;<span class="number">0</span>) <span class="keyword">return</span>;	<span class="comment">// 如果程序运行时间还没完，则退出</span></span><br><span class="line">	current-&gt;counter=<span class="number">0</span>;</span><br><span class="line">	<span class="keyword">if</span> (!cpl) <span class="keyword">return</span>;	<span class="comment">// 对于内核程序，不依赖 counter 值进行调度</span></span><br><span class="line">	schedule();	<span class="comment">// 进程调度</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> TIME_REQUESTS 64</span></span><br><span class="line"><span class="keyword">static</span> <span class="class"><span class="keyword">struct</span> <span class="title">timer_list</span> &#123;</span></span><br><span class="line">	<span class="keyword">long</span> jiffies;</span><br><span class="line">	<span class="keyword">void</span> (*fn)();</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">timer_list</span> * <span class="title">next</span>;</span></span><br><span class="line">&#125; timer_list[TIME_REQUESTS], * next_timer = <span class="literal">NULL</span>;</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/03/14/linux-kenel-0-11-topic-summary/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：总结
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/03/14/linux-kenel-0-11-topic-malloc/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：malloc 函数</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#引子：硬件木马实时检测"><span class="toc-number">1.</span> <span class="toc-text">引子：硬件木马实时检测</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#时钟中断"><span class="toc-number">2.</span> <span class="toc-text">时钟中断</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#时钟中断设置"><span class="toc-number">2.1.</span> <span class="toc-text">时钟中断设置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#时钟中断服务程序-do-timer"><span class="toc-number">2.2.</span> <span class="toc-text">时钟中断服务程序 do_timer</span></a></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

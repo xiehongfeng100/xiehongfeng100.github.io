@@ -1,0 +1,169 @@
+@startuml
+
+title Ml2Plugin
+
+participant ml2_plugin as "neutron.plugins.ml2.plugin::Ml2Plugin"
+participant type_manager as "neutron.plugins.ml2.managers::TypeManager"
+participant extension_manager as "neutron.plugins.ml2.managers::ExtensionManager"
+participant mechanism_manager as "neutron.plugins.ml2.managers::MechanismManager"
+
+activate ml2_plugin
+note over ml2_plugin
+We shall only focus on the initiation
+of the Ml2Plugin (_\_init__)
+end note
+
+ml2_plugin->type_manager: call neutron.plugins.ml2.managers.py::TypeManager()
+
+activate type_manager
+note over type_manager
+````
+load **type drivers** configured in setup.cfg and ml2_conf.ini:
+* neutron.plugins.ml2.managers.py
+class TypeManager(stevedore.named.NamedExtensionManager):
+    """Manage network segment types using drivers."""
+
+    def _\_init__(self):
+        ...
+        super(TypeManager, self).__init__('neutron.ml2.type_drivers',
+                                          cfg.CONF.ml2.type_drivers,
+                                          invoke_on_load=True)
+        ....
+        self._register_types()
+
+* setup.cfg
+neutron.ml2.type_drivers =
+    flat = neutron.plugins.ml2.drivers.type_flat:FlatTypeDriver
+    local = neutron.plugins.ml2.drivers.type_local:LocalTypeDriver
+    vlan = neutron.plugins.ml2.drivers.type_vlan:VlanTypeDriver
+    geneve = neutron.plugins.ml2.drivers.type_geneve:GeneveTypeDriver
+    gre = neutron.plugins.ml2.drivers.type_gre:GreTypeDriver
+    vxlan = neutron.plugins.ml2.drivers.type_vxlan:VxlanTypeDriver
+````
+end note
+
+type_manager-->ml2_plugin: return the manager
+deactivate type_manager
+
+ml2_plugin->extension_manager: call neutron.plugins.ml2.managers.py::ExtensionManager()
+
+activate extension_manager
+note over extension_manager
+load **extension drivers** configured in setup.cfg and ml2_conf.ini:
+
+````
+* setup.cfg
+neutron.ml2.extension_drivers =
+    test = neutron.tests.unit.plugins.ml2.drivers.ext_test:TestExtensionDriver
+    testdb = neutron.tests.unit.plugins.ml2.drivers.ext_test:TestDBExtensionDriver
+    port_security = neutron.plugins.ml2.extensions.port_security:PortSecurityExtensionDriver
+    qos = neutron.plugins.ml2.extensions.qos:QosExtensionDriver
+    dns = neutron.plugins.ml2.extensions.dns_integration:DNSExtensionDriverML2
+````
+end note
+
+extension_manager-->ml2_plugin: return the manager
+deactivate extension_manager
+
+ml2_plugin->mechanism_manager: call neutron.plugins.ml2.managers.py::MechanismManager()
+
+activate mechanism_manager
+note over mechanism_manager
+load **mechanism drivers** configured in setup.cfg and ml2_conf.ini:
+
+````
+* setup.cfg
+neutron.ml2.mechanism_drivers =
+    logger = neutron.tests.unit.plugins.ml2.drivers.mechanism_logger:LoggerMechanismDriver
+    test = neutron.tests.unit.plugins.ml2.drivers.mechanism_test:TestMechanismDriver
+    linuxbridge = neutron.plugins.ml2.drivers.linuxbridge.mech_driver.mech_linuxbridge:LinuxbridgeMechanismDriver
+    macvtap = neutron.plugins.ml2.drivers.macvtap.mech_driver.mech_macvtap:MacvtapMechanismDriver
+    openvswitch = neutron.plugins.ml2.drivers.openvswitch.mech_driver.mech_openvswitch:OpenvswitchMechanismDriver
+    l2population = neutron.plugins.ml2.drivers.l2pop.mech_driver:L2populationMechanismDriver
+    sriovnicswitch = neutron.plugins.ml2.drivers.mech_sriov.mech_driver.mech_driver:SriovNicSwitchMechanismDriver
+    fake_agent = neutron.tests.unit.plugins.ml2.drivers.mech_fake_agent:FakeAgentMechanismDriver
+````
+end note
+
+mechanism_manager-->ml2_plugin: return the manager
+deactivate mechanism_manager
+
+ml2_plugin->type_manager: call neutron.plugins.ml2.managers.py::TypeManager::initialize()
+activate type_manager
+note over type_manager: initialize all registered type drivers
+type_manager-->ml2_plugin: return
+deactivate type_manager
+
+ml2_plugin->extension_manager: call neutron.plugins.ml2.managers.py::ExtensionManager::initialize()
+activate extension_manager
+note over extension_manager: initialize all registered extension drivers
+extension_manager-->ml2_plugin: return
+deactivate extension_manager
+
+ml2_plugin->mechanism_manager: call neutron.plugins.ml2.managers.py::MechanismManager::initialize()
+activate mechanism_manager
+note over mechanism_manager: initialize all registered type drivers
+mechanism_manager-->ml2_plugin: return
+deactivate mechanism_manager
+
+note over ml2_plugin
+setup **dhcp**:
+````
+class Ml2Plugin(...):
+	...
+    def _setup_dhcp(self):
+        """Initialize components to support DHCP."""
+        self.network_scheduler = importutils.import_object(
+            cfg.CONF.network_scheduler_driver
+        )
+        self.add_periodic_dhcp_agent_status_check()
+````
+While cfg.CONF.network_scheduler_driver is 
+neutron.scheduler.dhcp_agent_scheduler.WeightScheduler
+end note
+
+note over ml2_plugin #EB9898
+setup **rpc notifiers**:
+````
+class Ml2Plugin(...):
+	...
+    @log_helpers.log_method_call
+    def _start_rpc_notifiers(self):
+        """Initialize RPC notifiers for agents."""
+        self.ovo_notifier = ovo_rpc.OVOServerRpcInterface()
+        self.notifier = rpc.AgentNotifierApi(topics.AGENT)
+        self.agent_notifiers[const.AGENT_TYPE_DHCP] = (
+            dhcp_rpc_agent_api.DhcpAgentNotifyAPI()
+        )
+````
+end note
+
+note over ml2_plugin #60A1EB
+subscribe **callbacks** for resource events:
+````
+class Ml2Plugin(...):
+	...
+	def _\_init__(self):
+		...
+        registry.subscribe(self._port_provisioned, resources.PORT,
+                           provisioning_blocks.PROVISIONING_COMPLETE)
+        registry.subscribe(self._handle_segment_change, resources.SEGMENT,
+                           events.PRECOMMIT_CREATE)
+        registry.subscribe(self._handle_segment_change, resources.SEGMENT,
+                           events.PRECOMMIT_DELETE)
+        registry.subscribe(self._handle_segment_change, resources.SEGMENT,
+                           events.AFTER_CREATE)
+        registry.subscribe(self._handle_segment_change, resources.SEGMENT,
+                           events.AFTER_DELETE)
+        registry.subscribe(self._subnet_delete_precommit_handler,
+                           resources.SUBNET, events.PRECOMMIT_DELETE)
+        registry.subscribe(self._subnet_delete_after_delete_handler,
+                           resources.SUBNET, events.AFTER_DELETE)
+        ...
+````
+end note
+note over ml2_plugin: add **agent status check worker**
+note over ml2_plugin: add workers from mechanism drivers
+note over ml2_plugin: verify service plugins requirements
+
+@enduml

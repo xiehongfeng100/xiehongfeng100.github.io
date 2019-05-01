@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>【译】 Tun/Tap 设备导论 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="译注：本文翻译自 Tun/Tap interface tutorial。这篇文章写的相当不错，特翻译。另外，为了跟以前博文统一，本文将 interface 统一翻译为设备；在适当地方，进行意译。 前言：请注意本文所涉及代码只用于展示。如果你想谨慎点，你需要自己提高代码的健壮性和整合其到其他代码中。另外，本文的描述也不是关于本文主题的最终参考，而只是我个人的实验结果。请报告在代码和文章中找到 bug">
+<meta name="keywords" content="Tun,Tap,VPN,Tunnel">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【译】 Tun&#x2F;Tap 设备导论">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/12/09/net-tun-tap-interface-tutorial/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="译注：本文翻译自 Tun/Tap interface tutorial。这篇文章写的相当不错，特翻译。另外，为了跟以前博文统一，本文将 interface 统一翻译为设备；在适当地方，进行意译。 前言：请注意本文所涉及代码只用于展示。如果你想谨慎点，你需要自己提高代码的健壮性和整合其到其他代码中。另外，本文的描述也不是关于本文主题的最终参考，而只是我个人的实验结果。请报告在代码和文章中找到 bug">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-01T07:11:23.076Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="【译】 Tun&#x2F;Tap 设备导论">
+<meta name="twitter:description" content="译注：本文翻译自 Tun/Tap interface tutorial。这篇文章写的相当不错，特翻译。另外，为了跟以前博文统一，本文将 interface 统一翻译为设备；在适当地方，进行意译。 前言：请注意本文所涉及代码只用于展示。如果你想谨慎点，你需要自己提高代码的健壮性和整合其到其他代码中。另外，本文的描述也不是关于本文主题的最终参考，而只是我个人的实验结果。请报告在代码和文章中找到 bug">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-net-tun-tap-interface-tutorial" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/12/09/net-tun-tap-interface-tutorial/" class="article-date">
+  	<time datetime="2016-12-09T13:05:08.000Z" itemprop="datePublished">2016-12-09</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      【译】 Tun/Tap 设备导论
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tap/">Tap</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tun/">Tun</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Tunnel/">Tunnel</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/VPN/">VPN</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/网络/">网络</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><strong>译注：</strong>本文翻译自 <a href="http://backreference.org/2010/03/26/tuntap-interface-tutorial/" target="_blank" rel="noopener">Tun/Tap interface tutorial</a>。这篇文章写的相当不错，特翻译。另外，为了跟以前博文统一，本文将 <code>interface</code> 统一翻译为<code>设备</code>；在适当地方，进行意译。</p>
+<p>前言：请注意本文所涉及代码只用于展示。如果你想谨慎点，你需要自己提高代码的健壮性和整合其到其他代码中。另外，本文的描述也不是关于本文主题的最终参考，而只是我个人的实验结果。请报告在代码和文章中找到 bug 或者错误，谢谢！</p>
+<p>本文所涉及的源代码包链接：<a href="https://github.com/gregnietsky/simpletun" target="_blank" rel="noopener">simpletun</a>。</p>
+<hr>
+<p>更新于 2010 年 07 月 18 日：通过这篇<a href="http://blog.bofh.it/debian/id_379" target="_blank" rel="noopener">文章</a>，我才了解到 iproute2 的新版本已经可以（最终）创建 tun/tap 设备，尽管对这功能没有（还是这样？）完善文档支持。因此，安装 tunctl （UML 工具）或者 OpenVPN 来只创建 tun 设备就不必要了。下边是 iproute2-2.6.34 关于 tun/tap 帮助文档：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># ip tuntap help</span><br><span class="line">Usage: ip tuntap &#123; add | del &#125; [ dev PHYS_DEV ] </span><br><span class="line">          [ mode &#123; tun | tap &#125; ] [ user USER ] [ group GROUP ]</span><br><span class="line">          [ one_queue ] [ pi ] [ vnet_hdr ]</span><br><span class="line"></span><br><span class="line">Where: USER  := &#123; STRING | NUMBER &#125;</span><br><span class="line">       GROUP := &#123; STRING | NUMBER &#125;</span><br></pre></td></tr></table></figure></p>
+<p>Tun/Tap 设备是由 Linux （和可能其他类 Unix 操作系统）所提供的特色功能，可用于用户空间网络操作（userspace networking），也即允许用户空间程序直接接触原生网络流量（以太网层或 IP 层），并对它们进行任意处理。本文尝试解释在 Linux 下 tun/tap 设备是如何工作的，并通过一些样例代码来展示如何使用它们。</p>
+<hr>
+<a id="more"></a>
+<h1 id="Tun-Tap-是怎么工作的"><a href="#Tun-Tap-是怎么工作的" class="headerlink" title="Tun/Tap 是怎么工作的"></a><strong>Tun/Tap 是怎么工作的</strong></h1><p>Tun/Tap 设备是软件定义的设备，这意味着它们只存在于内核，而且，跟一般网卡设备不一样，它们没有对应的物理设备（所以也没有物理连线连接到它们）。你可以把 tun/tap 设备想像成一个常规的网卡设备，当内核要通过“物理连线”发送数据的时候，将数据发送到跟 tun/tap 设备绑定（有具体流程，见下文）的用户空间的程序。当用户空间程序绑定到 tun/tap 设备，它会得到一个特殊的<code>文件描述符</code>，通过该描述符可以读取从 tun/tap 设备发出的数据。类似地，用户程序可以向该描述符写数据（必须适当格式化好，见下文），然后这些数据会作为 tun/tap 设备的输入。对于内核而言，这个过程就像是 tun/tap 设备从“物理连线”上收发数据一样。</p>
+<p>tap 设备和 tun 设备的区别在于，tap 设备输出（也必须给出）的是完整的以太网帧，而 tun 设备输出（也必须给出）的是原生 IP 数据包（没有内核添加的以太网帧头）。一个设备是起 tun 设备还是起 tap 设备的作用是通过创建时的标签来区分的。</p>
+<p>tun/tap 设备可以是<code>临时的</code>，也即，它由一个同样的程序创建、使用和销毁；当该程序退出时，即使它没有显式地销毁该设备，该设备也会自动消失。另外一个创建 tun/tap 设备的方法是使得它们<code>持久化</code>（persistent）（译注：除非你自己删除它）；在这种情况下，tun/tap 设备由一个特定的工具（如 <code>tunctl</code>、<code>openvpn --mktun</code>）来创建，然后用户程序可以依附到该设备；在这个依附过程中，用户程序必须使用创建设备时的类型（tun 或者 tap）来连接到设备，否则依附将会失败。下文我们看看在代码中是如何做到的。</p>
+<p>一旦一个 tun/tap 设备创建成功，那它就可以像其他设备一样使用，意味着可以给它添加 IP、分析它的流量、添加防火墙规则、添加指向它的路由表等等。</p>
+<p>有这些知识背景，让我们看看怎么使用 tun/tap 设备和可以用它们来做什么。</p>
+<h1 id="创建-Tun-Tap-设备"><a href="#创建-Tun-Tap-设备" class="headerlink" title="创建 Tun/Tap 设备"></a><strong>创建 Tun/Tap 设备</strong></h1><p>创建一个全新的设备和（重新）依附到一个持久化的设备的代码本质上是一样的，区别在于前者需要 root 用户来创建（好吧，更准确点，是拥有  <code>CAP_NET_ADMIN</code> 权限的用户），而后者只要普通用户满足一些要求就可以做到。让我们从创建一个新的设备开始。</p>
+<p>首先，不管你做什么，<code>/dev/net/tun</code> 设备都必须以读/写模式打开。这个设备也称为<code>克隆设备</code>（clone device），因为它被用作创建 tun/tap 虚拟设备的起点。这个操作（跟其他 open() 调用一样）返回一个文件描述符。但要用该描述符跟设备进行通信，这样还是不够的。</p>
+<p>第二步是调用系统调用函数 <code>ioctl()</code>，传入的参数包括第一步得到的文件描述符、常数 <code>TUNSETIFF</code>、指向一个描述虚拟设备参数（基本的，包括名字、运行模式——tun 或 tap）的数据结构。作为可变参数，虚拟机设备的名字可以不指定，内核会试着按已存在的类型（tun 或 tap）一样的的设备的下一个设备来挑选名字（如，如果 tap2 已经存在，那内核就会试着分配 tap3，以此类推）。<code>这些操作都需要 root 用户</code>（或者是拥有 CAP_NET_ADMIN 权限的用户 ——在下文我不会再重复，这里约定当我说“必须由 root 用户执行”时，就有这一层意思）。</p>
+<p>如果 ioctl() 函数成功返回，那虚拟设备就已经创建好，而且文件描述符已经关联到该设备。可以使用该描述符进行通信。</p>
+<p>到这点，有两件事可以发生。用户程序可以开始马上使用该设备（可能提前给它配置了一个 IP 地址），使用完的时候，退出并销毁掉该设备。另外一个选择是通过其他特殊的 ioctl() 调用把该设备转化为持久化的，程序退出也不销毁该设备，保留给其它程序使用。这是 <code>tunctl</code> 或者 <code>openvpn --mktun</code> 这类程序的做法。例如，这类程序通常也提供设置设备的所有者为非 root 用户或非 root 组的功能，所以当程序以非 root 权限运行并拥有该设备的合理权限时，就可以依附到该设备。</p>
+<p>创建虚拟设备的基本代码可见于内核代码树下的 <a href="https://www.kernel.org/doc/Documentation/networking/tuntap.txt" target="_blank" rel="noopener">Documentation/networking/tuntap.txt</a> 文档。修改一小点，就可以写一个创建虚拟设备的准函数：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux /if.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux /if_tun.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">tun_alloc</span><span class="params">(<span class="keyword">char</span> *dev, <span class="keyword">int</span> flags)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">ifreq</span> <span class="title">ifr</span>;</span></span><br><span class="line">	<span class="keyword">int</span> fd, err;</span><br><span class="line">	<span class="keyword">char</span> *clonedev = <span class="string">"/dev/net/tun"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Arguments taken by the function:</span></span><br><span class="line"><span class="comment">	*</span></span><br><span class="line"><span class="comment">	* char *dev: the name of an interface (or '\0'). MUST have enough</span></span><br><span class="line"><span class="comment">	*   space to hold the interface name if '\0' is passed</span></span><br><span class="line"><span class="comment">	* int flags: interface flags (eg, IFF_TUN etc.)</span></span><br><span class="line"><span class="comment">	*/</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* open the clone device */</span></span><br><span class="line">	<span class="keyword">if</span> ((fd = open(clonedev, O_RDWR)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		<span class="keyword">return</span> fd;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* preparation of the struct ifr, of type "struct ifreq" */</span></span><br><span class="line">	<span class="built_in">memset</span>(&amp;ifr, <span class="number">0</span>, <span class="keyword">sizeof</span>(ifr));</span><br><span class="line"></span><br><span class="line">	ifr.ifr_flags = flags;   <span class="comment">/* IFF_TUN or IFF_TAP, plus maybe IFF_NO_PI */</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (*dev) &#123;</span><br><span class="line">		<span class="comment">/* if a device name was specified, put it in the structure; otherwise,</span></span><br><span class="line"><span class="comment">		* the kernel will try to allocate the "next" device of the</span></span><br><span class="line"><span class="comment">		* specified type */</span></span><br><span class="line">		<span class="built_in">strncpy</span>(ifr.ifr_name, dev, IFNAMSIZ);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* try to create the device */</span></span><br><span class="line">	<span class="keyword">if</span> ((err = ioctl(fd, TUNSETIFF, (<span class="keyword">void</span> *)&amp;ifr)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		close(fd);</span><br><span class="line">		<span class="keyword">return</span> err;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* if the operation was successful, write back the name of the</span></span><br><span class="line"><span class="comment">	* interface to the variable "dev", so the caller can know</span></span><br><span class="line"><span class="comment">	* it. Note that the caller MUST reserve space in *dev (see calling</span></span><br><span class="line"><span class="comment">	* code below) */</span></span><br><span class="line">	<span class="built_in">strcpy</span>(dev, ifr.ifr_name);</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* this is the special file descriptor that the caller will use to talk</span></span><br><span class="line"><span class="comment">	* with the virtual interface */</span></span><br><span class="line">	<span class="keyword">return</span> fd;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>tun_alloc() 函数接受两个参数：</p>
+<ul>
+<li><p><code>char *dev</code> 包含设备的名字（如 tap0、tap2 等等）。尽管采用能够暗示其类型的名字更好点，任何名字都可以使用。实际中，像 tunX 或者 tapX 的名字很常用。如果 *dev 为<code>\0</code>，内核会尝试创建第一个请求类型的设备（如 tap0，但如果已有同类型的设备存在，则为 tap1，以此类推）</p>
+</li>
+<li><p><code>int flags</code> 告诉内核将要创建的设备类型（tun 或者 tap）。基本地，可以用 <code>IFF_TUN</code> 来表示 Tun 设备（无以太网帧头），或者 <code>IFF_TAP</code> 来表示 Tap 设备 （有以太网帧头） 。另外，另一个标志 <code>IFF_NO_PI</code> 能够与这两个基本的标志进行或运算。 该标志告诉内核不要提供数据包信息，它的目的就在于告诉内核数据包是“纯洁的” IP 数据包，没有多余的字节；反之（ IFF_NO_PI 没有设置），4 个额外的字节就会被添加到数据包的前边（2 个标志字节和 2 个协议字节）。 IFF_NO_PI 不需要在设备创建和重新连接期间进行匹配。另外需要注意的是，当用 Wireshark 抓包的时候，那 4 个字节不会被显示。</p>
+</li>
+</ul>
+<p>可以利用下边代码来创建一个设备：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">char</span> tun_name[IFNAMSIZ];</span><br><span class="line"><span class="keyword">char</span> tap_name[IFNAMSIZ];</span><br><span class="line"><span class="keyword">char</span> *a_name;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="built_in">strcpy</span>(tun_name, <span class="string">"tun1"</span>);</span><br><span class="line">tunfd = tun_alloc(tun_name, IFF_TUN);  <span class="comment">/* tun interface */</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">strcpy</span>(tap_name, <span class="string">"tap44"</span>);</span><br><span class="line">tapfd = tun_alloc(tap_name, IFF_TAP);  <span class="comment">/* tap interface */</span></span><br><span class="line"></span><br><span class="line">a_name = <span class="built_in">malloc</span>(IFNAMSIZ);</span><br><span class="line">a_name[<span class="number">0</span>] = <span class="string">'\0'</span>;</span><br><span class="line">tapfd = tun_alloc(a_name, IFF_TAP);    <span class="comment">/* let the kernel pick a name */</span></span><br></pre></td></tr></table></figure></p>
+<p>到了这里，就如我们之前所说的，程序可以只用该设备于自己的目的，或者把它设定为持久化（和设置该设备所有者为具体的用户/组）。如果程序做的是前一种，那没有什么好说的；但如果它做的是后一种，这正是后文要说的。</p>
+<p>有两个额外的 ioctl() 调用可用，它们经常一起使用。第一个系统调用可以设置（或移除）设备持久化状态；第二个系统调用允许将设备的所有者赋给普通 （非 root） 用户。这两个功能，<code>tunctl</code> 和 <code>openvpn --mktun</code> （或者其他）都提供。接下来，因为 <code>tunctl</code> 代码更为简单，我们看看。记住，这个代码片段只创建 tap 设备，就像<a href="http://user-mode-linux.sourceforge.net/" target="_blank" rel="noopener">用户模式 Linux</a> （User-mode Linux）用法一样（代码简单编辑和简单化过，以更清晰明了）：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">	<span class="comment">/* "delete" is set if the user wants to delete (ie, make nonpersistent)</span></span><br><span class="line"><span class="comment">	an existing interface; otherwise, the user is creating a new</span></span><br><span class="line"><span class="comment">	interface */</span></span><br><span class="line">	<span class="keyword">if</span> (<span class="keyword">delete</span>) &#123;</span><br><span class="line">		<span class="comment">/* remove persistent status */</span></span><br><span class="line">		<span class="keyword">if</span> (ioctl(tap_fd, TUNSETPERSIST, <span class="number">0</span>) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">			perror(<span class="string">"disabling TUNSETPERSIST"</span>);</span><br><span class="line">			<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Set '%s' nonpersistent\n"</span>, ifr.ifr_name);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">/* emulate behaviour prior to TUNSETGROUP */</span></span><br><span class="line">		<span class="keyword">if</span> (owner == <span class="number">-1</span> &amp;&amp; group == <span class="number">-1</span>) &#123;</span><br><span class="line">			owner = geteuid();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (owner != <span class="number">-1</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (ioctl(tap_fd, TUNSETOWNER, owner) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">			perror(<span class="string">"TUNSETOWNER"</span>);</span><br><span class="line">			<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (group != <span class="number">-1</span>) &#123;</span><br><span class="line">		<span class="keyword">if</span> (ioctl(tap_fd, TUNSETGROUP, group) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">			perror(<span class="string">"TUNSETGROUP"</span>);</span><br><span class="line">			<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (ioctl(tap_fd, TUNSETPERSIST, <span class="number">1</span>) &lt; <span class="number">0</span>)&#123;</span><br><span class="line">		perror(<span class="string">"enabling TUNSETPERSIST"</span>);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (brief)</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"%s\n"</span>, ifr.ifr_name);</span><br><span class="line">	<span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Set '%s' persistent and owned by"</span>, ifr.ifr_name);</span><br><span class="line">		<span class="keyword">if</span> (owner != <span class="number">-1</span>)</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">" uid %d"</span>, owner);</span><br><span class="line">		<span class="keyword">if</span> (group != <span class="number">-1</span>)</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">" gid %d"</span>, group);</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"\n"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>这些额外的 ioctl() 调用还是需要 root 用户来运行，但我们现在所拥有的是一个由某个用户拥有的持久存在的设备，所以以该用户运行的程序能够依附到这个设备上。</p>
+<p>就如前边所说的，这证明了（重新）依附到一个已存在的 tun/tap 设备的代码和创建一个新的设备的一样；换句话说，<code>tun_alloc()</code> 函数可以被再次使用。当这样子做的时候，要保证成功，需要完成以下 3 件事情：</p>
+<ul>
+<li><p>设备必须已经存在，而且由同一个想要连接到它的用户拥有（可能需要持久存在）</p>
+</li>
+<li><p>该用户必须对 <code>/dev/net/tun</code> 有读写权限</p>
+</li>
+<li><p>依附提供的类型必须和创建 tun/tap 设备时的类型一致（如，设备创建时类型为 IFF_TUN，要重新依附也必须使用同样的类型）</p>
+</li>
+</ul>
+<p>当用户要创建的设备名已存在，但他是该设备的所有者，那内核允许带 <code>TUNSETIFF</code> 参数的 ioctl() 调用成功（译注：指 <code>err = ioctl(fd, TUNSETIFF, (void *) &amp;ifr)</code>）。在这种情况下，没有新设备会被创建，所以一个普通用户可以成功（重新）依附到设备。</p>
+<p>所以这些都是要说明当调用 ioctl(<code>TUNSETIFF</code>) 时会发生什么、内核是如何区别处理新建设备和依附到设备的请求：</p>
+<ul>
+<li><p>如果给定的设备名字之前不存在或没有指定，这意味着用户请求新建一个新的设备，内核因此利用给定的名字（或由内核自己确定）创建一个新的设备。这由 root 用户完成。</p>
+</li>
+<li><p>如果给定的设备名字已存在，这意味着用户想要连接到该设备。这可由普通用户来完成，只要该用户对克隆设备有适当权限、是该设备的所有者（创建的时候设定）、指定的类型和该设备的类型（创建的时候指定）相匹配</p>
+</li>
+</ul>
+<p>你可以查看内核代码中实现了上述步骤的代码 <code>drivers/net/tun.c</code>。重要的的函数是 <code>tun_attach()</code>、<code>tun_net_init()</code>、<code>tun_set_iff()</code>、<code>tun_chr_ioctl()</code>；最后一个函数实现了多种 ioctl() 调用，包括 TUNSETIFF、TUNSETPERSIST、TUNSETOWNER、TUNSETGROUP 和其他。</p>
+<p>在任何情况下，非 root 用户是不允许配置设备的（即添加 IP 和置其状态为 UP），这跟对待常规（物理）设备一样。当需要 root 权限时，一些常规方法（suid binary wrapper、sudo 等）可以使用。</p>
+<p>下边是可能的使用场景（其中一个我一直在使用）：</p>
+<ul>
+<li><p>虚拟设备被创建、持久化、赋予用户和由 root 用户进行配置（如，在机器启动期间用使用初始化脚本，使用 tunctl 或等同的工具）</p>
+</li>
+<li><p>普通用户依附和脱离（detach）它们拥有的虚拟设备的无数次</p>
+</li>
+<li><p>虚拟设备由 root 用户销毁，例如，在关机时候的运行销毁脚本，可能使用 tunctl -d 或等同的工具</p>
+</li>
+</ul>
+<h1 id="让我们试试"><a href="#让我们试试" class="headerlink" title="让我们试试"></a><strong>让我们试试</strong></h1><p>在这长篇但必需的介绍过后，是时间做点工作了。所以，因为我们要用到的是一个平常的设备，我们把它当做常规设备使用就可以了。就我们的目的而言，使用 tun 和使用 tap 设备没有什么区别；是程序需要知道设备的类型以创建它、依附到它、向它读写数据。让我们创建一个持久化的设备并为其添加一个 IP：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> openvpn --mktun --dev tun2</span></span><br><span class="line">Fri Mar 26 10:29:29 2010 TUN/TAP device tun2 opened</span><br><span class="line">Fri Mar 26 10:29:29 2010 Persist state set to: ON</span><br><span class="line"><span class="meta">#</span><span class="bash"> ip link <span class="built_in">set</span> tun2 up</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> ip addr add 10.0.0.1/24 dev tun2</span></span><br></pre></td></tr></table></figure></p>
+<p>让我们对网络进行分析和查看流量：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> tshark -i tun2</span></span><br><span class="line">Running as user "root" and group "root". This could be dangerous.</span><br><span class="line">Capturing on tun2</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> On another console</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> ping 10.0.0.1</span></span><br><span class="line">PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.</span><br><span class="line">64 bytes from 10.0.0.1: icmp_seq=1 ttl=64 time=0.115 ms</span><br><span class="line">64 bytes from 10.0.0.1: icmp_seq=2 ttl=64 time=0.105 ms</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>tshark 的输出为空，没有任何流量经过该设备。这就对了：因为我们是在 ping 设备的 IP 地址，操作系统正确决定无需将数据包发送到“物理连线”上，而是由内核直接对这些 ping 进行回复。如果你再想一下，你 ping 另一个设备（如 eth0）也会遇到一模一样的结果，没有数据包会被发送出去。这听起来很明显，但可能是一开始混淆的来源（我就是）。</p>
+<p>知道将一个掩码 24 位（X.X.X.X/24）的 IP 地址赋予一个设备将会创建一条通过该 IP 通往该 IP 所在子网的路由，我们修改实验并强迫内核真正从 tun 设备发送点什么东西出去（<strong><em>注意：下边结果在内核版本小于 2.6.36 的环境得到；大于该数的得到结果不一样，就如评论中解释的。</em></strong>）<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> ping 10.0.0.2</span></span><br><span class="line">PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.</span><br><span class="line">From 10.0.0.1 icmp_seq=2 Destination Host Unreachable</span><br><span class="line">From 10.0.0.1 icmp_seq=3 Destination Host Unreachable</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> on the tshark console</span></span><br><span class="line">...</span><br><span class="line">  0.000000     10.0.0.1 -&gt; 10.0.0.2     ICMP Echo (ping) request</span><br><span class="line">  0.999374     10.0.0.1 -&gt; 10.0.0.2     ICMP Echo (ping) request</span><br><span class="line">  1.999055     10.0.0.1 -&gt; 10.0.0.2     ICMP Echo (ping) request</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>现在我们终于看到点东西了。内核看到地址（10.0.0.2）不属于本地设备，但找到了一条通过 tun2 到 10.0.0.0/24 网络的路由，所以它就按规则把数据包从 tun2 发送出去。请注意这里 tun 设备和 tap 设备的不同行为：对于 tun 设备，内核发送的是 IP 数据包（原生，没有其余头部——试着用 tshark 或 wireshark 分析它），而对于 tap 设备，内核会为目标 IP 地址广播 ARP 数据包：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> pinging 10.0.0.2 now, but through tap2 (tap)</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> ping 10.0.0.2</span></span><br><span class="line">PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> on the tshark console</span></span><br><span class="line">...</span><br><span class="line">  0.111858 82:03:d4:07:62:b6 -&gt; Broadcast    ARP Who has 10.0.0.2?  Tell 10.0.0.1</span><br><span class="line">  1.111539 82:03:d4:07:62:b6 -&gt; Broadcast    ARP Who has 10.0.0.2?  Tell 10.0.0.1</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>而且，对于 tap 设备，网络流量由完整的以太网帧组成（同样，你可以用网络分析器进行分析）。注意，tap 设备的 mac 地址由内核在其创建期间自动生成，但可以通过调用 ioctl() 函数传入 <code>SIOCSIFHWADDR</code> 参数修改（再次看看 <code>driver/net/tun.c</code> 中的函数 <code>tun_chr_ioctl()</code>）。最后，tap 设备的 MTU 被设置为 1500：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> ip link show dev tap2</span></span><br><span class="line">7: tap2:  mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 500</span><br><span class="line">    link/ether 82:03:d4:07:62:b6 brd ff:ff:ff:ff:ff:ff</span><br></pre></td></tr></table></figure></p>
+<p>当然了，目前为止还没有程序依附到该设备上，所以所有往外发送的数据包都丢失了。让我们更进一步，写一个简单的程序，将其依附到设备，并读取从内核发出的数据包。</p>
+<h1 id="一个简单的程序"><a href="#一个简单的程序" class="headerlink" title="一个简单的程序"></a><strong>一个简单的程序</strong></h1><p>我们将要写一个程序，将其依附到设备，并读取从内核发出的数据包。记住，如果对克隆设备 <code>/dev/net/tun</code> 有必要的权限、是该设备的所有者、为该设备选择了正确的类型（tun 或 tap），那你可以以普通用户的权限来运行程序，只要设备是可持久化的。下边这个程序实际只是一个框架，或者只是一个框架的开头，因为我们只展示了如何从设备中读取数据和只解释了程序在拿到数据后能做什么。我们假定之前定义的 <code>tun_alloc()</code> 函数在程序中是可用的。下边是代码：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">	<span class="comment">/* tunclient.c */</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">char</span> tun_name[IFNAMSIZ];</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Connect to the device */</span></span><br><span class="line">	<span class="built_in">strcpy</span>(tun_name, <span class="string">"tun77"</span>);</span><br><span class="line">	tun_fd = tun_alloc(tun_name, IFF_TUN | IFF_NO_PI);  <span class="comment">/* tun interface */</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (tun_fd &lt; <span class="number">0</span>)&#123;</span><br><span class="line">		perror(<span class="string">"Allocating interface"</span>);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Now read data coming from the kernel */</span></span><br><span class="line">	<span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">		<span class="comment">/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */</span></span><br><span class="line">		nread = read(tun_fd, buffer, <span class="keyword">sizeof</span>(buffer));</span><br><span class="line">		<span class="keyword">if</span> (nread &lt; <span class="number">0</span>) &#123;</span><br><span class="line">			perror(<span class="string">"Reading from interface"</span>);</span><br><span class="line">			close(tun_fd);</span><br><span class="line">			<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="comment">/* Do whatever with the data */</span></span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"Read %d bytes from device %s\n"</span>, nread, tun_name);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>如果你为 tun77 添加了 IP 地址 10.0.0.1/24，然后运行以上程序，同时 ping 10.0.0.2 （或者任何在 10.0.0.0/24 子网除了 10.0.0.1 外的 IP 地址），你可以从该设备中读取到数据：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> openvpn --mktun --dev tun77 --user waldner</span></span><br><span class="line">Fri Mar 26 10:48:12 2010 TUN/TAP device tun77 opened</span><br><span class="line">Fri Mar 26 10:48:12 2010 Persist state set to: ON</span><br><span class="line"><span class="meta">#</span><span class="bash"> ip link <span class="built_in">set</span> tun77 up</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> ip addr add 10.0.0.1/24 dev tun77</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> ping 10.0.0.2</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> on another console</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> ./tunclient</span></span><br><span class="line">Read 84 bytes from device tun77</span><br><span class="line">Read 84 bytes from device tun77</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>如果你算一下，你会发现，这 84 字节的数据来自：20 个字节来自 IP 头部、8 个来自 ICMP 头部、56 个是 ICMP 的回文消息主体，就如你可以从 ping 命令中看到的一样：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">$</span><span class="bash"> ping 10.0.0.2</span></span><br><span class="line">PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>试着用上边程序发送各种各样的数据包到该设备（同样也试试 tap 类型的），同时证明你读取的数据大小跟设备类型是一致的。每一次调用 read() 返回一个完整的数据包（或者是以太网帧，对于 tap 模式）；相似地，如果我们要写，就要为每一次调用 write() 写一整个 IP 数据包（ 或者是一整个以太网帧，对于 tap 模式 ）。</p>
+<p><em>接下来的两大段是作者的思维拓展，太长，就不译了，有兴趣可以看原文。</em></p>
+<h1 id="隧道"><a href="#隧道" class="headerlink" title="隧道"></a><strong>隧道</strong></h1><p>但是对于 tun/tap 设备我们还有另一件事可以做的，就是创建隧道（tunnel）。我们不需要重新实现 TCP/IP，相反，我们可以写一个程序来将数据来回地转播到运行同样程序的远程主机，这个远程程序对称地做着同样的事情。让我们假设，对于上边的程序，除了依附到 tun/tap 设备，还建立了跟远程主机之间的连接。这个远程主机也运行了一个相似的软件（也依附到远程主机的本地 tun/tap 设备），是以服务端模式运行。（实际上，这两个程序是一样的，谁是服务端谁是客户端取决于使用的命令行参数）一旦这两个程序都在运行，网络流量就会往两边流动，因为程序的主要代码在两边做的事情是一样的。这里的网络连接是用 TCP 来实现的，但其他方式也是可以的（如 UDP，或者甚至 ICMP）。你可以从 <a href="https://github.com/gregnietsky/simpletun" target="_blank" rel="noopener">simpletun</a> 下载到完整代码。</p>
+<p>下边是程序的主循环，实现了 tun/tap 设备和隧道之间数据流动的实际工作。为了清晰起见，debug 语句已经移除（你可以在完整源码包中看到）。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">	<span class="comment">/* net_fd is the network file descriptor (to the peer), tap_fd is the</span></span><br><span class="line"><span class="comment">	descriptor connected to the tun/tap interface */</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">/* use select() to handle two descriptors at once */</span></span><br><span class="line">	maxfd = (tap_fd &gt; net_fd) ? tap_fd : net_fd;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">		<span class="keyword">int</span> ret;</span><br><span class="line">		fd_set rd_set;</span><br><span class="line"></span><br><span class="line">		FD_ZERO(&amp;rd_set);</span><br><span class="line">		FD_SET(tap_fd, &amp;rd_set); FD_SET(net_fd, &amp;rd_set);</span><br><span class="line"></span><br><span class="line">		ret = select(maxfd + <span class="number">1</span>, &amp;rd_set, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; errno == EINTR) &#123;</span><br><span class="line">			<span class="keyword">continue</span>;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">			perror(<span class="string">"select()"</span>);</span><br><span class="line">			<span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (FD_ISSET(tap_fd, &amp;rd_set)) &#123;</span><br><span class="line">			<span class="comment">/* data from tun/tap: just read it and write it to the network */</span></span><br><span class="line"></span><br><span class="line">			nread = cread(tap_fd, buffer, BUFSIZE);</span><br><span class="line"></span><br><span class="line">			<span class="comment">/* write length + packet */</span></span><br><span class="line">			plength = htons(nread);</span><br><span class="line">			nwrite = cwrite(net_fd, (<span class="keyword">char</span> *)&amp;plength, <span class="keyword">sizeof</span>(plength));</span><br><span class="line">			nwrite = cwrite(net_fd, buffer, nread);</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		<span class="keyword">if</span> (FD_ISSET(net_fd, &amp;rd_set)) &#123;</span><br><span class="line">			<span class="comment">/* data from the network: read it, and write it to the tun/tap interface.</span></span><br><span class="line"><span class="comment">			* We need to read the length first, and then the packet */</span></span><br><span class="line"></span><br><span class="line">			<span class="comment">/* Read length */</span></span><br><span class="line">			nread = read_n(net_fd, (<span class="keyword">char</span> *)&amp;plength, <span class="keyword">sizeof</span>(plength));</span><br><span class="line"></span><br><span class="line">			<span class="comment">/* read packet */</span></span><br><span class="line">			nread = read_n(net_fd, buffer, ntohs(plength));</span><br><span class="line"></span><br><span class="line">			<span class="comment">/* now buffer[] contains a full packet or frame, write it into the tun/tap interface */</span></span><br><span class="line">			nwrite = cwrite(tap_fd, buffer, nread);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>（要查看 <code>read_n()</code> 和 <code>cwrite()</code> 的详细，参考源码，它们所做的应该显而易见。是的，上边关于 select() 的代码并不是 100% 准确的，而且做了一些简单的假设，如 read_n() 和 cwrite() 函数都不会阻塞。就如我说的，这个代码只是为了展示而已。）</p>
+<p>下边是上边代码的主逻辑：</p>
+<ul>
+<li><p>程序使用了 <code>select()</code> 函数来保持同时对两个描述符的控制。不管数据从哪一个描述符读进来，都写到另一方的描述符。</p>
+</li>
+<li><p>因为程序使用了 TCP，接收方会接收到一个单独的数据流，使得确定数据包的边界变得困难。所以当一个数据包或以太网帧被写到网络的时候，它的长度（2 个字节）都会附加在真正的数据包的前边。</p>
+</li>
+<li><p>当数据从 tap_fd 描述符进来，就读取一个完整的数据包或以太网帧，因此在它们前边附加上长度就可以直接写到网络描述符。因为长度的数据类型是短整型，大于 1 个字节，按原生二进制格式写入，所以 ntohs()/htons() 函数被用于屏蔽不同机器大小端不一致的问题。</p>
+</li>
+<li><p>当数据从网络描述符进来，由于前文提及的技巧，通过读取长度字节就可以知道即将接收的数据包有多长。当读取完数据，就将这些数据写到 tun/tap 设备描述符，最后由内核来接收，就像从“物理连线”接收数据一样。</p>
+</li>
+</ul>
+<p>所以你可以用这个程序来做什么呢？你可以用它来创建一个隧道！首先，在隧道两端的主机创建和配置好所需的 tun/tap 设备，包括给它们添加 IP 地址。在本例中，我用到了两个 tun 设备：tun11，IP 地址 192.168.0.1/24，在本地主机；tun3，IP 地址 192.168.0.2/24，在远程主机。simpletun 这个程序使用 TCP 协议、默认端口号 55555 （你可以通过命令行 -p 命令改变）。远程主机将会把 simpletun 以服务端模式运行，在本地主机以客户端模式运行。现在我们来看看（远程主机 IP 地址为 10.2.3.4）：<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">[remote]#</span><span class="bash"> openvpn --mktun --dev tun3 --user waldner</span></span><br><span class="line">Fri Mar 26 11:11:41 2010 TUN/TAP device tun3 opened</span><br><span class="line">Fri Mar 26 11:11:41 2010 Persist state set to: ON</span><br><span class="line"><span class="meta">[remote]#</span><span class="bash"> ip link <span class="built_in">set</span> tun3 up</span></span><br><span class="line"><span class="meta">[remote]#</span><span class="bash"> ip addr add 192.168.0.2/24 dev tun3</span></span><br><span class="line"></span><br><span class="line"><span class="meta">[remote]$</span><span class="bash"> ./simpletun -i tun3 -s</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> server blocks waiting <span class="keyword">for</span> the client to connect</span></span><br><span class="line"></span><br><span class="line"><span class="meta">[local]#</span><span class="bash"> openvpn --mktun --dev tun11 --user waldner</span></span><br><span class="line">Fri Mar 26 11:17:37 2010 TUN/TAP device tun11 opened</span><br><span class="line">Fri Mar 26 11:17:37 2010 Persist state set to: ON</span><br><span class="line"><span class="meta">[local]#</span><span class="bash"> ip link <span class="built_in">set</span> tun11 up</span></span><br><span class="line"><span class="meta">[local]#</span><span class="bash"> ip addr add 192.168.0.1/24 dev tun11</span></span><br><span class="line"></span><br><span class="line"><span class="meta">[local]$</span><span class="bash"> ./simpletun -i tun11 -c 10.2.3.4</span></span><br><span class="line"><span class="meta">#</span><span class="bash"> nothing happens, but the peers are now connected</span></span><br><span class="line"></span><br><span class="line"><span class="meta">[local]$</span><span class="bash"> ping 192.168.0.2</span></span><br><span class="line">PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.</span><br><span class="line">64 bytes from 192.168.0.2: icmp_seq=1 ttl=241 time=42.5 ms</span><br><span class="line">64 bytes from 192.168.0.2: icmp_seq=2 ttl=241 time=41.3 ms</span><br><span class="line">64 bytes from 192.168.0.2: icmp_seq=3 ttl=241 time=41.4 ms</span><br><span class="line">64 bytes from 192.168.0.2: icmp_seq=4 ttl=241 time=41.0 ms</span><br><span class="line"></span><br><span class="line">--- 192.168.0.2 ping statistics ---</span><br><span class="line">4 packets transmitted, 4 received, 0% packet loss, time 2999ms</span><br><span class="line">rtt min/avg/max/mdev = 41.047/41.599/42.588/0.621 ms</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> <span class="built_in">let</span><span class="string">'s try something more exciting now</span></span></span><br><span class="line"><span class="meta">[local]$</span><span class="bash"> ssh waldner@192.168.0.2</span></span><br><span class="line">waldner@192.168.0.2's password:</span><br><span class="line">Linux remote 2.6.22-14-xen #1 SMP Fri Feb 29 16:20:01 GMT 2008 x86_64</span><br><span class="line"></span><br><span class="line">Welcome to remote!</span><br><span class="line"></span><br><span class="line"><span class="meta">[remote]$</span><span class="bash"></span></span><br></pre></td></tr></table></figure></p>
+<p>当一个像上边一样的隧道被建立起来，从外边只能看到的只是两个同等 simpletun 之间的一条连接（上例中是 TCP）。真正的数据（即更高层应用程序交换的数据，上例中是 ping 或 ssh）永远不会被直接暴露（尽管数据以明文方式传输，见下文）。如果你开启了一个运行了 simpletun 的主机上的 IP 转发功能（译注：可通过 /proc/sys/net/ipv4/ip_forward 查看，StackExchange 上有一个不错的<a href="http://unix.stackexchange.com/questions/14056/what-is-kernel-ip-forwarding" target="_blank" rel="noopener">回答</a>），并且创建了到其他主机的必需路由，那你可以通过隧道连接到这些主机。</p>
+<p>需要注意的是，如果虚拟设备都是 tap 类型的，透明地把两个地理上隔开的以太网连接起来是可能的，以致这些设备认为它们都在同一个二层网络。要做到这一点，在网关（也即运行了 simpletun 或其它使用了 tap 设备的隧道软件的主机）上，把本地的 LAN 设备和虚拟的 tap 设备桥接起来是有必要的。这种方式，从 LAN 收到的以太网帧也会发送到 tap 设备（因为桥接），然后隧道软件再从该设备读取数据并将它们发送远程对端；在远程对端，另一个网桥会保证接收到的以太网帧会被转发到 LAN。反过来，同样的事情会再次发生。因为我们是在两个 LAN 之间传送以太网帧，这两个 LAN 被有效地桥接在一起。这意味着如果你在伦敦有 10 台机器、在柏林有 50 台机器，你就可以利用 192.168.1.0/24 子网（其他子网也可以，只要能容纳至少 60 个 IP 地址）的 IP 地址创建 60 个以太网络。不过，如果你想建立这样的网络，不要使用 simpletun。</p>
+<h1 id="扩展及改进"><a href="#扩展及改进" class="headerlink" title="扩展及改进"></a><strong>扩展及改进</strong></h1><p>simpletun 非常简单，可以用多种方式对其进行扩展。首先，采用新的方式连接到对端，如利用 UDP、ICMP；第二，目前数据是以明文方式传递，但这样当数据在程序的缓冲区在被发送前可能被修改，所以可以对这些数据进行加密（类似地在对端进行解密）。</p>
+<p>然而，对于该导论目的，本文所用的简单程序应该已经给了你一个如何用 tun/tap 构建隧道的想法。虽然 simpletun 是一个简单的展示，但这确实是很多流行程序使用 tun/tap 工作的方式，如 <a href="http://openvpn.net/" target="_blank" rel="noopener">OpenVPN</a>、<a href="http://vtun.sourceforge.net/" target="_blank" rel="noopener">Vtun</a> 或 OpenSSH 的 <a href="http://backreference.org/2009/11/13/openssh-based-vpns/" target="_blank" rel="noopener">VPN 特性</a>。</p>
+<p>最后，把隧道建立在 TCP 连接上是不值得的，因为我们可能会遇到一种所谓的“tcp over tcp”的情形，详情请参考博文 “<a href="http://sites.inka.de/~W1011/devel/tcp-tcp.html" target="_blank" rel="noopener">Why tcp over tcp is a bad idea</a>“ 。注意，OpenVPN 因为此原因默认使用 UDP，因为使用 TCP 会降低性能（尽管有些情况不得不用这个）。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/12/10/kvm-the-first-virtual-machine/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          KVM 系列：第一个虚拟机
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/12/07/net-linux-basic-network-devices/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 基本网络设备</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Tun-Tap-是怎么工作的"><span class="toc-number">1.</span> <span class="toc-text">Tun/Tap 是怎么工作的</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#创建-Tun-Tap-设备"><span class="toc-number">2.</span> <span class="toc-text">创建 Tun/Tap 设备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#让我们试试"><span class="toc-number">3.</span> <span class="toc-text">让我们试试</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#一个简单的程序"><span class="toc-number">4.</span> <span class="toc-text">一个简单的程序</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#隧道"><span class="toc-number">5.</span> <span class="toc-text">隧道</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#扩展及改进"><span class="toc-number">6.</span> <span class="toc-text">扩展及改进</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

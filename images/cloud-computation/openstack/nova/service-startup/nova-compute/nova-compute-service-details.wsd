@@ -1,0 +1,246 @@
+@startuml
+
+title Nova-compute Service Details
+
+participant main as "cmd.compute::main"
+participant ser_create as "service::Service::create"
+participant ser_init as "service::Service::_\_init__" 
+participant ser_start as "service::Service::start"
+participant compute_manager as "compute.manager::ComputeManager"
+participant compute_api as "compute.api::API"
+participant resc_tracker as "compute.resource_tracker::ResourceTracker"
+participant libvirt_driver as "virt.libvirt.driver::LibvirtDriver"
+participant servicegroup as "servicegroup.api::API"
+
+' Create service ===
+main->ser_create: call service::Service::create()
+
+activate ser_create
+note over ser_create: init host, binary, topic, manager
+note over ser_create: init report interval, periodic params
+
+' Init service::Service ===
+ser_create->ser_init: init service::Service()
+
+activate ser_init
+note over ser_init: initialization for some member variables, \nlike host, binary, topic etc.
+ser_init->servicegroup: init servicegroup::api::API()
+
+activate servicegroup
+note over servicegroup: override service_down_time if it is less than report_interval
+note over servicegroup: import driver class nova.servicegroup.drivers.db.DbDriver
+
+servicegroup-->ser_init: return
+deactivate servicegroup
+
+ser_init->compute_manager: init compute.manager::ComputeManager()
+
+activate compute_manager
+note over compute_manager: init compute.manager::ComputeVirtAPI()
+note over compute_manager: init network._/_init__::API(), that is, \nnova.network.neutronv2.api::API()
+note over compute_manager: init volume.cinder::API()
+note over compute_manager: init image.api::API()
+
+compute_manager->compute_api: call compute._/_init__::API(), that is, compute.api::API()
+
+activate compute_api
+note over compute_api: init image.api::API()
+note over compute_api: init network._/_init__::API(), that is, \nnova.network.neutronv2.api::API()
+note over compute_api: init volume.cinder::API()
+note over compute_api: init security_group_api, that is, \nnova.network.security_group.neutron_driver::SecurityGroupAPI()
+note over compute_api: init consoleauth.rpcapi::ConsoleauthAPI()
+note over compute_api: init compute.rpcapi::ComputeAPI()
+note over compute_api: init compute_task_api, that is, conductor.api::ComputeTaskAPI()
+note over compute_api: init servicegroup::api::API(), details are the same with above
+note over compute_api: get notifier, that is, rpc::get_notifier()
+note over compute_api: import nova.db (assigned to self.db inherited from db.base::Base())
+
+compute_api-->compute_manager: return
+deactivate compute_api
+
+note over compute_manager: init conductor.api::API()
+note over compute_manager: init conductor.api::ComputeTaskAPI()
+note over compute_manager: init consoleauth.rpcapi::ConsoleauthAPI()
+note over compute_manager: init cells.rpcapi::CellsAPI()
+note over compute_manager: init scheduler.client._/_init__::SchedulerClient()
+note over compute_manager: init _resource_tracker
+note over compute_manager: init compute.manager::InstanceEvents()
+note over compute_manager: init _sync_power_pool (eventlet.GreenPool())
+note over compute_manager: init _syncs_in_progress
+note over compute_manager: let send_instance_updates = True
+note over compute_manager: init _build_semaphore according to CONF.max_concurrent_builds
+note over compute_manager: init _live_migration_semaphore according to \nCONF.max_concurrent_live_migrations
+note over compute_manager: init host, backdoor_port, service_name \n(inherited from nova.manager::Manager())
+note over compute_manager: get notifier, that is, rpc::get_notifier() \n(inherited from nova.manager::Manager())
+note over compute_manager: import nova.db (assigned to self.db inherited from db.base::Base())
+
+compute_manager->libvirt_driver: call virt.libvirt.driver::LibvirtDriver()
+
+activate libvirt_driver
+note over compute_manager, libvirt_driver
+load compute driver according to conf:
+
+stack@ubuntu-controller:~$ grep -R compute_driver /etc/nova/nova.conf 
+compute_driver = libvirt.LibvirtDriver
+
+Eventually, let self.driver = virt.libvirt.driver::LibvirtDriver(self.virtapi)
+
+self.virtapi was defined before: self.virtapi = compute.manager::ComputeVirtAPI()
+end note
+
+libvirt_driver-->compute_manager: return the driver
+deactivate libvirt_driver
+
+note over compute_manager: let self.use_legacy_block_device_info be false
+
+compute_manager-->ser_init: return
+deactivate compute_manager
+
+note over ser_init: init periodic task related variables
+note over ser_init: wait for conductor service to be ready \nthrough remote ping
+note over ser_init: setup profiler
+
+ser_init-->ser_create: return service::Service()
+deactivate ser_init
+
+ser_create-->main: return service::Service()
+deactivate ser_create
+
+=== Skip some calling processes. \nPlz check nova-compute-service-startup-overview.wsd file. ==
+
+' Start service ===
+activate ser_start
+note over ser_start
+__Note__:  Here, we just detail the service::Service::start() process 
+we mentioned in previous nova-compute-service-startup-overview.wsd file.
+So if you want to know how to go to here, check it first. 
+end note
+
+note over ser_start: config check
+ser_start->compute_manager: call compute.manager::ComputeManager::init_host()
+
+activate compute_manager
+compute_manager->libvirt_driver: call virt.libvirt.driver::init_host()
+
+activate libvirt_driver
+note over libvirt_driver: host initialization
+note over libvirt_driver: do quality warnings
+note over libvirt_driver: parse migration flags
+note over libvirt_driver: get supported perf events
+note over libvirt_driver: check virt type (kvm, parallels, etc)
+note over libvirt_driver: check libvirt version
+
+libvirt_driver-->compute_manager: return
+deactivate libvirt_driver
+
+note over compute_manager: get instances by host
+note over compute_manager
+init virt events.
+If CONF.workarounds.handle_virt_lifecycle_events was True,
+the driver (self.driver) will register event listener
+end note
+note over compute_manager
+If CONF.defer_iptables_apply is True,
+call virt.libvirt.driver::LibvirtDriver::filter_defer_apply_on()
+end note
+note over compute_manager: destroy evacuated instances
+note over compute_manager: init all instances on the host
+note over compute_manager
+If CONF.defer_iptables_apply is True,
+call virt.libvirt.driver::LibvirtDriver::filter_defer_apply_off()
+end note
+note over compute_manager: update scheduler instance info
+
+compute_manager-->ser_start: return
+deactivate compute_manager
+
+note over ser_start: update or create service entry in DB
+ser_start->compute_manager: call compute.manager::ComputeManager::pre_start_hook()
+
+activate compute_manager
+note over compute_manager
+call **self.update_availble_resource()**
+(!!!Important This func is also decorated 
+with periodic_task.periodic_task, that is,
+**it will also be called periodically**.)
+
+1. get compute nodes in db
+2. call self.update_availble_resource_for_node()
+3. delete orphan compute node not reported by driver but still in db
+
+Now we will talk about the 2nd point in detail.
+end note
+
+note over compute_manager: call self.update_availble_resource_for_node()
+compute_manager->resc_tracker: init compute.resource_tracker.ResourceTracker()
+
+activate resc_tracker
+resc_tracker->libvirt_driver: call virt.libvirt.driver::LibvirtDriver::get_available_resource()
+
+activate libvirt_driver
+note over libvirt_driver
+collect infos (on a compute node where 
+	nova-compute service is running on):
+
+1. vcpu in total
+2. memory in total in MB
+3. disk in total in GB
+4. vcpus used
+5. memory used in MB
+6. disk used in GB
+7. hypervisor type
+8. hypervisor version
+9. hypervisor hostname
+10. cpu info
+11. disk least available in GB
+12. pci passthrough devices
+13. numa topology
+
+end note
+
+libvirt_driver-->resc_tracker: return
+deactivate libvirt_driver
+
+note over resc_tracker: verify resources
+note over resc_tracker: report hypervisor resource view
+note over resc_tracker
+update available resource:
+
+1. init compute node (create it if it does not already exist)
+2. update usage (of the compute node) from instances
+3. update usage from migrations
+4. update usage from orphaned instances
+5. pci tracker clean usage
+6. report final resource view
+7. get host metrics
+8. update the compute node
+
+end note
+
+resc_tracker-->compute_manager: return
+deactivate resc_tracker
+
+compute_manager-->ser_start: return
+deactivate compute_manager
+
+note over ser_start: assign backdoor_port to self.manager if the port is not None
+
+note over ser_start #EB9898
+RPC server related content, plz refer to the
+"nova-compute-service-rpc-server.wsd".
+end note
+
+ser_start-> compute_manager: call compute.manager::ComputeManager::post_start_hook() \nbut it is of no effect (passed)
+activate compute_manager
+
+compute_manager-->ser_start: return
+deactivate compute_manager
+
+note over ser_start #EB9898
+Periodic task related content, plz refer to the
+"nova-compute-service-periodic-tasks.wsd".
+end note
+
+deactivate ser_start
+
+@enduml

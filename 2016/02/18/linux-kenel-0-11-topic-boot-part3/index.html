@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Linux 内核学习笔记：内核引导程序之“setup.s” | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要分析 Linux 0.11 内核引导程序setup.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 setup 模块已由 bootsect 模块加载至 0x90200 处，并且指令指针已指向该位置（boot/bootsect.s -&amp;gt; jmpi    0,SETUPSEG）。需要注意的是，setup 模块目前仍工作在实模式。 加载机器">
+<meta name="keywords" content="Linux,内核,引导程序,setup">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 内核学习笔记：内核引导程序之“setup.s”">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/02/18/linux-kenel-0-11-topic-boot-part3/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要分析 Linux 0.11 内核引导程序setup.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 setup 模块已由 bootsect 模块加载至 0x90200 处，并且指令指针已指向该位置（boot/bootsect.s -&amp;gt; jmpi    0,SETUPSEG）。需要注意的是，setup 模块目前仍工作在实模式。 加载机器">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/机器系统参数.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/硬盘基本参数信息表.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/设置idtr和gdtr.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/对中断控制器重新编程.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/保护模式下指令寻址方式.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/gdt第一项数据结构示意图.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/setup执行完后内存映像.png">
+<meta property="og:updated_time" content="2019-05-01T06:53:11.581Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Linux 内核学习笔记：内核引导程序之“setup.s”">
+<meta name="twitter:description" content="本文主要分析 Linux 0.11 内核引导程序setup.s关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。 setup 模块已由 bootsect 模块加载至 0x90200 处，并且指令指针已指向该位置（boot/bootsect.s -&amp;gt; jmpi    0,SETUPSEG）。需要注意的是，setup 模块目前仍工作在实模式。 加载机器">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/os/linux-kenel-0.11/boot/part3/机器系统参数.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-linux-kenel-0-11-topic-boot-part3" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/02/18/linux-kenel-0-11-topic-boot-part3/" class="article-date">
+  	<time datetime="2016-02-18T01:40:13.000Z" itemprop="datePublished">2016-02-18</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Linux 内核学习笔记：内核引导程序之“setup.s”
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Linux/">Linux</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/setup/">setup</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/内核/">内核</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/引导程序/">引导程序</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/操作系统/">操作系统</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要分析 Linux 0.11 内核引导程序<code>setup.s</code>关键部分。《Linux 内核完全注释》和《Linux 内核设计的艺术》两书将作为主要参考资料。</p>
+<p>setup 模块已由 bootsect 模块加载至 0x90200 处，并且指令指针已指向该位置（boot/bootsect.s -&gt; jmpi    0,SETUPSEG）。需要注意的是，setup 模块目前仍工作在实模式。</p>
+<h1 id="加载机器系统数据"><a href="#加载机器系统数据" class="headerlink" title="加载机器系统数据"></a><strong>加载机器系统数据</strong></h1><p>setup 模块首先是将机器系统数据加载到内存 <code>0x90000~0x901FD</code> 区域（510B）即原 bootsect 模块所在地方（0x90000~0x901FF，共 512B）。这样就覆盖了原 bootsect 模块，并且只有 2 个字节没有使用到（512B - 510B）。具体代码如下：  </p>
+<a id="more"></a>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line"></span><br><span class="line">！boot/setup.s ----------------------------------------------</span><br><span class="line">entry start</span><br><span class="line">start:</span><br><span class="line"></span><br><span class="line">! ok, the read went well so we get current cursor position <span class="keyword">and</span> save it <span class="keyword">for</span></span><br><span class="line">! posterity.</span><br><span class="line"></span><br><span class="line">	mov	ax,#INITSEG	! <span class="keyword">this</span> is done in bootsect already, but...</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	mov	ah,#<span class="number">0x03</span>	! read cursor pos</span><br><span class="line">	xor	bh,bh</span><br><span class="line">	<span class="keyword">int</span>	<span class="number">0x10</span>		! save it in known place, con_init fetches</span><br><span class="line">	mov	[<span class="number">0</span>],dx		! it from <span class="number">0x90000</span>.</span><br><span class="line"></span><br><span class="line">......</span><br><span class="line">! Get hd0 data</span><br><span class="line"></span><br><span class="line">	mov	ax,#<span class="number">0x0000</span></span><br><span class="line">	mov	ds,ax</span><br><span class="line">	lds	si,[<span class="number">4</span>*<span class="number">0x41</span>]</span><br><span class="line">	mov	ax,#INITSEG</span><br><span class="line">	mov	es,ax</span><br><span class="line">	mov	di,#<span class="number">0x0080</span></span><br><span class="line">	mov	cx,#<span class="number">0x10</span></span><br><span class="line">	rep</span><br><span class="line">	movsb</span><br><span class="line"></span><br><span class="line">! Get hd1 data</span><br><span class="line"></span><br><span class="line">	mov	ax,#<span class="number">0x0000</span></span><br><span class="line">	mov	ds,ax</span><br><span class="line">	lds	si,[<span class="number">4</span>*<span class="number">0x46</span>]</span><br><span class="line">	mov	ax,#INITSEG</span><br><span class="line">	mov	es,ax</span><br><span class="line">	mov	di,#<span class="number">0x0090</span></span><br><span class="line">	mov	cx,#<span class="number">0x10</span></span><br><span class="line">	rep</span><br><span class="line">	movsb</span><br><span class="line"></span><br><span class="line">！boot/bootsect.s ----------------------------------------------</span><br><span class="line">.org <span class="number">508</span>	! <span class="number">508</span> 即为 <span class="number">0x1FC</span>，当前段是 <span class="number">0x9000</span>，所以地址是 <span class="number">0x901FC</span></span><br><span class="line">root_dev:</span><br><span class="line">	.word ROOT_DEV</span><br></pre></td></tr></table></figure>
+<p>以上代码执行结果可用表表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part3/机器系统参数.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p><strong>注：</strong>关于上述代码的几个知识点</p>
+<ul>
+<li>lds (Load pointer using DS 或 Load Data Segment Register)：传送目标指针，把指针内容装入 ds 和 si。如 lds si,string 把 string <code>段地址:偏移地址</code>存到 <code>ds:si</code>。类似的还有 les、lfs 等。</li>
+<li>硬盘参数表<br>在计算机 BIOS 设定的中断向量表中，int 0x41 的中断向量位置（4*0x41=0x0000:0x0104）存放的并不是中断服务程序的地址，而是第一个硬盘的基本参数列表。第二个硬盘的基本参数列表入口地址存放于 int 0x46 中断向量位置处（4*0x46=0x0000:0x0118）。硬盘参数表内容如下表所示：<br><img src="/images/os/linux-kenel-0.11/boot/part3/硬盘基本参数信息表.png" alt>图片来源：《Linux 内核完全注释》  </li>
+</ul>
+<h1 id="关中断并复制-system-模块"><a href="#关中断并复制-system-模块" class="headerlink" title="关中断并复制 system 模块"></a><strong>关中断并复制 system 模块</strong></h1><h2 id="关中断"><a href="#关中断" class="headerlink" title="关中断"></a><strong>关中断</strong></h2><p>在加载完机器系统数据后、进入保护模式前，首先要做的就是关中断：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line"></span><br><span class="line">	cli			! no interrupts allowed !</span><br></pre></td></tr></table></figure></p>
+<p>这意味着，在接下来的程序执行当中，无论是否发生中断，系统都不会对中断进行响应，除非中断重新开启（sti）。</p>
+<p>对于 cli 和 sti，《Linux 内核设计的艺术》一书有一个详细的阐述：  </p>
+<blockquote>
+<p>关中断（cli）和开中断（sti）操作将在操作系统代码中频繁出现，其意义深刻。慢慢的你会发现，cli、sti 总是在一个完整操作过程的两头出现，目的是避免中断在此期间的介入。接下来的代码将为操作系统进入保护模式做准备。此处即将进行实模式下中断向量表（IVT）和保护模式下中断描述符表（IDT）的交接工作。试想，如果没有 cli，又恰好发生中断，如用户不小心碰了一下键盘，中断就要切进来，就不得不面对实模式的中断机制已经废除、保护模式的中断机制尚未完成的尴尬局面，结果就是系统崩溃。cli、sti 保证了这个过程中，IDT 能够完整创建，以避免不可预料中断的进入造成 IDT 创建不完整或新老中断机制混用。</p>
+</blockquote>
+<h2 id="复制-system-模块"><a href="#复制-system-模块" class="headerlink" title="复制 system 模块"></a><strong>复制 system 模块</strong></h2><p>接下来，setup 模块将 system 模块从 0x10000 复制到内存起始位置 0x00000 处：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX. </span><br><span class="line">! first we move the system to it's rightful place</span><br><span class="line"></span><br><span class="line">	mov	ax,#<span class="number">0x0000</span></span><br><span class="line">	cld			! 'direction'=0, movs moves forward</span><br><span class="line">do_move:</span><br><span class="line">	mov	es,ax		! destination segment</span><br><span class="line">	add	ax,#<span class="number">0x1000</span></span><br><span class="line">	cmp	ax,#<span class="number">0x9000</span></span><br><span class="line">	jz	end_move</span><br><span class="line">	mov	ds,ax		! source segment</span><br><span class="line">	sub	di,di</span><br><span class="line">	sub	si,si</span><br><span class="line">	mov 	cx,#<span class="number">0x8000</span></span><br><span class="line">	rep</span><br><span class="line">	movsw</span><br><span class="line">	jmp	do_move</span><br><span class="line"></span><br><span class="line">! then we load the segment descriptors</span><br><span class="line"></span><br><span class="line">end_move:</span><br><span class="line">	......</span><br></pre></td></tr></table></figure></p>
+<p>其中，每次拷贝 0x8000 个字，也即 0x8000 * 2 = 0x10000 个字节。</p>
+<p><code>这个复制操作将 BIOS 中断向量表和 BIOS 数据区完全覆盖，使它们不复存在。直到新的中断服务体系构建完毕之前，操作系统不再具备响应并处理中断的能力。</code></p>
+<h1 id="设置中断描述符表和全局描述符表"><a href="#设置中断描述符表和全局描述符表" class="headerlink" title="设置中断描述符表和全局描述符表"></a><strong>设置中断描述符表和全局描述符表</strong></h1><p>关于中断描述符表和全局描述符表基础知识，可先参考之前两篇博文：  </p>
+<ul>
+<li><a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">Linux 内核学习笔记：预备知识之“寄存器模型”</a>  </li>
+<li><a href="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/">Linux 内核学习笔记：预备知识之“存储器管理基础”</a>  </li>
+</ul>
+<p>设置中断描述符表和全局描述符表代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX.</span><br><span class="line">end_move:</span><br><span class="line">	mov	ax,#SETUPSEG	! right, forgot <span class="keyword">this</span> at first. didn't work :-)</span><br><span class="line">	mov	ds,ax</span><br><span class="line">	lidt	idt_48		! load idt with <span class="number">0</span>,<span class="number">0</span></span><br><span class="line">	lgdt	gdt_48		! load gdt with whatever appropriate</span><br><span class="line">......</span><br><span class="line">gdt:</span><br><span class="line">	.word	<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>,<span class="number">0</span>		! dummy</span><br><span class="line"></span><br><span class="line">	.word	<span class="number">0x07FF</span>		! <span class="number">8</span>Mb - limit=<span class="number">2047</span> (<span class="number">2048</span>*<span class="number">4096</span>=<span class="number">8</span>Mb)</span><br><span class="line">	.word	<span class="number">0x0000</span>		! base address=<span class="number">0</span></span><br><span class="line">	.word	<span class="number">0x9A00</span>		! code read/exec</span><br><span class="line">	.word	<span class="number">0x00C0</span>		! granularity=<span class="number">4096</span>, <span class="number">386</span></span><br><span class="line"></span><br><span class="line">	.word	<span class="number">0x07FF</span>		! <span class="number">8</span>Mb - limit=<span class="number">2047</span> (<span class="number">2048</span>*<span class="number">4096</span>=<span class="number">8</span>Mb)</span><br><span class="line">	.word	<span class="number">0x0000</span>		! base address=<span class="number">0</span></span><br><span class="line">	.word	<span class="number">0x9200</span>		! data read/write</span><br><span class="line">	.word	<span class="number">0x00C0</span>		! granularity=<span class="number">4096</span>, <span class="number">386</span></span><br><span class="line"></span><br><span class="line">idt_48:</span><br><span class="line">	.word	<span class="number">0</span>			! idt limit=<span class="number">0</span></span><br><span class="line">	.word	<span class="number">0</span>,<span class="number">0</span>			! idt base=<span class="number">0L</span></span><br><span class="line"></span><br><span class="line">gdt_48:</span><br><span class="line">	.word	<span class="number">0x800</span>		! gdt limit=<span class="number">2048</span>, <span class="number">256</span> GDT entries</span><br><span class="line">	.word	<span class="number">512</span>+gdt,<span class="number">0x9</span>	! gdt base = <span class="number">0X9</span>xxxx	! 这里要加上 gdt，即全局描述符表的在 setup 模块中的偏移地址；再加上 setup 模块</span><br><span class="line">							! 自身的地址 <span class="number">0x90200</span>，就能够得到全局描述符表的内存地址</span><br></pre></td></tr></table></figure></p>
+<p>其中，重点解释如下：  </p>
+<ul>
+<li>lidt 和 lgdt：这两个命令分别用于加载中断描述符表寄存器（IDTR）和全局描述符表寄存器（GDTR），操作数（idt_48 和 gdt_48）均为 6 个字节（即 48 位，因 IDTR 和 GDTR 长度均为 48 位）。操作数的 0~1 字节用于表示描述符表的长度，2~5 字节用于表示描述符表的 32 位线性基地址。</li>
+<li>gdt：表示全局描述符表的内容，每项描述符均长 8 字节（即 64 位）。在这里，全局描述符表的第 0 项（dummy）不用，第 1 项是内核代码段描述符，第 2 项是内核数据段描述符。 </li>
+</ul>
+<p>设置中断描述符表和全局描述符表过程可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part3/设置idtr和gdtr.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<p>上图 GDTR 的基地址”512+GDT”中的 GDT 表示的是 gdt 在 setup 模块中的偏移地址（在 setup.s 中即 205）。<code>这里很容易误解为新建的全局描述符表会“覆盖” setup 模块从 gdt 开始的内容。其实，由 setup.s 编译而成的 setup 模块从 gdt 开始处本就存放着全局描述符表，而 GDTR 只是指向该处而已。可见于本文最后的 setup 模块执行完后内存映像图。</code></p>
+<h1 id="打开-A20"><a href="#打开-A20" class="headerlink" title="打开 A20"></a><strong>打开 A20</strong></h1><p>打开 A20，意味着 CPU 可以进行 32 位寻址，最大寻址空间为 4GB。这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX.</span><br><span class="line">! that was painless, now we enable A20</span><br><span class="line"></span><br><span class="line">	call	empty_8042</span><br><span class="line">	mov	al,#<span class="number">0xD1</span>		! command write</span><br><span class="line">	out	#<span class="number">0x64</span>,al</span><br><span class="line">	call	empty_8042</span><br><span class="line">	mov	al,#<span class="number">0xDF</span>		! A20 on</span><br><span class="line">	out	#<span class="number">0x60</span>,al</span><br><span class="line">	call	empty_8042</span><br><span class="line">......</span><br><span class="line">empty_8042:</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	in	al,#<span class="number">0x64</span>	! <span class="number">8042</span> status port</span><br><span class="line">	test	al,#<span class="number">2</span>		! is input buffer full?</span><br><span class="line">	jnz	empty_8042	! yes - loop</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure></p>
+<p>虽然 Linux 0.11 只能支持 16MB 的物理内存，但其线性寻址空间已经是不折不扣的 4GB。</p>
+<h1 id="重新编程中断控制器-8259A"><a href="#重新编程中断控制器-8259A" class="headerlink" title="重新编程中断控制器 8259A"></a><strong>重新编程中断控制器 8259A</strong></h1><p>这部分代码为：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX.</span><br><span class="line">! well, that went ok, I hope. Now we have to reprogram the interrupts :-(</span><br><span class="line">! we put them right after the intel-reserved hardware interrupts, at</span><br><span class="line">! <span class="keyword">int</span> <span class="number">0x20</span><span class="number">-0x2F</span>. There they won't mess up anything. Sadly IBM really</span><br><span class="line">! messed <span class="keyword">this</span> up with the original PC, <span class="keyword">and</span> they haven't been able to</span><br><span class="line">! rectify it afterwards. Thus the bios <span class="built_in">puts</span> interrupts at <span class="number">0x08</span><span class="number">-0x0f</span>,</span><br><span class="line">! which is used <span class="keyword">for</span> the internal hardware interrupts as well. We just</span><br><span class="line">! have to reprogram the <span class="number">8259'</span>s, <span class="keyword">and</span> it isn't fun.</span><br><span class="line"></span><br><span class="line">	mov	al,#<span class="number">0x11</span>		! initialization sequence</span><br><span class="line">	out	#<span class="number">0x20</span>,al		! send it to <span class="number">8259</span>A<span class="number">-1</span></span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span>		! jmp $+<span class="number">2</span>, jmp $+<span class="number">2</span></span><br><span class="line">	out	#<span class="number">0xA0</span>,al		! <span class="keyword">and</span> to <span class="number">8259</span>A<span class="number">-2</span></span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0x20</span>		! start of hardware <span class="keyword">int</span>'s (<span class="number">0x20</span>)</span><br><span class="line">	out	#<span class="number">0x21</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0x28</span>		! start of hardware <span class="keyword">int</span>'s <span class="number">2</span> (<span class="number">0x28</span>)</span><br><span class="line">	out	#<span class="number">0xA1</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0x04</span>		! <span class="number">8259</span><span class="number">-1</span> is master</span><br><span class="line">	out	#<span class="number">0x21</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0x02</span>		! <span class="number">8259</span><span class="number">-2</span> is slave</span><br><span class="line">	out	#<span class="number">0xA1</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0x01</span>		! <span class="number">8086</span> mode <span class="keyword">for</span> both</span><br><span class="line">	out	#<span class="number">0x21</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	out	#<span class="number">0xA1</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br><span class="line">	mov	al,#<span class="number">0xFF</span>		! mask off all interrupts <span class="keyword">for</span> now</span><br><span class="line">	out	#<span class="number">0x21</span>,al</span><br><span class="line">	.word	<span class="number">0x00eb</span>,<span class="number">0x00eb</span></span><br></pre></td></tr></table></figure></p>
+<p>对这部分，《Linux 内核设计的艺术》有一个比较详细的说法：  </p>
+<blockquote>
+<p>CPU 在保护模式下，int 0x00~0x1F 被 Intel 保留作为内部（不可屏蔽）中断和异常中断。如果不对 8259A 进行重新编程，int 0x00~0x1F 将被覆盖。例如，IRQ0 （时钟中断）为 8 号（int 0x08）中断，但在保护模式下此中断号是 Intel 保留的“Double Fault”（双重故障）。因此，必须对 8259A 编程将原来的 IRQ0x00~IRQ0x0F 对应的中断号重新分布，即在保护模式下，IRQ0x00~IRQ0x0F 的中断号是 int 0x20~int 0x2F。</p>
+</blockquote>
+<p>这一过程可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part3/对中断控制器重新编程.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="设置处理器工作方式为保护模式并跳转至内存-0x0000-0000-处开始执行"><a href="#设置处理器工作方式为保护模式并跳转至内存-0x0000-0000-处开始执行" class="headerlink" title="设置处理器工作方式为保护模式并跳转至内存 0x0000 0000 处开始执行"></a><strong>设置处理器工作方式为保护模式并跳转至内存 0x0000 0000 处开始执行</strong></h1><p>在之前博文 <a href="http://xiehongfeng100.github.io/2016/01/19/linux-kenel-0-11-topic-necessary-preparation-part1/">Linux 内核学习笔记：预备知识之“寄存器模型”</a>我们有介绍了 CR0 寄存器。要让处理器工作模式从实模式转变为保护模式，需要将 CR0 的 PE 置 1。在处理器工作模式转变为保护模式后，指令指针需指向至内存 0x0000 0000 （32 位）处，以从 head 程序（system 模块最前边部分）开始执行。这部分代码如下：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">! It is written in Intel <span class="number">8086</span> Assembly. Added by MAX.</span><br><span class="line">! Well, now's the time to actually move into <span class="keyword">protected</span> mode. To make</span><br><span class="line">! things as simple as possible, we <span class="keyword">do</span> no <span class="keyword">register</span> <span class="built_in">set</span>-up <span class="keyword">or</span> anything,</span><br><span class="line">! we let the gnu-compiled <span class="number">32</span>-bit programs <span class="keyword">do</span> that. We just jump to</span><br><span class="line">! absolute address <span class="number">0x00000</span>, in <span class="number">32</span>-bit <span class="keyword">protected</span> mode.</span><br><span class="line"></span><br><span class="line">	mov	ax,#<span class="number">0x0001</span>	! <span class="function"><span class="keyword">protected</span> <span class="title">mode</span> <span class="params">(PE)</span> bit</span></span><br><span class="line">	lmsw	ax		! This is it!</span><br><span class="line">	jmpi	<span class="number">0</span>,<span class="number">8</span>		! jmp offset <span class="number">0</span> of segment <span class="number">8</span> (cs)</span><br></pre></td></tr></table></figure></p>
+<p>其中，重点解释如下：  </p>
+<ul>
+<li>lmsw (Load Machine Status Word)：将 CR0 的 PE 置 1。</li>
+<li>jmpi 0,8：因为处理器已经工作在保护模式，所以 jmpi 中的“段基址” 8 不再表示实模式下的段基址，而是保护模式下的<a href="http://xiehongfeng100.github.io/2016/01/21/linux-kenel-0-11-topic-necessary-preparation-part2/"><code>段选择子</code></a>。按照段选择子数据格式，8 （二进制形式为 0000 0000 0000 1000）表示该段选择子请求特权级为 0 （RPL=00）、所指向的描述符存放在 GDT （TI=0）、所指向的描述符索引为 1（DI=0000 0000 0000 1）。所以，这一句汇编表示的是“选择 GDT 中的 1 号描述符，并根据该描述符内容和偏移（jmpi <code>0</code>,8）跳转至内存某一位置”。这个过程可用图表示如下：<br><img src="/images/os/linux-kenel-0.11/boot/part3/保护模式下指令寻址方式.png" alt>图片来源：《Linux 内核设计的艺术》  </li>
+</ul>
+<p>而 GDT 第一项描述符的内容（如下图所示）说明了代码是从段基址 0x0000 0000、偏移为 0 处，也就是 head 程序的开始位置开始执行的。这意味着执行 head 程序。<br><img src="/images/os/linux-kenel-0.11/boot/part3/gdt第一项数据结构示意图.png" alt>图片来源：《Linux 内核设计的艺术》  </p>
+<h1 id="setup-模块执行完后内存映像"><a href="#setup-模块执行完后内存映像" class="headerlink" title="setup 模块执行完后内存映像"></a><strong>setup 模块执行完后内存映像</strong></h1><p>setup 模块执行完后内存映像图如下所示：<br><img src="/images/os/linux-kenel-0.11/boot/part3/setup执行完后内存映像.png" alt>图片来源：《Linux 内核完全注释》  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/02/19/linux-kenel-0-11-topic-boot-part4/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          Linux 内核学习笔记：内核引导程序之“head.s”
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/02/16/linux-kenel-0-11-topic-boot-part2/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Linux 内核学习笔记：内核引导程序之“bootsect.s”</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#加载机器系统数据"><span class="toc-number">1.</span> <span class="toc-text">加载机器系统数据</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#关中断并复制-system-模块"><span class="toc-number">2.</span> <span class="toc-text">关中断并复制 system 模块</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#关中断"><span class="toc-number">2.1.</span> <span class="toc-text">关中断</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#复制-system-模块"><span class="toc-number">2.2.</span> <span class="toc-text">复制 system 模块</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置中断描述符表和全局描述符表"><span class="toc-number">3.</span> <span class="toc-text">设置中断描述符表和全局描述符表</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#打开-A20"><span class="toc-number">4.</span> <span class="toc-text">打开 A20</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#重新编程中断控制器-8259A"><span class="toc-number">5.</span> <span class="toc-text">重新编程中断控制器 8259A</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#设置处理器工作方式为保护模式并跳转至内存-0x0000-0000-处开始执行"><span class="toc-number">6.</span> <span class="toc-text">设置处理器工作方式为保护模式并跳转至内存 0x0000 0000 处开始执行</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#setup-模块执行完后内存映像"><span class="toc-number">7.</span> <span class="toc-text">setup 模块执行完后内存映像</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

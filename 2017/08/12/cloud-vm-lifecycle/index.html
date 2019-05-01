@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>【译】 虚拟机生命周期 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文翻译自 Libvirt 官方文档 VM Lifecycle。 虚拟机生命周期本文介绍虚拟机生命周期的基本要素，目的在于提供创建、运行、停止、迁移和删除虚拟机的基本信息。 术语知道文档中使用的术语及命令和语法的意义一直很重要。如果你不熟悉 Libvirt 的基本概念，如节点（Node）、域（Domain），以及为了获取 Libvirt 项目目标、覆盖范围的概况，请参考这篇文章。 概念Guest">
+<meta name="keywords" content="翻译,Libvirt">
+<meta property="og:type" content="article">
+<meta property="og:title" content="【译】 虚拟机生命周期">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2017/08/12/cloud-vm-lifecycle/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文翻译自 Libvirt 官方文档 VM Lifecycle。 虚拟机生命周期本文介绍虚拟机生命周期的基本要素，目的在于提供创建、运行、停止、迁移和删除虚拟机的基本信息。 术语知道文档中使用的术语及命令和语法的意义一直很重要。如果你不熟悉 Libvirt 的基本概念，如节点（Node）、域（Domain），以及为了获取 Libvirt 项目目标、覆盖范围的概况，请参考这篇文章。 概念Guest">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-lifecycle/vm_lifecycle_graph.png">
+<meta property="og:updated_time" content="2019-05-01T06:29:04.125Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="【译】 虚拟机生命周期">
+<meta name="twitter:description" content="本文翻译自 Libvirt 官方文档 VM Lifecycle。 虚拟机生命周期本文介绍虚拟机生命周期的基本要素，目的在于提供创建、运行、停止、迁移和删除虚拟机的基本信息。 术语知道文档中使用的术语及命令和语法的意义一直很重要。如果你不熟悉 Libvirt 的基本概念，如节点（Node）、域（Domain），以及为了获取 Libvirt 项目目标、覆盖范围的概况，请参考这篇文章。 概念Guest">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/cloud-computation/openstack/nova/vm-lifecycle/vm_lifecycle_graph.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-cloud-vm-lifecycle" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2017/08/12/cloud-vm-lifecycle/" class="article-date">
+  	<time datetime="2017-08-12T01:38:22.000Z" itemprop="datePublished">2017-08-12</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      【译】 虚拟机生命周期
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Libvirt/">Libvirt</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/翻译/">翻译</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/OpenStack/">OpenStack</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文翻译自 Libvirt 官方文档 <a href="http://wiki.libvirt.org/page/VM_lifecycle" target="_blank" rel="noopener">VM Lifecycle</a>。</p>
+<h1 id="虚拟机生命周期"><a href="#虚拟机生命周期" class="headerlink" title="虚拟机生命周期"></a><strong>虚拟机生命周期</strong></h1><p>本文介绍虚拟机生命周期的基本要素，目的在于提供创建、运行、停止、迁移和删除虚拟机的基本信息。</p>
+<h2 id="术语"><a href="#术语" class="headerlink" title="术语"></a><strong>术语</strong></h2><p>知道文档中使用的术语及命令和语法的意义一直很重要。如果你不熟悉 Libvirt 的基本概念，如节点（Node）、域（Domain），以及为了获取 Libvirt 项目目标、覆盖范围的概况，请参考这篇<a href="http://libvirt.org/goals.html" target="_blank" rel="noopener">文章</a>。</p>
+<h1 id="概念"><a href="#概念" class="headerlink" title="概念"></a><strong>概念</strong></h1><h2 id="Guest-Domain-用-XML-来描述"><a href="#Guest-Domain-用-XML-来描述" class="headerlink" title="Guest Domain 用 XML 来描述 "></a><strong>Guest Domain 用 XML 来描述 </strong></h2><p>在 Libvirt 中，XML 文件被用来保存所有东西的配置信息，包括 Domain、网络、存储和其他元素。XML 使得用户可以使用舒适的编辑器及易于集成其他技术和工具。</p>
+<p>例如，Domain 中的设备（Device）通过赋予 XML 元素或子元素属性来表示。一个 XML 片段如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&lt;domain type=&apos;qemu&apos;&gt;</span><br><span class="line">   &lt;name&gt;demo&lt;/name&gt;</span><br><span class="line">   ...</span><br><span class="line">   &lt;devices&gt;</span><br><span class="line">      ...</span><br><span class="line">      &lt;disk type=&apos;file&apos; device=&apos;disk&apos;&gt; ... &lt;/disk&gt;</span><br><span class="line">      &lt;disk type=&apos;file&apos; device=&apos;cdrom&apos;&gt; ... &lt;/disk&gt;</span><br><span class="line">      &lt;input type=&apos;mouse&apos; bus=&apos;ps2&apos;/&gt;</span><br><span class="line">      ...</span><br><span class="line">   &lt;/devices&gt;</span><br><span class="line">&lt;/domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>Libvirt 使用了 XPath 技术来选取 XML 文档中的节点（node）。</p>
+<a id="more"></a>
+<h2 id="短暂性-Guest-Domain-和持久性-Guest-Domain"><a href="#短暂性-Guest-Domain-和持久性-Guest-Domain" class="headerlink" title="短暂性 Guest Domain 和持久性 Guest Domain"></a><strong>短暂性 Guest Domain 和持久性 Guest Domain</strong></h2><p>Libvirt 区分两种不同类型的 Domain：短暂性的（Transient）和持久性的（Persistent）。</p>
+<ul>
+<li>短暂性 Domain 只存在于 Domain 被关闭或者宿主机重启之前</li>
+<li>持久性 Domain 会一直存在（直到被删除）</li>
+</ul>
+<p>不管是什么类型，一旦一个 Domain 创建起来，它的状态就能够保存进一个文件和无限次地恢复（restore），只要原文件还存在。所以即使是一个短暂性 Domain 也能够一遍又一遍地恢复。</p>
+<p>创建短暂性 Domain 和创建持久性 Domain 稍微有点不一样。持久性 Domain 需要在启动前定义（define）；短暂性 Domain 只创建和启动一次。处理这两种类型的 Domain 的命令也不一样。</p>
+<p>虽然短暂性 Domain 可以随时（on the fly）创建和销毁，但它所需的组件（如存储、网络、设备等）都需提前准备好。</p>
+<h2 id="Guest-Domain-状态"><a href="#Guest-Domain-状态" class="headerlink" title="Guest Domain 状态"></a><strong>Guest Domain 状态</strong></h2><p>Domain 可以有以下几个状态：</p>
+<ol>
+<li><strong>Undefined</strong> - 这是初始状态（baseline state）。Libvirt 不知道处于这个状态的 Domain 的所有信息，因为 Domain 还没有定义或者创建。</li>
+<li><strong>Defined</strong> 或 <strong>Stopped</strong> - Domain 已经定义，但还没有运行。这个状态也称为 <em>stopped</em>。只有持久性 Domain 才可以处于这个状态。当一个短暂性 Domain 停止或者关闭的时候，它就不存在了。</li>
+<li><strong>Running</strong> - Domain 已经创建和启动为短暂性或持久性 Domain。这两种 Domain 处于这个状态都是已经在宿主机的 Hypervisor 执行起来。</li>
+<li><strong>Paused</strong> - Domain 在 Hypervisor 上的运行被挂起。它的状态会临时地存储起来直到恢复运行。它本身并不知道自己是否被暂停。如果你熟悉操作系统中的进程，你会发现这两者很相似。</li>
+<li><strong>Saved</strong> - 类似于 <em>paused</em> 状态，但（不同的是） Domain 的状态会被存储到持久性存储上。同样，处于这个状态的 Domain 可以被恢复，而且不会察觉到时间流逝。</li>
+</ol>
+<p>下图展示了 Domain 状态之间的转化。长方形表示不同的状态，箭头表示将一个状态转化为另一个状态的命令。</p>
+<p><img src="/images/cloud-computation/openstack/nova/vm-lifecycle/vm_lifecycle_graph.png" alt>  </p>
+<p>从上图中，我们可以看到，<em>shutdown</em> 命令使得 Domain 从 <em>running</em> 状态转化为 <em>defined</em> 或者 <em>undefined</em> 状态。在这种情形下，<em>短暂性 Domain</em> 会变为 <em>undefined</em> 状态（销毁），<em>持久性 Domain</em> 会变为 <em>defined</em> 状态。</p>
+<h2 id="快照"><a href="#快照" class="headerlink" title="快照"></a><strong>快照</strong></h2><p>快照是一个虚拟机操作系统及其所有应用在某一个时刻的视图（View）。在虚拟机化领域，能够创建虚拟机的可恢复快照是一个很基本的特性。快照允许用户及时保存虚拟机在某时刻的状态，以及回滚到那个状态。基本的用例包括生成快照、安装新的应用、更新或升级（发现它们很糟糕或引起问题），然后回滚到前一个时间点。</p>
+<p>显而易见，快照生成之后的任何变化都不会包含在该快照之中。快照不会持续更新，它（只）代表了某一个时刻虚拟机的状态。</p>
+<h2 id="迁移"><a href="#迁移" class="headerlink" title="迁移"></a><strong>迁移</strong></h2><p>一个运行中的 Domain 或者虚拟机可以迁移到另一个宿主机，只要虚拟机的存储在宿主机之间共享以及目的宿主机可以支持虚拟机的 CPU 模式（CPU Model）。根据类型和应用，虚拟机的迁移不会引起任何服务的中断。</p>
+<p>Libvirt 支持不同的迁移类型：</p>
+<ul>
+<li><strong>Standard（标准模式）</strong> - Domain 被挂起，将其资源传送到目的宿主机。一旦传送完成，虚拟机从目的宿主机恢复运行。挂起的时间直接跟 Domain 的内存大小成正比。</li>
+<li><strong>Peer-to-peer（对等模式）</strong> - 当原宿主机和目的宿主机能够直接通信时会使用该模式。</li>
+<li><strong>Tunnelled（隧道模式）</strong> - 在原宿主机和目的宿主机之间建立一条隧道，如 SSH 隧道。所有原宿主机和目的宿主机或物理主机之间的网络通信都会通过该隧道。</li>
+<li><strong>Live vs non-live（实时 VS 非实时模式）</strong> - 当在实时模式时，Domain 不会暂停，其上的所有服务也会继续运行。一开始，目的宿主机上的 Domain 或虚拟机处于关闭状态，而且在通过网络传输 Domain 状态的时候，在目的宿主机上的 Domain 实际是不可见的。实时迁移对应用负载很敏感。当实时迁移一个 Domain 的时候，它所分配的内存被发送到目的宿主机，同时在原宿主机监控其变化。在原宿主机上的 Domain 会保持 active 状态直到其在两个宿主机上的内存一致。在此时，目的宿主机上的 Domain 变为 active 状态，原宿主机上的 Domain 变为 passive 状态或不可见状态。</li>
+<li><strong>Direct（直接模式）</strong> - Libvirt 利用 Hypervisor 触发迁移，而且整个迁移过程都在 Hypervisor 的监控之下。Hypervisor 通常有互相之间直接通信的特性（如原宿主机上的 Xen 可以跟目的宿主机上的 Xen 直接通信，而不需要 Libvirt 的干预）。</li>
+</ul>
+<p>迁移的要求：</p>
+<ul>
+<li>可以在相同路径和位置访问共享存储，如 iSCSI、NFS 等。</li>
+<li>双方物理主机使用同一版本的 Hypervisor。</li>
+<li>相同的网络配置。</li>
+<li>相同或更好的 CPU。CPU 必须来自同一个厂商，而且目的宿主机上的 CPU flag 必须是原宿主机 CPU flag 的超集。</li>
+</ul>
+<p>成功迁移的检查清单可以在<a href="http://wiki.libvirt.org/page/TodoPreMigrationChecks" target="_blank" rel="noopener">这里</a>找到。</p>
+<h2 id="删除-Domain-时的数据安全性"><a href="#删除-Domain-时的数据安全性" class="headerlink" title="删除 Domain 时的数据安全性"></a><strong>删除 Domain 时的数据安全性</strong></h2><p>一些保存了敏感信息的应用都应该安全地处理。就像文件系统中的任一文件，当虚拟机被删除时，只是把文件系统的指针删除了。原先被占用的区块（block）还是继续被占用着，它们只是被文件系统标记为空。实际上，这取决于你的文件系统。</p>
+<p>希望的是，如果一个应用处理的是敏感（heavy）数据，这个机器物理上就被安全防护，网络同样也被防护起来。</p>
+<p>安全一直是一个要考虑的重要因素。</p>
+<h1 id="任务"><a href="#任务" class="headerlink" title="任务"></a><strong>任务</strong></h1><h2 id="创建-Domain"><a href="#创建-Domain" class="headerlink" title="创建 Domain"></a><strong>创建 Domain</strong></h2><p>在运行 Domain 之前需要先创建一个。有很多方法可以创建 Domain。这篇<a href="http://wiki.libvirt.org/page/CreatingNewVM_in_VirtualMachineManager" target="_blank" rel="noopener">文章</a>介绍了通过 Virtual Machine Manager GUI 来创建 Domain。第二种方法是使用 virt-install 命令行工具：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># virt-install \</span><br><span class="line">             --connect qemu:///system \</span><br><span class="line">             --virt-type kvm \</span><br><span class="line">             --name MyNewVM \</span><br><span class="line">             --ram 512 \</span><br><span class="line">             --disk path=/var/lib/libvirt/images/MyNewVM.img,size=8 \</span><br><span class="line">             --vnc \</span><br><span class="line">             --cdrom /var/lib/libvirt/images/Fedora-14-x86_64-Live-KDE.iso \</span><br><span class="line">             --network network=default,mac=52:54:00:9c:94:3b \</span><br><span class="line">             --os-variant fedora14</span><br></pre></td></tr></table></figure></p>
+<p>这个命令创建了一个基于 KVM 的 Domain，名为 MyNewVM，RAM 为 512MB，磁盘空间为 8GB。更多信息请阅读 virt-install 手册。</p>
+<p>最后一种方法是创建一个 Domain XML 定义文件和存储卷（volume），以及运行 virsh 命令：vol-create 和 define。</p>
+<p>存储卷会被加入一个存储池（pool）中。默认地，存在一个叫为 <em>default</em> 的存储池。这是一个目录类型的存储池，意味着所有的卷都以文件的方式存储在一个目录中。如果你不是很清楚 Libvirt 的存储管理，请阅读这篇<a href="http://libvirt.org/storage.html" target="_blank" rel="noopener">文章</a>。</p>
+<p>XML 定义文件（new_volume.xml）例子：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&lt;volume&gt;</span><br><span class="line"> &lt;name&gt;sparse.img&lt;/name&gt;</span><br><span class="line"> &lt;capacity unit=&quot;G&quot;&gt;10&lt;/capacity&gt;</span><br><span class="line">&lt;/volume&gt;</span><br></pre></td></tr></table></figure></p>
+<p>这定义了一个容量为 10GB 的卷。在 <em>default</em> 存储池中创建卷：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh vol-create default new_volume.xml</span><br></pre></td></tr></table></figure></p>
+<p>另一个 XML 定义文件（MyNewVM.xml）例子：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">&lt;domain type=&apos;kvm&apos;&gt;</span><br><span class="line">  &lt;name&gt;MyNewVM&lt;/name&gt;</span><br><span class="line">  &lt;currentMemory&gt;524288&lt;/currentMemory&gt;</span><br><span class="line">  &lt;memory&gt;524288&lt;/memory&gt;</span><br><span class="line">  &lt;uuid&gt;30d18a08-d6d8-d5d4-f675-8c42c11d6c62&lt;/uuid&gt;</span><br><span class="line">  &lt;os&gt;</span><br><span class="line">    &lt;type arch=&apos;x86_64&apos;&gt;hvm&lt;/type&gt;</span><br><span class="line">    &lt;boot dev=&apos;hd&apos;/&gt;</span><br><span class="line">  &lt;/os&gt;</span><br><span class="line">  &lt;features&gt;</span><br><span class="line">    &lt;acpi/&gt;&lt;apic/&gt;&lt;pae/&gt;</span><br><span class="line">  &lt;/features&gt;</span><br><span class="line">  &lt;clock offset=&quot;utc&quot;/&gt;</span><br><span class="line">  &lt;on_poweroff&gt;destroy&lt;/on_poweroff&gt;</span><br><span class="line">  &lt;on_reboot&gt;restart&lt;/on_reboot&gt;</span><br><span class="line">  &lt;on_crash&gt;restart&lt;/on_crash&gt;</span><br><span class="line">  &lt;vcpu&gt;1&lt;/vcpu&gt;</span><br><span class="line">  &lt;devices&gt;</span><br><span class="line">    &lt;emulator&gt;/usr/bin/qemu-kvm&lt;/emulator&gt;</span><br><span class="line">    &lt;disk type=&apos;file&apos; device=&apos;disk&apos;&gt;</span><br><span class="line">      &lt;driver name=&apos;qemu&apos; type=&apos;raw&apos;/&gt;</span><br><span class="line">      &lt;source file=&apos;/var/lib/libvirt/images/MyNewVM.img&apos;/&gt;</span><br><span class="line">      &lt;target dev=&apos;vda&apos; bus=&apos;virtio&apos;/&gt;</span><br><span class="line">    &lt;/disk&gt;</span><br><span class="line">    &lt;disk type=&apos;block&apos; device=&apos;cdrom&apos;&gt;</span><br><span class="line">      &lt;target dev=&apos;hdc&apos; bus=&apos;ide&apos;/&gt;</span><br><span class="line">      &lt;readonly/&gt;</span><br><span class="line">    &lt;/disk&gt;</span><br><span class="line">    &lt;interface type=&apos;network&apos;&gt;</span><br><span class="line">      &lt;source network=&apos;default&apos;/&gt;</span><br><span class="line">      &lt;mac address=&apos;52:54:00:9c:94:3b&apos;/&gt;</span><br><span class="line">      &lt;model type=&apos;virtio&apos;/&gt;</span><br><span class="line">    &lt;/interface&gt;</span><br><span class="line">    &lt;input type=&apos;tablet&apos; bus=&apos;usb&apos;/&gt;</span><br><span class="line">    &lt;graphics type=&apos;vnc&apos; port=&apos;-1&apos;/&gt;</span><br><span class="line">    &lt;console type=&apos;pty&apos;/&gt;</span><br><span class="line">    &lt;sound model=&apos;ac97&apos;/&gt;</span><br><span class="line">    &lt;video&gt;</span><br><span class="line">      &lt;model type=&apos;cirrus&apos;/&gt;</span><br><span class="line">    &lt;/video&gt;</span><br><span class="line">  &lt;/devices&gt;</span><br><span class="line">&lt;/domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>定义一个新的持久性 Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh define MyNewVM.xml</span><br></pre></td></tr></table></figure></p>
+<p>Domain XML 文件格式有很多有用的可选元素。所以，请阅读这篇包括样例和大多共性场景的完整 Domain XML 格式参考<a href="http://libvirt.org/formatdomain.html" target="_blank" rel="noopener">文章</a>。</p>
+<h2 id="编辑-Domain"><a href="#编辑-Domain" class="headerlink" title="编辑 Domain"></a><strong>编辑 Domain</strong></h2><p>任何 Domain 都可以用你最喜欢的编辑器编辑。你需要的只是设定 $VISUAL 或者 $EDITOR 环境变量，并且运行：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh edit &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>如果这些变量都没有设置，那默认会使用 vi 编辑器。关闭编辑器后，Libvirt 会自动检查内容变化并应用（apply）它们。另外，在 Virtual Machine Manager 中编辑 Domain 也是可以的。</p>
+<h2 id="启动-Domain"><a href="#启动-Domain" class="headerlink" title="启动 Domain"></a><strong>启动 Domain</strong></h2><p>一旦一个 Domain 创建好了，我们就可以开始运行它了。这可以通过 Virtual Machine Manager 或者执行 virsh start <domain> 命令，如：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh start MyNewVM</span><br></pre></td></tr></table></figure></domain></p>
+<p>这个命令可以执行干净启动（clean boot up）或者恢复 Domain 之前保存的状态。请参考 managedsave virsh 命令详情。需要注意的是，当 Domain 中任一组件（如网络）都没有起来的是，它是启动不起来的。</p>
+<p>就如前面提到的，短暂性 Domain 可以直接运行而无需定义（define）动作：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh create /path/to/MyNewVM.xml</span><br></pre></td></tr></table></figure></p>
+<h2 id="关闭或重启-Domain"><a href="#关闭或重启-Domain" class="headerlink" title="关闭或重启 Domain"></a><strong>关闭或重启 Domain</strong></h2><p>关闭 Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh shutdown &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>重启一个持久性 Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh reboot &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>重启一个短暂性 Domain 是不可能的，因为它在关机（shutdown）后已经不在了（undefined）。</p>
+<p>粗野关机（inelegant shutdown），也称为强制关机（hard-stop）：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh destroy &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>这等同于拔掉电源。</p>
+<h2 id="暂停-Domain"><a href="#暂停-Domain" class="headerlink" title="暂停 Domain"></a><strong>暂停 Domain</strong></h2><p>暂停 Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh suspend &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>或者在 Virtual Machine Manager 中主工具栏点击 <em>Pause</em> 按钮。当虚拟机处于挂起状态（Suspended State），它占用系统 RAM 资源而不是处理器资源；磁盘和网络 I/O 也不会发生。</p>
+<h2 id="继续运行-Domain"><a href="#继续运行-Domain" class="headerlink" title="继续运行 Domain"></a><strong>继续运行 Domain</strong></h2><p>任何一个暂停或挂起的 Domain 都可以恢复运行：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh resume &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>或者通过反点击（unclick） Virtual Machine Manager 的 <em>Pause</em> 按钮。</p>
+<h2 id="生成快照"><a href="#生成快照" class="headerlink" title="生成快照"></a><strong>生成快照</strong></h2><p>生成快照：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh snapshot-create &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<h2 id="列出快照"><a href="#列出快照" class="headerlink" title="列出快照"></a><strong>列出快照</strong></h2><p>列出 Domain 快照：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh snapshot-list &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>输出结果可能看起来像这样子：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"> Name                 Creation Time             State</span><br><span class="line">---------------------------------------------------</span><br><span class="line"> 1295973577           2011-01-25 17:39:37 +0100 running</span><br><span class="line"> 1295978837           2011-01-25 19:07:17 +0100 running</span><br></pre></td></tr></table></figure></p>
+<p>我们可以看到，一个快照是在当地时间 17:39:17 创建的，名为 1295973577，代表着 Unix 时间；另一个快照是在 19:07:17 创建，名为 1295978837。</p>
+<h2 id="从快照恢复-Domain"><a href="#从快照恢复-Domain" class="headerlink" title="从快照恢复 Domain"></a><strong>从快照恢复 Domain</strong></h2><p>从一个快照恢复 Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh snapshot-restore &lt;domain&gt; &lt;snapshotname&gt;</span><br></pre></td></tr></table></figure></p>
+<p>这就恢复 Domain 到快照保存的状态。注意，Domain 的任何变化都会被销毁。</p>
+<h2 id="移除-Domain-的快照"><a href="#移除-Domain-的快照" class="headerlink" title="移除 Domain 的快照"></a><strong>移除 Domain 的快照</strong></h2><p>移除 Domain 的快照：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh snapshot-delete &lt;domain&gt; &lt;snapshotname&gt;</span><br></pre></td></tr></table></figure></p>
+<h2 id="迁移-1"><a href="#迁移-1" class="headerlink" title="迁移"></a><strong>迁移</strong></h2><p>Libvirt 提供了虚拟机迁移支持。这意味着你可以通过网络来迁移虚拟机。迁移主要有两种模式：</p>
+<ul>
+<li>Plain migration（简单迁移）：原宿主机新建一条通向目的宿主机的未加密 TCP 连接以传输数据。除非手工指定了端口，Libvirt 会在 49152-49215 中选择一个。我们需要在目的宿主机的防火墙上放行该端口。</li>
+<li>Tunneled migration（隧道迁移）：原宿主机 libvirtd 进程新建一条通向目的宿主机 libvirtd 的直连通道以传输数据。这允许我们对数据流进行加密。这个模式不需要额外的防火墙配置，只需要 qemu 0.12.0 或更新，以及 libvirt 0.7.2 或更新。</li>
+</ul>
+<p>一个成功的迁移有很多事情需要完成。对于虚拟机，存储配置需要匹配得上、待迁移 Domain 使用的存储卷都要放在同一路径下。完整的检查清单请参考<a href="http://wiki.libvirt.org/page/TodoPreMigrationChecks" target="_blank" rel="noopener">该文</a>。我们也推荐你使用<a href="http://wiki.libvirt.org/page/TodoSecureMigration" target="_blank" rel="noopener">安全迁移（secure migration）</a>。</p>
+<p>一旦迁移前检查完成，我们就可以利用 virsh 来迁移虚拟机了：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh migrate &lt;domain&gt; &lt;remote host URI&gt; --migrateuri tcp://&lt;remote host&gt;:&lt;port&gt;</span><br></pre></td></tr></table></figure></p>
+<h2 id="删除-Domain"><a href="#删除-Domain" class="headerlink" title="删除 Domain"></a><strong>删除 Domain</strong></h2><p>我们可以删除一个 inactive Domain：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh undefine &lt;domain&gt;</span><br></pre></td></tr></table></figure></p>
+<p>如前，我们也可以通过 Virtual Machine Manager 来删除快照，见这篇<a href="http://wiki.libvirt.org/page/DeletingVirtualMachine_in_VirtualMachineManager" target="_blank" rel="noopener">文章</a>。</p>
+<h2 id="擦除-Domain-存储数据"><a href="#擦除-Domain-存储数据" class="headerlink" title="擦除 Domain 存储数据"></a><strong>擦除 Domain 存储数据</strong></h2><p>Domain 使用的存储卷可能会包含保密信息，所以在移除它的时候有必要擦除其上的数据：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh vol-wipe &lt;volume&gt;</span><br></pre></td></tr></table></figure></p>
+<p>这截断（truncate）或扩展（extend）该卷为其原始的大小。实际上是用 0 来填充文件。这保证之前存储在该卷上的数据不再可读。</p>
+<p>最后，你就可以移除该卷了：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># virsh vol-delete &lt;volume&gt;</span><br></pre></td></tr></table></figure></p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h1><ul>
+<li><a href="http://libvirt.org/formatdomain.html" target="_blank" rel="noopener">Domain XML format</a></li>
+<li><a href="http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/Virtualization/index.html" target="_blank" rel="noopener">RHEL 6 Virtualization Guide</a></li>
+<li><a href="http://www.ibm.com/developerworks/linux/library/l-libvirt/index.html?ca=dgr-lnxw97LXlibvirt-APIdth-LX&amp;S_TACT=105AGX59&amp;S_CMP=lnxw97#basic_architecture" target="_blank" rel="noopener">Anatomy of the libvirt virtualization library</a></li>
+<li><a href="http://libvirt.org/guide/html/Application_Development_Guide-Guest_Domains-Lifecycle.html" target="_blank" rel="noopener">Application development guide: Guest domains lifecycle</a></li>
+<li><a href="http://libvirt.org/virshcmdref.html" target="_blank" rel="noopener">Virsh Command Reference</a></li>
+</ul>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2017/08/12/cloud-vm-state/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          虚拟机状态
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2017/08/02/mysql-index/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">MySQL 索引</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#虚拟机生命周期"><span class="toc-number">1.</span> <span class="toc-text">虚拟机生命周期</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#术语"><span class="toc-number">1.1.</span> <span class="toc-text">术语</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#概念"><span class="toc-number">2.</span> <span class="toc-text">概念</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Guest-Domain-用-XML-来描述"><span class="toc-number">2.1.</span> <span class="toc-text">Guest Domain 用 XML 来描述 </span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#短暂性-Guest-Domain-和持久性-Guest-Domain"><span class="toc-number">2.2.</span> <span class="toc-text">短暂性 Guest Domain 和持久性 Guest Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Guest-Domain-状态"><span class="toc-number">2.3.</span> <span class="toc-text">Guest Domain 状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#快照"><span class="toc-number">2.4.</span> <span class="toc-text">快照</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#迁移"><span class="toc-number">2.5.</span> <span class="toc-text">迁移</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#删除-Domain-时的数据安全性"><span class="toc-number">2.6.</span> <span class="toc-text">删除 Domain 时的数据安全性</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#任务"><span class="toc-number">3.</span> <span class="toc-text">任务</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#创建-Domain"><span class="toc-number">3.1.</span> <span class="toc-text">创建 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#编辑-Domain"><span class="toc-number">3.2.</span> <span class="toc-text">编辑 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#启动-Domain"><span class="toc-number">3.3.</span> <span class="toc-text">启动 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#关闭或重启-Domain"><span class="toc-number">3.4.</span> <span class="toc-text">关闭或重启 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#暂停-Domain"><span class="toc-number">3.5.</span> <span class="toc-text">暂停 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#继续运行-Domain"><span class="toc-number">3.6.</span> <span class="toc-text">继续运行 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#生成快照"><span class="toc-number">3.7.</span> <span class="toc-text">生成快照</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#列出快照"><span class="toc-number">3.8.</span> <span class="toc-text">列出快照</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#从快照恢复-Domain"><span class="toc-number">3.9.</span> <span class="toc-text">从快照恢复 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#移除-Domain-的快照"><span class="toc-number">3.10.</span> <span class="toc-text">移除 Domain 的快照</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#迁移-1"><span class="toc-number">3.11.</span> <span class="toc-text">迁移</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#删除-Domain"><span class="toc-number">3.12.</span> <span class="toc-text">删除 Domain</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#擦除-Domain-存储数据"><span class="toc-number">3.13.</span> <span class="toc-text">擦除 Domain 存储数据</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#参考资料"><span class="toc-number">4.</span> <span class="toc-text">参考资料</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

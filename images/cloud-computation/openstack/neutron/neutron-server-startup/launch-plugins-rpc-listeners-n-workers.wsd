@@ -1,0 +1,141 @@
+@startuml
+
+title Launch Core and Service Plugin's "RPC Listeners" & "Workers"
+
+participant start_api_and_rpc_workers as "neutron.server.wsgi_eventlet::start_api_and_rpc_workers"
+participant start_all_workers as "neutron.service::start_all_workers"
+participant get_rpc_workers as "neutron.service::_get_rpc_workers"
+participant rpc_worker as "neutron.service::RpcWorker"
+participant get_plugins_workers as "neutron.service::_get_plugins_workers"
+
+activate start_api_and_rpc_workers
+start_api_and_rpc_workers->start_all_workers: call neutron.service::start_all_workers()
+
+activate start_all_workers
+start_all_workers->get_rpc_workers: call neutron.service::**_get_rpc_workers()**
+
+activate get_rpc_workers
+note over get_rpc_workers: get core plugin
+note over get_rpc_workers: get service plugins (**include core plugin**)
+note over get_rpc_workers: check whether the core plugin support rpc workers or not
+note over get_rpc_workers
+Now it is time to init rpc listeners (workers):
+````
+* neutron/service.py
+def _get_rpc_workers():
+    # passing service plugins only, because core plugin is among them
+    rpc_workers = [RpcWorker(service_plugins,
+                             worker_process_count=cfg.CONF.rpc_workers)]
+````
+end note
+
+get_rpc_workers->rpc_worker: call neutron.service::RpcWorker()
+
+activate rpc_worker
+note over rpc_worker
+let us see the **RpcWorker::start()** method:
+````
+* neutron/service.py
+class RpcWorker(neutron_worker.NeutronWorker):
+    """Wraps a worker to be handled by ProcessLauncher"""
+    start_listeners_method = 'start_rpc_listeners'
+
+    def _\_init__(self, plugins, worker_process_count=1):
+        ...
+
+        self._plugins = plugins
+        self._servers = []
+
+    def start(self):
+        super(RpcWorker, self).start()
+        for plugin in self._plugins:
+            if hasattr(plugin, self.start_listeners_method):
+                try:
+                    servers = getattr(plugin, self.start_listeners_method)()
+                except NotImplementedError:
+                    continue
+                self._servers.extend(servers)
+````
+This means that **if a plugin (core or service plugin) has a method**
+**"start_rpc_listeners", then rpc listeners startup defined in this**
+**method will be executed.** For example, core plugin and l3 router 
+plugin both have this method.
+end note
+
+rpc_worker-->get_rpc_workers: return RpcWorker() instances (both core and service plugins)
+deactivate rpc_worker
+
+note over get_rpc_workers
+if cfg.CONF.rpc_state_report_workers and the core plugin support
+rpc_state_report_workers, then add a **RpcReportsWorker**:
+````
+* neutron/service.py
+def _get_rpc_workers():
+    ...
+    if (cfg.CONF.rpc_state_report_workers > 0 and
+            plugin.rpc_state_report_workers_supported()):
+        rpc_workers.append(
+            RpcReportsWorker(
+                [plugin],
+                worker_process_count=cfg.CONF.rpc_state_report_workers
+            )
+        )
+    ...
+
+class RpcReportsWorker(RpcWorker):
+    start_listeners_method = 'start_rpc_state_reports_listener'
+````
+Be careful, **the RpcReportsWorker just inherite from RpcWorker.**
+
+When this worker is started, **"start_rpc_state_reports_listener"** will
+be called.
+end note
+
+get_rpc_workers-->start_all_workers: return rpc workers
+deactivate get_rpc_workers
+
+start_all_workers->get_plugins_workers: call neutron.service::**_get_plugins_workers()**
+
+activate get_plugins_workers
+note over get_plugins_workers
+这里是为了获得 Core & Service Plugins 的 Workers：
+````
+def _get_plugins_workers():
+    # NOTE(twilson) get_plugins also returns the core plugin
+    plugins = directory.get_unique_plugins()
+
+    # TODO(twilson) Instead of defaulting here, come up with a good way to
+    # share a common get_workers default between NeutronPluginBaseV2 and
+    # ServicePluginBase
+    return [
+        plugin_worker
+        for plugin in plugins if hasattr(plugin, 'get_workers')
+        for plugin_worker in plugin.get_workers()
+    ]
+````
+
+**因为 Plugins 的内容比较多，所以我们把这部分放到后边小节中分析**
+end note
+
+get_plugins_workers-->start_all_workers: return
+deactivate get_plugins_workers
+
+note over start_all_workers: get plugins workers
+note over start_all_workers
+_start_workers (will eventually call each workers **start** method)
+````
+* neutron/service.py
+def start_all_workers():
+    workers = _get_rpc_workers() + _get_plugins_workers()
+    return **_start_workers**(workers)
+````
+end note
+
+start_all_workers-->start_api_and_rpc_workers: return worker launcher
+deactivate start_all_workers
+
+note over start_api_and_rpc_workers
+spawn eventlet thread pool to run neutron_api and workers
+end note
+
+@enduml

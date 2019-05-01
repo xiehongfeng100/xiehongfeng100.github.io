@@ -1,0 +1,297 @@
+@startuml
+
+title RPCServer
+
+participant ser_start as "service::Service::start"
+participant oslo_msg_target as "oslo_messaging.target::Target"
+participant basicrpc
+participant rpc
+participant obj_serializer as "objects.base::NovaObjectSerializer"
+participant oslo_rpcserver as "oslo_messaging.rpc.server::RPCServer"
+participant oslo_rpcdispatcher as "oslo_messaging.rpc.dispatcher::RPCDispatcher"
+participant fut_green_pool_executor as "futurist:GreenThreadPoolExecutor"
+participant oslo_transport as "oslo_messaging.transport::Transport"
+participant oslo_rabbit_driver as "oslo_messaging._drivers.impl_rabbit::RabbitDriver"
+participant pollstylelisteneradapter as "oslo_messaging._drivers.base::PollStyleListenerAdapter"
+
+ser_start->oslo_msg_target: call oslo_messaging.target::Target::_\_init__()
+
+activate oslo_msg_target
+note over oslo_msg_target
+__Note__      
+an RPC Server's target:
+  topic and server is required; exchange is optional
+an RPC endpoint's target:
+  namespace and version is optional
+an RPC client sending a message:
+  topic is required, all other attributes optional
+a Notification Server's target:
+  topic is required, exchange is optional; all other attributes ignored
+a Notifier's target:
+  topic is required, exchange is optional; all other attributes ignored
+end note
+oslo_msg_target-->ser_start: return oslo_messaging.target::Target()
+deactivate oslo_msg_target
+
+note over ser_start
+init endpoints:
+
+1. self.manager (that is, the compute manager)
+2. baserpc.BaseRPCAPI()
+
+We will talk about the 2nd one.
+end note
+
+ser_start->basicrpc: call basicrpc::BaseRPCAPI::_\_init__()
+
+activate basicrpc
+note over basicrpc
+__Note__
+basicrpc.BaseRPCAPI() has 
+two member functions of "no effect":
+1. self.ping()
+2. self.get_backdoor_port()
+end note
+basicrpc-->ser_start: return basicrpc::BaseRPCAPI()
+deactivate basicrpc
+
+ser_start->obj_serializer: call objects.base::NovaObjectSerializer::_\_init__()
+
+activate obj_serializer
+obj_serializer-->ser_start: return objects.base::NovaObjectSerializer()
+deactivate obj_serializer
+
+ser_start->rpc: call rpc::get_server()
+
+activate rpc
+rpc->oslo_rpcserver: call oslo_messaging.rpc.server::get_rpc_server()
+
+activate oslo_rpcserver
+oslo_rpcserver->oslo_rpcdispatcher: call oslo_messaging.rpc.dispatcher::RPCDispatcher()
+
+activate oslo_rpcdispatcher
+note over oslo_rpcdispatcher
+__Note__
+oslo_messaging.rpc.dispatcher::RPCDispatcher() func
+dispatch() is to dispatch an RPC message to an
+approapriate endpoint method.
+end note
+oslo_rpcdispatcher-->oslo_rpcserver: return
+deactivate oslo_rpcdispatcher
+
+note over oslo_rpcserver
+call oslo_messaging.rpc.server::RPCServer::_\_init__()
+
+One important thing is that the self._executor_cls will
+be initialized to be:
+```
+try:
+    mgr = driver.DriverManager('oslo.messaging.executors',
+                               self.executor_type)
+except RuntimeError as ex:
+    raise ExecutorLoadFailure(self.executor_type, ex)
+
+self._executor_cls = mgr.driver
+```
+
+While the oslo.messaging.executors is defined in
+oslo.messaging modules setup.cfg:
+```
+oslo.messaging.executors =
+    blocking = futurist:SynchronousExecutor
+    eventlet = futurist:GreenThreadPoolExecutor
+    threading = futurist:ThreadPoolExecutor
+```
+
+And self.executor_type is 'eventlet' here, so we get
+the self._executor_cls = futurist:GreenThreadPoolExecutor
+end note
+
+oslo_rpcserver-->rpc: return oslo_messaging.rpc.server::RPCServer()
+deactivate oslo_rpcserver
+
+rpc-->ser_start: return oslo_messaging.rpc.server::RPCServer()
+deactivate rpc
+
+ser_start->oslo_rpcserver: call oslo_messaging.rpc.server::RPCServer::start()
+
+activate oslo_rpcserver
+note over oslo_rpcserver
+__Note__
+This method (start()) causes the server to begin
+polling the transport for incoming messages and
+passing them to the dispatcher. Message processing
+will continue until the stop() method is called.
+end note
+
+oslo_rpcserver->fut_green_pool_executor: call futurist:GreenThreadPoolExecutor::_\_init__()
+activate fut_green_pool_executor
+fut_green_pool_executor-->oslo_rpcserver: return futurist:GreenThreadPoolExecutor() and \nassign it to self._work_executor
+deactivate fut_green_pool_executor
+
+oslo_rpcserver->oslo_rpcserver: _create_listener
+activate oslo_rpcserver #DarkSalmon
+oslo_rpcserver->oslo_transport: create listener by calling \noslo_messaging.transport::Transport::_listen()
+
+activate oslo_transport
+oslo_transport->oslo_rabbit_driver: call oslo_messaging._drivers.impl_rabbit::RabbitDriver::listen()
+
+activate oslo_rabbit_driver
+note over oslo_rabbit_driver: get connection
+note over oslo_rabbit_driver
+init oslo_messaging._drivers.amqpdriver::AMQPListener()
+
+We need to talk about it in detail.
+
+end note
+note over oslo_rabbit_driver: declare topic (target.topic) consumer
+note over oslo_rabbit_driver: declare topic ((target.topic).(target.server)) consumer
+note over oslo_rabbit_driver: declare fanout (topic is target.topic) consumer
+oslo_rabbit_driver->pollstylelisteneradapter: call oslo_messaging._drivers.base::PollStyleListenerAdapter._\_init__()
+
+activate pollstylelisteneradapter
+note over pollstylelisteneradapter
+init:
+1. let self._poll_style_listener be the 
+oslo_messaging._drivers.amqpdriver::AMQPListener()
+mentioned above
+2. init a thread to poll the incoming messages:
+```
+class PollStyleListenerAdapter(Listener):
+    """A Listener that uses a PollStyleListener for message transfer. A
+    dedicated thread is created to do message polling.
+    """
+    def _\_init__(self, poll_style_listener, batch_size, batch_timeout):
+        super(PollStyleListenerAdapter, self)._\_init__(
+            batch_size, batch_timeout, poll_style_listener.prefetch_size
+        )
+        self._poll_style_listener = poll_style_listener
+        self._listen_thread = threading.Thread(target=self._runner)
+        self._listen_thread.daemon = True
+        self._started = False
+
+    ......
+
+    @excutils.forever_retry_uncaught_exceptions
+    def _runner(self):
+        while self._started:
+            incoming = self._poll_style_listener.poll(
+                batch_size=self.batch_size, batch_timeout=self.batch_timeout)
+
+            if incoming:
+                self.on_incoming_callback(incoming)
+
+        # listener is stopped but we need to process all already consumed
+        # messages
+        while True:
+            incoming = self._poll_style_listener.poll(
+                batch_size=self.batch_size, batch_timeout=self.batch_timeout)
+
+            if not incoming:
+                return
+            self.on_incoming_callback(incoming)
+```
+end note
+
+pollstylelisteneradapter-->oslo_rabbit_driver: return oslo_messaging._drivers.base::PollStyleListenerAdapter()
+deactivate pollstylelisteneradapter
+
+oslo_rabbit_driver-->oslo_transport: return oslo_messaging._drivers.base::PollStyleListenerAdapter()
+deactivate oslo_rabbit_driver
+
+oslo_transport-->oslo_rpcserver: return the listener
+deactivate oslo_transport
+deactivate oslo_rpcserver
+
+oslo_rpcserver->pollstylelisteneradapter: start the listener by calling \noslo_messaging._drivers.base::PollStyleListenerAdapter::start()
+
+activate pollstylelisteneradapter
+note over pollstylelisteneradapter
+__Note__
+Start the listening thread:
+```
+class PollStyleListenerAdapter(Listener):
+    ......
+    def start(self, on_incoming_callback):
+        super(PollStyleListenerAdapter, self).start(on_incoming_callback)
+        self._started = True
+        self._listen_thread.start()
+```
+
+While the on_incoming_callback is defined in
+oslo_messaging.rpc.server::RPCServer::_on_incoming()
+end note
+
+pollstylelisteneradapter->oslo_rpcserver: call oslo_messaging.rpc.server::RPCServer::_on_incoming()
+
+activate oslo_rpcserver
+oslo_rpcserver->oslo_rpcserver: call oslo_messaging.rpc.server::RPCServer::_process_incoming()
+
+activate oslo_rpcserver
+note over oslo_rpcserver: acknowledge message
+
+oslo_rpcserver->oslo_rpcdispatcher: call oslo_messaging.rpc.dispatcher::RPCDispatcher::dispatch()
+
+activate oslo_rpcdispatcher
+note over oslo_rpcdispatcher
+Code talks:
+```
+class RPCDispatcher(dispatcher.DispatcherBase):
+    ......
+    def dispatch(self, incoming):
+        """Dispatch an RPC message to the appropriate endpoint method.
+
+        :param incoming: incoming message
+        :type incoming: IncomingMessage
+        :raises: NoSuchMethod, UnsupportedVersion
+        """
+        message = incoming.message
+        ctxt = incoming.ctxt
+
+        method = message.get('method')
+        args = message.get('args', {})
+        namespace = message.get('namespace')
+        version = message.get('version', '1.0')
+
+        found_compatible = False
+        for endpoint in self.endpoints:
+            target = getattr(endpoint, 'target', None)
+            if not target:
+                target = self._default_target
+
+            if not (self._is_namespace(target, namespace) and
+                    self._is_compatible(target, version)):
+                continue
+
+            if hasattr(endpoint, method):
+                if self.access_policy.is_allowed(endpoint, method):
+                    return self._do_dispatch(endpoint, method, ctxt, args)
+
+            found_compatible = True
+
+        if found_compatible:
+            raise NoSuchMethod(method)
+        else:
+            raise UnsupportedVersion(version, method=method)
+```
+end note
+
+oslo_rpcdispatcher-->oslo_rpcserver: return
+deactivate oslo_rpcdispatcher
+
+note over oslo_rpcserver: reply message
+
+oslo_rpcserver-->oslo_rpcserver: return
+deactivate oslo_rpcserver
+
+oslo_rpcserver-->pollstylelisteneradapter: return
+deactivate oslo_rpcserver
+
+pollstylelisteneradapter-->oslo_rpcserver: return
+deactivate pollstylelisteneradapter
+
+oslo_rpcserver-->ser_start: return
+deactivate oslo_rpcserver
+
+
+@enduml

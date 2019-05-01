@@ -1,0 +1,19 @@
+@startuml
+
+title L3 Router (Service) Plugin
+
+participant l3_router_plugin as "neutron.services.l3_router.l3_router_plugin::L3RouterPlugin"
+
+activate l3_router_plugin
+note over l3_router_plugin
+import router scheduler driver configured in
+cfg.CONF.router_scheduler_driver
+end note
+
+note over l3_router_plugin: add periodic l3_agent status check
+note over l3_router_plugin: subscribe callbacks for resource events
+note over l3_router_plugin: update agent notifiers
+note over l3_router_plugin: add rpc worker
+note over l3_router_plugin: init l3 driver controller
+
+@enduml

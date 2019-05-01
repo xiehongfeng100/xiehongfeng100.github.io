@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>网络学习笔记：网络 I/O 中的同步、异步、阻塞和非阻塞概念 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文迁移并整理自个人之前在博客园的博客。  在学习网络编程过程中，经常会把同步、异步、阻塞和非阻塞概念这几个概念搞混淆。本文就是要理清这几个概念，以便进一步的学习。 本文主要参考了《UNIX 网络编程卷 1：套接字联网API》（第 3 版），以后都将该书简称为 UNP。 我们先来看下同步 I/O 和异步 I/O 的区别。 同步 I/O 和异步 I/O 的区别我们先来看一下操作 I/O 时所涉及的对">
+<meta name="keywords" content="同步,异步,阻塞,非阻塞,IO Multiplexing">
+<meta property="og:type" content="article">
+<meta property="og:title" content="网络学习笔记：网络 I&#x2F;O 中的同步、异步、阻塞和非阻塞概念">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2018/09/07/net-what-is-io-syn-asyn-blocking-nonblocking/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文迁移并整理自个人之前在博客园的博客。  在学习网络编程过程中，经常会把同步、异步、阻塞和非阻塞概念这几个概念搞混淆。本文就是要理清这几个概念，以便进一步的学习。 本文主要参考了《UNIX 网络编程卷 1：套接字联网API》（第 3 版），以后都将该书简称为 UNP。 我们先来看下同步 I/O 和异步 I/O 的区别。 同步 I/O 和异步 I/O 的区别我们先来看一下操作 I/O 时所涉及的对">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/5种I-O模型的比较.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/阻塞式I-O模型.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/非阻塞式I-O模型.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/I-O复用模型.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/信号驱动式I-O模型.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/异步I-O模型.png">
+<meta property="og:updated_time" content="2019-05-01T07:14:01.782Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="网络学习笔记：网络 I&#x2F;O 中的同步、异步、阻塞和非阻塞概念">
+<meta name="twitter:description" content="本文迁移并整理自个人之前在博客园的博客。  在学习网络编程过程中，经常会把同步、异步、阻塞和非阻塞概念这几个概念搞混淆。本文就是要理清这几个概念，以便进一步的学习。 本文主要参考了《UNIX 网络编程卷 1：套接字联网API》（第 3 版），以后都将该书简称为 UNP。 我们先来看下同步 I/O 和异步 I/O 的区别。 同步 I/O 和异步 I/O 的区别我们先来看一下操作 I/O 时所涉及的对">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/network/syn-asyn-blocking-nonblocking/5种I-O模型的比较.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-net-what-is-io-syn-asyn-blocking-nonblocking" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2018/09/07/net-what-is-io-syn-asyn-blocking-nonblocking/" class="article-date">
+  	<time datetime="2018-09-07T02:06:32.000Z" itemprop="datePublished">2018-09-07</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      网络学习笔记：网络 I/O 中的同步、异步、阻塞和非阻塞概念
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/IO-Multiplexing/">IO Multiplexing</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/同步/">同步</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/异步/">异步</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/阻塞/">阻塞</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/非阻塞/">非阻塞</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/网络/">网络</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文迁移并整理自个人之前在博客园的<a href="http://www.cnblogs.com/xiehongfeng100/p/4763225.html" target="_blank" rel="noopener">博客</a>。</p>
+<hr>
+<p>在学习网络编程过程中，经常会把同步、异步、阻塞和非阻塞概念这几个概念搞混淆。本文就是要理清这几个概念，以便进一步的学习。</p>
+<p>本文主要参考了《UNIX 网络编程卷 1：套接字联网API》（第 3 版），以后都将该书简称为 UNP。</p>
+<p>我们先来看下同步 I/O 和异步 I/O 的区别。</p>
+<h1 id="同步-I-O-和异步-I-O-的区别"><a href="#同步-I-O-和异步-I-O-的区别" class="headerlink" title="同步 I/O 和异步 I/O 的区别"></a><strong>同步 I/O 和异步 I/O 的区别</strong></h1><p>我们先来看一下操作 I/O 时所涉及的对象和阶段（这里我们以读操作为例）。涉及到的对象有两个，一个是调用这个 I/O 的<code>进程（或线程）</code>，另一个是<code>内核</code>。当一个读操作发生时，它会经历两个阶段：  </p>
+<ul>
+<li><strong>等待数据就绪（可读）</strong> </li>
+<li><strong>将数据从内核拷贝到进程空间</strong><br>这两个阶段很重要，因为各种I/O模型的区别就是在这两个阶段上各有不同的情况。</li>
+</ul>
+<p>POSIX 对同步 I/O 和异步 I/O 操作的定义如下：  </p>
+<ul>
+<li><strong>同步 I/O 操作</strong>（Synchronous I/O operation）导致请求进程阻塞，直到I/O操作完成。UNP 第 6 章中提到的 I/O 模型 —— 阻塞式 I/O 模型、非阻塞式 I/O 模型、I/O 复用模型和信号驱动式 I/O 模型都是同步 I/O 模型，因为其中<code>真正的 I/O 操作将阻塞进程</code>。</li>
+<li><strong>异步 I/O 操作</strong>（asynchronous I/O operation）不导致请求进程阻塞。</li>
+</ul>
+<p>从以上定义可以看出，<code>同步 I/O 和异步 I/O 操作的核心区别在于真正的 I/O 操作会不会阻塞进程。具体来说，同步 I/O 需要进程真正地去操作 I/O，而异步 I/O 则由内核在 I/O 操作完成后再通知应用进程结果。</code></p>
+<a id="more"></a>
+<p>我们来看一下 UNP 一书给出的对 5 种 I/O 模型的比较就更清楚了：<br><img src="/images/network/syn-asyn-blocking-nonblocking/5种I-O模型的比较.png" alt>图片来源：UNP  </p>
+<p>由上图，我们可以知道，除了异步 I/O 模型，其他模型都会实际阻塞于真正的 I/O 操作。上图也说明了非阻塞式 I/O 虽然在检查阶段不会阻塞，但在文件描述符就绪（如可读）的时候是会阻塞的，这是它区别于异步 I/O 很重要的一点。</p>
+<p>对于同步 I/O 操作，一个典型的例子就是 libevent 网络库。而对于异步 I/O 操作，比较有名的例子就是 Boost 库的 ASIO 库。ACE 库则包括了同步 I/O 及异步 I/O 两种方式。</p>
+<h1 id="同步-I-O"><a href="#同步-I-O" class="headerlink" title="同步 I/O"></a><strong>同步 I/O</strong></h1><p>同步 I/O 操作包括了阻塞式 I/O 模型、非阻塞式 I/O 模型、I/O 复用模型和信号驱动式 I/O 模型。</p>
+<h2 id="阻塞式-I-O-模型"><a href="#阻塞式-I-O-模型" class="headerlink" title="阻塞式 I/O 模型"></a><strong>阻塞式 I/O 模型</strong></h2><p><code>在 Unix/Linux 中，默认情况下所有的套接字都是阻塞的。</code>以数据报套接字为例，一个典型的读操作流程大概是这样：  </p>
+<p><img src="/images/network/syn-asyn-blocking-nonblocking/阻塞式I-O模型.png" alt>图片来源：UNP  </p>
+<p>进程调用 recvfrom，其系统调用直到数据报到达且被复制到应用进程的缓冲区中或者发生错误才返回。最常见的错误是系统调用被信号中断。我们说进程在从调用 recvfrom 开始到它返回的整段时间内是被阻塞的。recvfrom 成功返回后，应用进程开始处理数据报。</p>
+<h2 id="非阻塞式-I-O-模型"><a href="#非阻塞式-I-O-模型" class="headerlink" title="非阻塞式 I/O 模型"></a><strong>非阻塞式 I/O 模型</strong></h2><p>进程把一个套接字设置成非阻塞是在通知内核：<code>当所请求的 I/O 操作非得把本进程投入睡眠才能完成时，不要把本进程投入睡眠，而是返回一个错误。</code>如下例：  </p>
+<p><img src="/images/network/syn-asyn-blocking-nonblocking/非阻塞式I-O模型.png" alt>图片来源：UNP  </p>
+<p>前三次调用 recvfrom 时没有数据可返回，因此内核转而立即返回一个 EWOULDBLOCK 错误。第四次调用 recvfrom 时已有一个数据报准备好，它被复制到应用进程缓冲区，于是 recvfrom 成功返回。我们接着处理数据。</p>
+<p>当一个应用进程像这样对一个非阻塞描述符循环调用 recvfrom 时，我们称之为轮询（polling）。应用进程持续轮询内核，以查看某个操作是否就绪。这么做往往耗费大量 CPU 时间。</p>
+<h2 id="I-O-复用模型"><a href="#I-O-复用模型" class="headerlink" title="I/O 复用模型"></a><strong>I/O 复用模型</strong></h2><p>关于 I/O 复用，<a href="https://www.zhihu.com/question/28594409" target="_blank" rel="noopener">知乎</a>上有比较透彻的一个解释：“关于I/O多路复用(又被称为“事件驱动”)，首先要理解的是，操作系统为你提供了一个功能，当你的某个 socket 可读或者可写的时候，它可以给你一个通知。这样当配合非阻塞的 socket 使用时，只有当系统通知我哪个描述符可读了，我才去执行 read 操作，可以保证每次 read 都能读到有效数据而不做纯返回 -1 和 EAGAIN 的无用功。写操作类似。操作系统的这个功能通过 select/poll/epoll/kqueue 之类的系统调用函数来使用，这些函数都可以同时监视多个描述符的读写就绪状况，这样，多个描述符的 I/O 操作都能在一个线程内并发交替地顺序完成，这就叫 I/O 多路复用，这里的<code>‘复用’指的是复用同一个线程</code>。”</p>
+<p>有了 I/O 复用（I/O multiplexing），我们就可以调用 select 或 poll，阻塞在这两个系统调用中的某一个之上，而不是阻塞在真正的 I/O 系统调用上。下图概括展示了 I/O 复用模型：<br><img src="/images/network/syn-asyn-blocking-nonblocking/I-O复用模型.png" alt>图片来源：UNP  </p>
+<p>我们阻塞于 select 调用，等待数据报套接字变为可读。当 select 返回套接字可读这一条件时，我们调用 recvfrom 把所读数据报复制到应用进程缓冲区。</p>
+<p>比较阻塞式 I/O 模型相比，I/O 复用并不显得有什么优势，事实上由于使用 select 需要两个而不是单个系统调用，I/O 复用还稍有劣势。不过 <code>select 的优势在于可以等待多个描述符就绪</code>（与此相对应的方法是多线程 + 阻塞式I/O，即由每一个线程来调用阻塞式 I/O 系统调用）。</p>
+<h2 id="信号驱动式-I-O-模型"><a href="#信号驱动式-I-O-模型" class="headerlink" title="信号驱动式 I/O 模型"></a><strong>信号驱动式 I/O 模型</strong></h2><p>我们也可以用信号，让内核在描述符就绪时发送 SIGIO 信号给我们。这种模型称为信号驱动式 I/O（signal-driven I/O）。下图是其概要展示：   </p>
+<p><img src="/images/network/syn-asyn-blocking-nonblocking/信号驱动式I-O模型.png" alt>图片来源：UNP  </p>
+<p>我们首先开启套接字的信号驱动式 I/O 功能，并通过 sigaction 系统调用安装一个信号处理函数。该系统调用将立即返回，我们的进程继续工作，也就是说它没有被阻塞。当数据报准备好读写时，内核就为该进程产生一个 SIGIO 信号。我们随后既可以在信号处理函数中调用 recvfrom 读取数据报，并通知主循环数据已准备好待处理，也可以立即通知主循环，让它读取数据报。</p>
+<p>无论如何处理 SIGIO 信号，这种模型的优势在于等待数据报到达期间进程不被阻塞。主循环可以继续执行，只要等待来自信号处理函数的通知：既可以是数据已准备好被处理，也可以是数据报已准备好被读取。</p>
+<h1 id="异步-I-O"><a href="#异步-I-O" class="headerlink" title="异步 I/O"></a><strong>异步 I/O</strong></h1><p>异步 I/O（asynchronous I/O）由 POSIX 规范定义。一般来说，用于实现异步 I/O 的函数的工作机制是：<code>告知内核启动某个操作，并让内核在整个操作（包括将数据从内核复制到进程的缓冲区）完成后通知我们。</code>这种模型与前面介绍的信号驱动模型的主要区别在于：<code>信号驱动式 I/O 是由内核通知我们何时可以启动一个 I/O 操作，而异步 I/O 模型是由内核通知我们 I/O 操作何时完成。</code>下图给出了一个例子：  </p>
+<p><img src="/images/network/syn-asyn-blocking-nonblocking/异步I-O模型.png" alt>图片来源：UNP  </p>
+<p>我们调用 aio_read 函数（POSIX 异步 I/O 函数以 aio_ 或 lio_ 开头），给内核传递描述符、缓冲区指针、缓冲区大小（与 read 相同的三个参数）和文件偏移（与 lseek 类似），并告诉内核当整个操作完成时如何通知我们。该系统调用立即返回，而且在等待 I/O 完成期间，我们的进程不被阻塞。本例子中我们假设要求内核在操作完成时产生某个<code>信号</code>。该信号直到数据已复制到应用进程缓冲区时才发生，这一点不同于信号驱动式 I/O 模型。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2018/09/07/net-what-is-socket/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          网络学习笔记：什么是 Socket
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2018/08/19/yelper-summary/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Yelper 项目总结</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#同步-I-O-和异步-I-O-的区别"><span class="toc-number">1.</span> <span class="toc-text">同步 I/O 和异步 I/O 的区别</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#同步-I-O"><span class="toc-number">2.</span> <span class="toc-text">同步 I/O</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#阻塞式-I-O-模型"><span class="toc-number">2.1.</span> <span class="toc-text">阻塞式 I/O 模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#非阻塞式-I-O-模型"><span class="toc-number">2.2.</span> <span class="toc-text">非阻塞式 I/O 模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#I-O-复用模型"><span class="toc-number">2.3.</span> <span class="toc-text">I/O 复用模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#信号驱动式-I-O-模型"><span class="toc-number">2.4.</span> <span class="toc-text">信号驱动式 I/O 模型</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#异步-I-O"><span class="toc-number">3.</span> <span class="toc-text">异步 I/O</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

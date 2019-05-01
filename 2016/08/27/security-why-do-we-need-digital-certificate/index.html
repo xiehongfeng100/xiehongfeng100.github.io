@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>为什么我们需要数字证书？ | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="标题也正是本人一直想问的一个问题。时至今日，感觉也该对其做一个总结了。 最近查找了不少资料，发现不少资料都很不错，特列写如下：  PKI/CA 技术的介绍 数字证书原理 数字证书 数字证书以及12306的证书问题 Digital Certificates 数字证书及 CA 的扫盲介绍 What are digital signatures? 扫盲 HTTPS 和 SSL/TLS 协议（1）：背景知">
+<meta name="keywords" content="PKI,加密,数字证书,SSL,CA,消息摘要,数字签名">
+<meta property="og:type" content="article">
+<meta property="og:title" content="为什么我们需要数字证书？">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/08/27/security-why-do-we-need-digital-certificate/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="标题也正是本人一直想问的一个问题。时至今日，感觉也该对其做一个总结了。 最近查找了不少资料，发现不少资料都很不错，特列写如下：  PKI/CA 技术的介绍 数字证书原理 数字证书 数字证书以及12306的证书问题 Digital Certificates 数字证书及 CA 的扫盲介绍 What are digital signatures? 扫盲 HTTPS 和 SSL/TLS 协议（1）：背景知">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/digital-signature.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/x.509.cert.standard.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/digital-cert.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/digital-cert-issue.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/cert-based-mutualssl.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/1WaySSL.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/2WaySSL.png">
+<meta property="og:updated_time" content="2019-05-01T06:14:48.072Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="为什么我们需要数字证书？">
+<meta name="twitter:description" content="标题也正是本人一直想问的一个问题。时至今日，感觉也该对其做一个总结了。 最近查找了不少资料，发现不少资料都很不错，特列写如下：  PKI/CA 技术的介绍 数字证书原理 数字证书 数字证书以及12306的证书问题 Digital Certificates 数字证书及 CA 的扫盲介绍 What are digital signatures? 扫盲 HTTPS 和 SSL/TLS 协议（1）：背景知">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/security/cryptoalgorithm/digital-certificate/digital-signature.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-security-why-do-we-need-digital-certificate" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/08/27/security-why-do-we-need-digital-certificate/" class="article-date">
+  	<time datetime="2016-08-27T11:27:27.000Z" itemprop="datePublished">2016-08-27</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      为什么我们需要数字证书？
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CA/">CA</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/PKI/">PKI</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/SSL/">SSL</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/加密/">加密</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数字签名/">数字签名</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/数字证书/">数字证书</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/消息摘要/">消息摘要</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/安全/">安全</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>标题也正是本人一直想问的一个问题。时至今日，感觉也该对其做一个总结了。</p>
+<p>最近查找了不少资料，发现不少资料都很不错，特列写如下：</p>
+<ul>
+<li><a href="http://netsecurity.51cto.com/art/200602/21066.htm" target="_blank" rel="noopener">PKI/CA 技术的介绍</a></li>
+<li><a href="http://www.cnblogs.com/JeffreySun/archive/2010/06/24/1627247.html" target="_blank" rel="noopener">数字证书原理</a></li>
+<li><a href="https://blog.cnbluebox.com/blog/2014/03/24/shu-zi-zheng-shu/" target="_blank" rel="noopener">数字证书</a></li>
+<li><a href="http://deshui.wang/%E6%8A%80%E6%9C%AF/2016/01/11/security-5" target="_blank" rel="noopener">数字证书以及12306的证书问题</a></li>
+<li><a href="https://technet.microsoft.com/en-us/library/cc962029.aspx" target="_blank" rel="noopener">Digital Certificates</a></li>
+<li><a href="https://program-think.blogspot.com/2010/02/introduce-digital-certificate-and-ca.html" target="_blank" rel="noopener">数字证书及 CA 的扫盲介绍</a></li>
+<li><a href="https://www.docusign.com/how-it-works/electronic-signature/digital-signature/digital-signature-faq" target="_blank" rel="noopener">What are digital signatures?</a></li>
+<li><a href="https://program-think.blogspot.com/2014/11/https-ssl-tls-1.html" target="_blank" rel="noopener">扫盲 HTTPS 和 SSL/TLS 协议（1）：背景知识、协议的需求、设计的难点</a></li>
+<li><a href="https://program-think.blogspot.com/2014/11/https-ssl-tls-2.html" target="_blank" rel="noopener">扫盲 HTTPS 和 SSL/TLS 协议（2）：可靠密钥交换的原理</a></li>
+<li><a href="http://www.codeproject.com/Articles/326574/An-Introduction-to-Mutual-SSL-Authentication" target="_blank" rel="noopener">An Introduction to Mutual SSL Authentication</a></li>
+<li><a href="http://blog.csdn.net/fw0124/article/details/40983787" target="_blank" rel="noopener">使用wireshark观察SSL/TLS握手过程–双向认证/单向认证</a></li>
+</ul>
+<p>另外，有几篇文章是写如何搭建自己的 CA 的，也很不错：</p>
+<ul>
+<li><a href="https://jamielinux.com/docs/openssl-certificate-authority/introduction.html" target="_blank" rel="noopener">OpenSSL Certificate Authority</a></li>
+<li><a href="http://pages.cs.wisc.edu/~zmiller/ca-howto/" target="_blank" rel="noopener">How To Setup a CA</a></li>
+<li><a href="http://seanlook.com/2015/01/18/openssl-self-sign-ca/" target="_blank" rel="noopener">基于OpenSSL自建CA和颁发SSL证书</a></li>
+</ul>
+<h1 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a><strong>基本概念</strong></h1><p>关于基本概念，博文<a href="http://www.cnblogs.com/JeffreySun/archive/2010/06/24/1627247.html" target="_blank" rel="noopener">数字证书原理</a>已经讲得没谁的了，太赞了，一定要看！</p>
+<p>这里要特别提一下的是 PKI 的概念。对其解释采用博文 <a href="http://netsecurity.51cto.com/art/200602/21066.htm" target="_blank" rel="noopener">PKI/CA 技术的介绍</a>中的说法：</p>
+<blockquote>
+<ul>
+<li>PKI 就是 Public Key Infrastructure 的缩写，翻译过来就是公开密钥基础设施。<strong>它是利用公开密钥技术所构建的，解决网络安全问题的，普遍适用的一种基础设施。</strong>美国政府的一个报告中把 PKI 定义为全面解决安全问题的基础结构，从而大大扩展了 PKI 的概念。而我们认为，<code>采用了公开密钥技术的基础设施就可以称为 PKI 。</code>公开密钥技术也就是利用非对称算法的技术。说 PKI 是基础设施，就意味着它对信息网络的重要。将 PKI 在网络信息空间的地位与电力基础设施在工业生活中的地位进行类比非常确切。电力系统，通过伸到用户的标准插座为用户提供能源。 PKI 通过延伸到用户本地的接口，为各种应用提供安全的服务，如认证、身份识别、数字签名、加密等。从概念上讲，如果离开使用 PKI 的应用系统， PKI 本身没有任何实际的用处，正如电力系统离开电器设备也没有用一样。有了 PKI ，安全应用程序的开发者不用再关心那些复杂的数学运算和模型，而直接按照标准使用一种插座（接口）。用户也不用关心如何进行对方的身份鉴别而可以直接使用标准的插座，正如在电力基础设施上使用电吹风一样。</li>
+<li><code>PKI 中最基本的元素就是数字证书。</code>所有安全的操作主要通过证书来实现。 PKI 的硬设备还包括签置这些证书的证书机构 (<strong>CA</strong>) ，登记和批准证书签置的登记机构 (<strong>RA</strong>) ，以及存储和发布这些证书的<strong>电子目录</strong>。 PKI 中还包括证书策略，证书路径以及证书的使用者。所有这些都是 PKI 的基本元素。许多这样的基本元素有机地结合在一起就构成了 PKI 。</li>
+</ul>
+</blockquote>
+<a id="more"></a>
+<h1 id="为什么我们需要数字证书"><a href="#为什么我们需要数字证书" class="headerlink" title="为什么我们需要数字证书"></a><strong>为什么我们需要数字证书</strong></h1><p><strong>注：</strong>假设本部分采用的密码算法和密钥都极难破解（没有百分之百的安全）。</p>
+<p>我们先来看一下通信可采用的一些方案：</p>
+<ol>
+<li><p>方案一：对称加密<br>在互联网上，我们可以直接采用对称加密的方法进行通信。只要我们采用的密码算法破解难度足够大，通信的安全就有保证。但问题就来了，<code>我们如何分发对称加密密钥而保证不被他人嗅探？</code>这是一个难点。</p>
+</li>
+<li><p>方案二：非对称加密<br>既然直接采用对称加密的方法存在密钥分发的难点，那采用非对称加密（如 RSA）呢？例如，我们利用服务器公开的公钥对我们要发送给它的消息进行加密，然后再将密文发送给它。因为只有服务器有私钥，所以只有服务器才能够正确解密密文。这样看起来好像是安全的。但是，如果服务器要给我们发消息呢？它用自己的私钥加密消息后再发送给我们，不过所有有公钥的人都可以解密该消息，这样就不安全了。所以<code>直接利用非对称加密的方法进行通信是不行的。</code></p>
+</li>
+<li><p>方案三：对称与非对称加密相结合<br>但如果我们把上述两者相结合起来呢？例如，我们选择一个对称加密算法和生成一个密钥，利用服务器公布的公钥对它们进行加密后发送给服务器。因为只有服务器能解密，所以通信是安全的。服务器解密后得知对称加密算法和密钥，就可以愉快地跟我们进行通信了。这样看起来貌似可行。但<code>我们怎么确定服务器公布的密钥就是真的呢？</code>这个缺陷所导致的攻击就是大名鼎鼎的<strong>中间人攻击</strong>（Man-In-The-Middle Attack, MITM），即有攻击者同时冒充服务器和用户，让用户和服务器都相信攻击者就是它们要通信的一方。</p>
+</li>
+<li><p>方案四：对称与非对称加密相结合，同时利用数字证书保证公钥的可靠性<br><strong>数字证书是由数字证书认证机构（Certificate Authority, CA）颁发的用于确保通信双方身份的证书。</strong>只要通过数字证书确认了双方的身份（确认了公钥的可靠性），那利用方案三的通信方案就是可靠的。<code>这里的关键是认证机构。只有认证机构是可信的，那它颁发的数字证书才是可信的。</code></p>
+</li>
+</ol>
+<p>但，我们怎么相信认证机构就是可信的呢？这时候就需要根证书（Root Certificate）出场了。根证书是认证机构颁发给自己的数字证书，只要该证书是可信的，那该机构颁发的证书就都是可信的。这就是所谓的<code>证书信任链</code>，即只要 A 信任 B，B 信任 C，而 A 是可信，那 B、C 就都是可信的，以此类推。因此，我们也可以看出，<code>根证书是整个证书体系的根本。</code>一旦根证书不可信，那它信任的所有证书都是不可信的。</p>
+<p>爱深究的你肯定又会想，我们怎么保证根证书是可信的？（认证机构还能够给自己颁发证书？）（感觉这是个无底洞啊…）这时候该操作系统出来终结这个无休无止的连环问题了。在我们安装好操作系统时，那些经过权威认证的根证书就已经被安装到操作系统中。终于可以松一口气了…</p>
+<p>到这里，我们应该知道，网络通信的安全性<strong>非常依赖</strong>于认证机构所颁发的数字证书（包括根证书）。这也是我们为什么需要数字证书的原因。</p>
+<p><strong>注</strong>：这里我没有说网络通信安全完全依赖于数字证书主要是因为安全还依赖于其他原因，如密码算法、攻击手法。</p>
+<h1 id="消息摘要和数字签名"><a href="#消息摘要和数字签名" class="headerlink" title="消息摘要和数字签名"></a><strong>消息摘要和数字签名</strong></h1><p><code>消息摘要（Message Digest）</code>主要用来保证消息的完整性。它利用 Hash 函数对一段消息（数据）进行运算，得到一个固定长度的值。所采用的 Hash 函数要具有单向性，即不能由 Hash 值推算得到原始消息。而且，对消息的改变都会导致最终求得的 Hash 值不同，所以可以用消息摘要来保证消息在传输过程中的完整性。</p>
+<p>这里又存在一个问题，即如果攻击者知道消息的 Hash 值，那攻击者可以在修改完消息后，同时更新消息的 Hash 值，这样接受者就不会知道消息原来已经遭到攻击。所以，我们需要<code>对消息的 Hash 值进行加密（非对称），也即数字签名（Digital Signature）</code>。要提醒一下的是，数字签名跟数字证书完全是两回事。</p>
+<p>博文 <a href="https://www.docusign.com/how-it-works/electronic-signature/digital-signature/digital-signature-faq" target="_blank" rel="noopener">What are digital signatures?</a>画了一个非常形象的图来说明什么是消息摘要和数字签名：  </p>
+<p><img src="/images/security/cryptoalgorithm/digital-certificate/digital-signature.png" alt><a href="https://www.docusign.com/how-it-works/electronic-signature/digital-signature/digital-signature-faq" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>上图中，签名者对原始数据进行 Hash 运算，得到一个 Hash 值，然后将该值用自己的私钥加密，和原始数据一起发送给另一方。另一方在收到数据后，对原始数据（用同样 Hash 算法）求 Hash 值，并利用签名者的公钥解密加密的 Hash 值，最终对这两个值进行比较，以确认原始数据是否被篡改。</p>
+<p>消息摘要和数字签名除了可以用来保证消息的完整性，也可以用来保证数字证书的完整性。</p>
+<h1 id="数字证书"><a href="#数字证书" class="headerlink" title="数字证书"></a><strong>数字证书</strong></h1><p><code>X.509</code>是被广泛使用的数字证书标准。摘录<a href="https://en.wikipedia.org/wiki/X.509" target="_blank" rel="noopener">维基</a>英文解释如下：</p>
+<blockquote>
+<p>In cryptography, X.509 is an important standard for a public key infrastructure (PKI) to manage <code>digital certificates</code> and <code>public-key encryption</code> and a key part of the Transport Layer Security protocol used to secure web and email communication. An ITU-T standard, <code>X.509 specifies formats for public key certificates, certificate revocation lists, attribute certificates, and a certification path validation algorithm.</code></p>
+</blockquote>
+<p>关于 X.509 的详细，<a href="https://tools.ietf.org/html/rfc5280" target="_blank" rel="noopener">官方 RFC 文档</a>有特别详细的解释。</p>
+<h2 id="数字证书长啥样"><a href="#数字证书长啥样" class="headerlink" title="数字证书长啥样"></a><strong>数字证书长啥样</strong></h2><h3 id="数字证书格式"><a href="#数字证书格式" class="headerlink" title="数字证书格式"></a><strong>数字证书格式</strong></h3><p>现在我们使用的证书标准主要是 X.509 的第 3 个版本。可见于下图：<br><img src="/images/security/cryptoalgorithm/digital-certificate/x.509.cert.standard.png" alt><a href="https://helpforsure.wordpress.com/tag/x-509-version-3-digital-certificates/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p><a href="https://technet.microsoft.com/en-us/library/cc962029.aspx" target="_blank" rel="noopener">微软官方</a>对其有一个较为简要的英文解释。但博文 <a href="http://seanlook.com/2015/01/15/openssl-certificate-encryption/" target="_blank" rel="noopener">OpenSSL 与 SSL 数字证书概念贴</a>讲的更为详细（SSL 公钥证书格式）：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1.</span> 证书版本号(Version)</span><br><span class="line">版本号指明X<span class="number">.509</span>证书的格式版本，现在的值可以为:</span><br><span class="line">    <span class="number">1</span>) <span class="number">0</span>: v1</span><br><span class="line">    <span class="number">2</span>) <span class="number">1</span>: v2</span><br><span class="line">    <span class="number">3</span>) <span class="number">2</span>: v3</span><br><span class="line">也为将来的版本进行了预定义</span><br><span class="line"></span><br><span class="line"><span class="number">2.</span> 证书序列号(Serial Number)</span><br><span class="line">序列号指定由CA分配给证书的唯一的<span class="string">"数字型标识符"</span>。当证书被取消时，实际上是将此证书的序列号放入由CA签发的CRL中，</span><br><span class="line">这也是序列号唯一的原因。</span><br><span class="line"></span><br><span class="line"><span class="number">3.</span> 签名算法标识符(Signature Algorithm)</span><br><span class="line">签名算法标识用来指定由CA签发证书时所使用的<span class="string">"签名算法"</span>。算法标识符用来指定CA签发证书时所使用的:</span><br><span class="line">    <span class="number">1</span>) 公开密钥算法</span><br><span class="line">    <span class="number">2</span>) hash算法</span><br><span class="line">example: sha256WithRSAEncryption</span><br><span class="line">须向国际知名标准组织(如ISO)注册</span><br><span class="line"></span><br><span class="line"><span class="number">4.</span> 签发机构名(Issuer)</span><br><span class="line">此域用来标识签发证书的CA的X<span class="number">.500</span> DN(DN-Distinguished Name)名字。包括:</span><br><span class="line">    <span class="number">1</span>) 国家(C)</span><br><span class="line">    <span class="number">2</span>) 省市(ST)</span><br><span class="line">    <span class="number">3</span>) 地区(L)</span><br><span class="line">    <span class="number">4</span>) 组织机构(O)</span><br><span class="line">    <span class="number">5</span>) 单位部门(OU)</span><br><span class="line">    <span class="number">6</span>) 通用名(CN)</span><br><span class="line">    <span class="number">7</span>) 邮箱地址</span><br><span class="line"></span><br><span class="line"><span class="number">5.</span> 有效期(Validity)</span><br><span class="line">指定证书的有效期，包括:</span><br><span class="line">    <span class="number">1</span>) 证书开始生效的日期时间</span><br><span class="line">    <span class="number">2</span>) 证书失效的日期和时间</span><br><span class="line">每次使用证书时，需要检查证书是否在有效期内。</span><br><span class="line"></span><br><span class="line"><span class="number">6.</span> 证书用户名(Subject)</span><br><span class="line">指定证书持有者的X<span class="number">.500</span>唯一名字。包括:</span><br><span class="line">    <span class="number">1</span>) 国家(C)</span><br><span class="line">    <span class="number">2</span>) 省市(ST)</span><br><span class="line">    <span class="number">3</span>) 地区(L)</span><br><span class="line">    <span class="number">4</span>) 组织机构(O)</span><br><span class="line">    <span class="number">5</span>) 单位部门(OU)</span><br><span class="line">    <span class="number">6</span>) 通用名(CN)</span><br><span class="line">    <span class="number">7</span>) 邮箱地址</span><br><span class="line"></span><br><span class="line"><span class="number">7.</span> 证书持有者公开密钥信息(Subject Public Key Info)</span><br><span class="line">证书持有者公开密钥信息域包含两个重要信息:</span><br><span class="line">    <span class="number">1</span>) 证书持有者的公开密钥的值</span><br><span class="line">    <span class="number">2</span>) 公开密钥使用的算法标识符。此标识符包含公开密钥算法和hash算法。</span><br><span class="line"><span class="number">8.</span> 扩展项(extension)</span><br><span class="line">X<span class="number">.509</span> V3证书是在v2的基础上一标准形式或普通形式增加了扩展项，以使证书能够附带额外信息。标准扩展是指</span><br><span class="line">由X<span class="number">.509</span> V3版本定义的对V2版本增加的具有广泛应用前景的扩展项，任何人都可以向一些权威机构，如ISO，来</span><br><span class="line">注册一些其他扩展，如果这些扩展项应用广泛，也许以后会成为标准扩展项。</span><br><span class="line"></span><br><span class="line"><span class="number">9.</span> 签发者唯一标识符(Issuer Unique Identifier)</span><br><span class="line">签发者唯一标识符在第<span class="number">2</span>版加入证书定义中。此域用在当同一个X<span class="number">.500</span>名字用于多个认证机构时，用一比特字符串</span><br><span class="line">来唯一标识签发者的X<span class="number">.500</span>名字。可选。</span><br><span class="line"></span><br><span class="line"><span class="number">10.</span> 证书持有者唯一标识符(Subject Unique Identifier)</span><br><span class="line">持有证书者唯一标识符在第<span class="number">2</span>版的标准中加入X<span class="number">.509</span>证书定义。此域用在当同一个X<span class="number">.500</span>名字用于多个证书持有者时，</span><br><span class="line">用一比特字符串来唯一标识证书持有者的X<span class="number">.500</span>名字。可选。</span><br><span class="line"></span><br><span class="line"><span class="number">11.</span> 签名算法(Signature Algorithm)</span><br><span class="line">证书签发机构对证书上述内容的签名算法</span><br><span class="line">example: sha256WithRSAEncryption</span><br><span class="line"></span><br><span class="line"><span class="number">12.</span> 签名值(Issuer's Signature)</span><br><span class="line">证书签发机构对证书上述内容的签名值</span><br></pre></td></tr></table></figure>
+<p>还有样例（作者太好了！）：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">Certificate:</span><br><span class="line">    Data:</span><br><span class="line">        Version: <span class="number">3</span> (<span class="number">0x2</span>)</span><br><span class="line">        Serial Number: <span class="number">9</span> (<span class="number">0x9</span>)</span><br><span class="line">    Signature Algorithm: sha256WithRSAEncryption</span><br><span class="line">        Issuer: C=CN, ST=GuangDong, L=ShenZhen, O=COMPANY Technologies Co., Ltd, OU=IT_SECTION, CN=registry.example.com.net/emailAddress=zhouxiao@example.com.net</span><br><span class="line">        Validity</span><br><span class="line">            Not Before: Feb <span class="number">11</span> <span class="number">06</span>:<span class="number">04</span>:<span class="number">56</span> <span class="number">2015</span> GMT</span><br><span class="line">            Not After : Feb  <span class="number">8</span> <span class="number">06</span>:<span class="number">04</span>:<span class="number">56</span> <span class="number">2025</span> GMT</span><br><span class="line">        Subject: C=CN, ST=GuangDong, L=ShenZhen, O=TP-Link Co.,Ltd., OU=Network Management, CN=<span class="number">172.31</span><span class="number">.1</span><span class="number">.210</span></span><br><span class="line">        Subject Public Key Info:</span><br><span class="line">            Public Key Algorithm: rsaEncryption</span><br><span class="line">                Public-Key: (<span class="number">2048</span> bit)</span><br><span class="line">                Modulus:</span><br><span class="line">                    <span class="number">00</span>:a4:b0:dd:eb:c1:cf:<span class="number">5</span>d:<span class="number">47</span>:<span class="number">61</span>:a6:ea:ef:<span class="number">8b</span>:aa:</span><br><span class="line">                    <span class="number">4b</span>:f0:b4:<span class="number">2</span>c:d8:<span class="number">96</span>:c7:<span class="number">7</span>c:ac:fa:c7:<span class="number">35</span>:<span class="number">88</span>:<span class="number">53</span>:d0:</span><br><span class="line">                    ...</span><br><span class="line">                    <span class="number">8</span>a:<span class="number">76</span>:dc:<span class="number">8f</span>:<span class="number">8</span>c:<span class="number">44</span>:c8:<span class="number">0b</span>:<span class="number">3</span>c:<span class="number">36</span>:<span class="number">88</span>:<span class="number">5f</span>:<span class="number">01</span>:f0:<span class="number">44</span>:</span><br><span class="line">                    <span class="number">4</span>e:<span class="number">81</span>:e6:<span class="number">7</span>a:<span class="number">2b</span>:ff:ba:da:<span class="number">33</span>:a5:<span class="number">27</span>:<span class="number">11</span>:c6:f0:<span class="number">08</span>:</span><br><span class="line">                    <span class="number">6</span>e:f3</span><br><span class="line">                Exponent: <span class="number">65537</span> (<span class="number">0x10001</span>)</span><br><span class="line">        X509v3 extensions:</span><br><span class="line">            X509v3 Basic Constraints: </span><br><span class="line">                CA:FALSE</span><br><span class="line">            Netscape Comment: </span><br><span class="line">                OpenSSL Generated Certificate</span><br><span class="line">            X509v3 Subject Key Identifier: </span><br><span class="line">                <span class="number">07</span>:C6:<span class="number">87</span>:B7:C1:<span class="number">1</span>E:<span class="number">28</span>:E8:<span class="number">96</span>:<span class="number">3F</span>:EB:<span class="number">40</span>:<span class="number">1</span>E:<span class="number">82</span>:<span class="number">41</span>:<span class="number">45</span>:CA:<span class="number">81</span>:B6:<span class="number">3</span>D</span><br><span class="line">            X509v3 Authority Key Identifier: </span><br><span class="line">                keyid:A4:C2:<span class="number">14</span>:<span class="number">6</span>A:<span class="number">39</span>:D1:<span class="number">95</span>:<span class="number">1</span>E:BD:DF:<span class="number">3B</span>:<span class="number">92</span>:<span class="number">4</span>A:<span class="number">5</span>C:<span class="number">12</span>:<span class="number">42</span>:<span class="number">1B</span>:BC:<span class="number">53</span>:B8</span><br><span class="line"></span><br><span class="line">    Signature Algorithm: sha256WithRSAEncryption</span><br><span class="line">         <span class="number">0</span>c:c6:<span class="number">81</span>:<span class="number">70</span>:cd:<span class="number">0</span>a:<span class="number">2</span>d:<span class="number">94</span>:<span class="number">4f</span>:cb:a4:<span class="number">1</span>d:ef:<span class="number">9</span>e:<span class="number">8</span>e:e4:<span class="number">73</span>:ae:</span><br><span class="line">         <span class="number">50</span>:<span class="number">62</span>:a8:<span class="number">9</span>c:<span class="number">64</span>:ef:<span class="number">56</span>:<span class="number">0f</span>:<span class="number">41</span>:fe:<span class="number">6b</span>:b4:d3:<span class="number">07</span>:<span class="number">37</span>:<span class="number">39</span>:<span class="number">2</span>c:ed:</span><br><span class="line">         ...</span><br><span class="line">         <span class="number">6f</span>:<span class="number">62</span>:<span class="number">61</span>:b8:<span class="number">03</span>:d7:<span class="number">97</span>:<span class="number">31</span>:ab:<span class="number">05</span>:<span class="number">44</span>:<span class="number">20</span>:<span class="number">07</span>:<span class="number">65</span>:<span class="number">8b</span>:ad:e2:cc:</span><br><span class="line">         ad:<span class="number">65</span>:<span class="number">73</span>:f6:<span class="number">82</span>:<span class="number">0f</span>:<span class="number">9</span>e:<span class="number">65</span>:d0:ae:b7:<span class="number">1</span>e:fd:<span class="number">9f</span>:c1:d7:<span class="number">41</span>:<span class="number">6</span>c:</span><br><span class="line">         <span class="number">0f</span>:<span class="number">06</span>:<span class="number">95</span>:ee</span><br><span class="line">-----BEGIN CERTIFICATE-----</span><br><span class="line">MIIEMDCCAxigAwIBAgIBCTANBgkqhkiG9w0BAQsFADCBtTELMAkGA1UEBhMCQ04x</span><br><span class="line">EjAQBgNVBAgMCUd1YW5nRG9uZzERMA8GA1UEBwwIU2hlblpoZW4xJjAkBgNVBAoM</span><br><span class="line">...</span><br><span class="line">ujwwRar6pPzusO95WuS93HsNmL2ZFZ63DS4LcW9iYbgD15cxqwVEIAdli63izK1l</span><br><span class="line">c/aCD55l0K63Hv2fwddBbA8Gle4=</span><br><span class="line">-----END CERTIFICATE-----</span><br></pre></td></tr></table></figure></p>
+<p>查看一个证书（如WoSign.pem）的内容可以如下命令：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openssl x509 -in WoSign.pem -inform pem -noout -text</span><br></pre></td></tr></table></figure></p>
+<p>看了这一大串，让我们来看看 Windows 中的证书。</p>
+<h3 id="Windows-中的数字证书"><a href="#Windows-中的数字证书" class="headerlink" title="Windows 中的数字证书"></a><strong>Windows 中的数字证书</strong></h3><p>Windows 中的数字证书长这样：<br><img src="/images/security/cryptoalgorithm/digital-certificate/digital-cert.png" alt>  </p>
+<p>其中跟本文相关较大的都用红色或绿色方框表示出来。公钥是经过数字证书认证过的可信的。不过这建立在<code>数字证书是可信和完整</code>的基础上。数字证书的可靠性建立在认证机构的根证书上，这个我们在前文已经讨论过。<code>但数字证书也是在网络上分发的，我们如何保证我们收到的证书是完整没有被修改过的？</code>这就涉及到证书的签名了。</p>
+<p>认证机构在给个人或机构颁发证书的时候，会分成两步来对证书进行<code>签名</code>：</p>
+<ul>
+<li>利用<strong>指纹算法</strong>（实际就是哈希算法，上图中是 sha1）计算证书的 Hash 值，得到一个<strong>指纹</strong></li>
+<li>将该指纹用自己的<strong>私钥（注意是认证机构的）</strong>加密，得到一个<strong>数字签名</strong></li>
+</ul>
+<p>接收到证书后，我们分三步对该证书的完整性进行<code>验证</code>：</p>
+<ul>
+<li>由证书上的<strong>签名算法</strong>，得知签名所用算法（上图中是 RSA，去掉 sha256）</li>
+<li>因为我们的电脑上都已经安装了认证机构的根证书，那我们就可以用该<strong>根证书所提供的公钥</strong>对证书签名进行解密，得到一个指纹</li>
+<li>另外，我们利用证书提供的<strong>指纹算法</strong>计算该证书的 Hash 值（即指纹），将其与解密得到的指纹进行比较，就可以知道证书是否是完整的了</li>
+</ul>
+<p>上述过程可用图表示如下：<br><img src="/images/security/cryptoalgorithm/digital-certificate/digital-cert-issue.png" alt><a href="https://blog.cnbluebox.com/blog/2014/03/24/shu-zi-zheng-shu/" target="_blank" rel="noopener">图片来源</a>  </p>
+<p>图中有几个地方有点<code>疑惑</code>，有待后续解决：</p>
+<ul>
+<li>签名哈希算法实际只是指用于计算消息摘要的哈希算法，不包括签名算法。感觉应该要跟指纹算法一样才对，但图片中显示的是不一样的。</li>
+<li>签名算法的值前边加了哈希算法的名字（sha256），感觉没这个必要啊</li>
+</ul>
+<h1 id="数字证书在-SSL-TLS-中的应用"><a href="#数字证书在-SSL-TLS-中的应用" class="headerlink" title="数字证书在 SSL/TLS 中的应用"></a><strong>数字证书在 SSL/TLS 中的应用</strong></h1><p>不了解证书跟 SSL（Secure Socket Layer） 之间的历史，应该说，SSL 就是建立在数字证书的基础之上的。TLS（Transport Layer Security）是 SSL 的升级版本，不过也常称为 SSL。</p>
+<p>博文 <a href="http://www.codeproject.com/Articles/326574/An-Introduction-to-Mutual-SSL-Authentication" target="_blank" rel="noopener">An Introduction to Mutual SSL Authentication</a> 对 SSL 的两种认证方式有一个比较简要清晰的阐述。特摘译如下：</p>
+<hr>
+<h2 id="翻译：导论"><a href="#翻译：导论" class="headerlink" title="翻译：导论"></a><strong>翻译：导论</strong></h2><p>（省略部分）从高层次的角度来看，基于数字证书的 SSL 双向身份验证，身份验证和加密信道建立涉及到了以下步骤：</p>
+<ol>
+<li>客户端向服务器请求受保护的资源</li>
+<li>服务器向客户端发送它的数字证书</li>
+<li>客户端验证服务器的证书</li>
+<li>如果验证成功，客户端发送自己的证书给服务器</li>
+<li>服务器验证客户端的证书</li>
+<li>如果成功，服务器就允许客户端访问受保护的资源<br><img src="/images/security/cryptoalgorithm/digital-certificate/cert-based-mutualssl.png" alt>  </li>
+</ol>
+<h2 id="翻译：背景"><a href="#翻译：背景" class="headerlink" title="翻译：背景"></a><strong>翻译：背景</strong></h2><p>SSL 双向身份认证类似于 SSL 单向身份验证，比后者多了一步对客户端数字证书的验证。因此，SSL 单向身份验证和 SSL 双向身份验证也分别被非正式地称为单向 SSL 身份验证和双向 SSL 身份验证。作为一个开发者，如果你对开发或者能够调试 SSL 双向身份认证感兴趣，理解验证背后的的握手细节将会有很大帮助。</p>
+<h3 id="SSL-单向身份认证（服务器–-gt-客户端）"><a href="#SSL-单向身份认证（服务器–-gt-客户端）" class="headerlink" title="SSL 单向身份认证（服务器–&gt;客户端）"></a><strong>SSL 单向身份认证（服务器–&gt;客户端）</strong></h3><p>在 SSL 单向身份验证中，客户端接受来自服务器的数字证书，然后将服务器 CA 与客户端信任的 CA 列表进行匹配。如果匹配成功，客户端会验证证书是否可信、是否被篡改过。在单向身份验证过程中，客户端和服务器采用 9 个握手消息，在开始消息交换前建立一个加密通道。</p>
+<ol>
+<li>客户端向服务器发送一个 ClientHello 消息，提议可采用的 SSL 选项</li>
+<li>服务器回应一个 ServerHello 消息，选择（即将采用的） SSL 选项</li>
+<li>服务器发送一个 Certificate 消息，该消息包含了服务器的证书</li>
+<li>服务器发送一个 ServerHelloDone 消息，结束服务器端发送</li>
+<li>客户端发送一个包含会话密钥信息（用服务器公钥加密）的 ClientKeyExchange 消息</li>
+<li>客户端发送一个 ChangeCipherSpec 消息，激活与服务器协商好的在接下来所有消息中即将采用的 SSL 选项</li>
+<li>客户端发送一个 Finished 消息，以让服务器检查激活的 SSL 选项</li>
+<li>服务器发送一个 ChangeCipherSpec 消息，激活协商好的在接下来所有消息中即将采用的 SSL 选项</li>
+<li>服务器发送一个 Finished 消息，以让客户端检查激活的 SSL 选项</li>
+</ol>
+<p><strong>译注</strong>：这样的描述其实还是非常简单的，更详细可参考博文 <a href="http://seanlook.com/2015/01/07/tls-ssl/" target="_blank" rel="noopener">SSL/TLS原理详解</a>。</p>
+<p><img src="/images/security/cryptoalgorithm/digital-certificate/1WaySSL.png" alt>  </p>
+<h3 id="SSL-双向身份认证（服务器客户端）"><a href="#SSL-双向身份认证（服务器客户端）" class="headerlink" title="SSL 双向身份认证（服务器客户端）"></a><strong>SSL 双向身份认证（服务器<-->客户端）</--></strong></h3><p>然而，在 SSL 双向身份验证中，客户端和服务器都需要通过数字证书来验证对方的真实性，以确保对方的身份是可信的。在双向身份验证过程中，客户端和服务器采用 12 个握手消息，在开始消息交换前建立一个加密通道。</p>
+<ol>
+<li>客户端向服务器发送一个 ClientHello 消息，提议可采用的 SSL 选项</li>
+<li>服务器回应一个 ServerHello 消息，选择（即将采用的） SSL 选项</li>
+<li>服务器发送一个 Certificate 消息，该消息包含了服务器的证书</li>
+<li>服务器发送一个 CertificateRequest 消息，请求客户端的证书，以进行双向验证</li>
+<li>服务器发送一个 ServerHelloDone 消息，结束服务器端发送</li>
+<li>客户端回应一个 Certificate 消息，包含了客户端证书</li>
+<li>客户端发送一个包含会话密钥信息（用服务器公钥加密）的 ClientKeyExchange 消息</li>
+<li>客户端发送一个 CertificateVerify 消息，向服务器证明它拥有已发送的证书</li>
+<li>客户端发送一个 ChangeCipherSpec 消息，激活与服务器协商好的在接下来所有消息中即将采用的 SSL 选项</li>
+<li>客户端发送一个 Finished 消息，以让服务器检查激活的 SSL 选项</li>
+<li>服务器发送一个 ChangeCipherSpec 消息，激活协商好的在接下来所有消息中即将采用的 SSL 选项</li>
+<li>服务器发送一个 Finished 消息，以让客户端检查激活的 SSL 选项</li>
+</ol>
+<p><img src="/images/security/cryptoalgorithm/digital-certificate/2WaySSL.png" alt>  </p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/12/02/python-basics-decorator/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          【译】 Python 基础知识：装饰器（Decorator）
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/08/24/openstack-understanding-openstack-authentication-keystone-pki/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">【译】理解 OpenStack 认证机制：Keystone PKI</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#基本概念"><span class="toc-number">1.</span> <span class="toc-text">基本概念</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#为什么我们需要数字证书"><span class="toc-number">2.</span> <span class="toc-text">为什么我们需要数字证书</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#消息摘要和数字签名"><span class="toc-number">3.</span> <span class="toc-text">消息摘要和数字签名</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#数字证书"><span class="toc-number">4.</span> <span class="toc-text">数字证书</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#数字证书长啥样"><span class="toc-number">4.1.</span> <span class="toc-text">数字证书长啥样</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#数字证书格式"><span class="toc-number">4.1.1.</span> <span class="toc-text">数字证书格式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Windows-中的数字证书"><span class="toc-number">4.1.2.</span> <span class="toc-text">Windows 中的数字证书</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#数字证书在-SSL-TLS-中的应用"><span class="toc-number">5.</span> <span class="toc-text">数字证书在 SSL/TLS 中的应用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#翻译：导论"><span class="toc-number">5.1.</span> <span class="toc-text">翻译：导论</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#翻译：背景"><span class="toc-number">5.2.</span> <span class="toc-text">翻译：背景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#SSL-单向身份认证（服务器–-gt-客户端）"><span class="toc-number">5.2.1.</span> <span class="toc-text">SSL 单向身份认证（服务器–&gt;客户端）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SSL-双向身份认证（服务器客户端）"><span class="toc-number">5.2.2.</span> <span class="toc-text">SSL 双向身份认证（服务器客户端）</span></a></li></ol></li></ol></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>并发学习笔记：信号量 | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文迁移并整理自个人之前在博客园的博客。  本文参考资料：  《操作系统：精髓与设计原理》 信号量 用信号量解决进程的同步与互斥探讨 信号量与PV操作 【Windows】用信号量实现生产者-消费者模型  几个关键名词原子操作原子操作：一个或多个指令的序列，对外是不可分的，即没有其他进程可以看到其中间状态或者中断此操作。 互斥与同步互斥：是指某一资源同时只允许一个访问者对其进行访问，具有唯一性和排它">
+<meta name="keywords" content="信号量">
+<meta property="og:type" content="article">
+<meta property="og:title" content="并发学习笔记：信号量">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2018/09/09/concurrency-semaphore/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文迁移并整理自个人之前在博客园的博客。  本文参考资料：  《操作系统：精髓与设计原理》 信号量 用信号量解决进程的同步与互斥探讨 信号量与PV操作 【Windows】用信号量实现生产者-消费者模型  几个关键名词原子操作原子操作：一个或多个指令的序列，对外是不可分的，即没有其他进程可以看到其中间状态或者中断此操作。 互斥与同步互斥：是指某一资源同时只允许一个访问者对其进行访问，具有唯一性和排它">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/semaphore/图5-5-信号量机制的一个例子.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/semaphore/图5-7-进程访问受信号量保护的共享数据.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/concurrency/semaphore/productor-and-consumer.png">
+<meta property="og:updated_time" content="2019-05-01T04:37:19.466Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="并发学习笔记：信号量">
+<meta name="twitter:description" content="本文迁移并整理自个人之前在博客园的博客。  本文参考资料：  《操作系统：精髓与设计原理》 信号量 用信号量解决进程的同步与互斥探讨 信号量与PV操作 【Windows】用信号量实现生产者-消费者模型  几个关键名词原子操作原子操作：一个或多个指令的序列，对外是不可分的，即没有其他进程可以看到其中间状态或者中断此操作。 互斥与同步互斥：是指某一资源同时只允许一个访问者对其进行访问，具有唯一性和排它">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/concurrency/semaphore/图5-5-信号量机制的一个例子.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-concurrency-semaphore" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2018/09/09/concurrency-semaphore/" class="article-date">
+  	<time datetime="2018-09-09T12:11:51.000Z" itemprop="datePublished">2018-09-09</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      并发学习笔记：信号量
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/信号量/">信号量</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/并发/">并发</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文迁移并整理自个人之前在博客园的<a href="https://www.cnblogs.com/xiehongfeng100/p/4842285.html" target="_blank" rel="noopener">博客</a>。</p>
+<hr>
+<p>本文参考资料：</p>
+<ul>
+<li>《操作系统：精髓与设计原理》</li>
+<li><a href="http://www.oss.org.cn/ossdocs/os/process/semaphore.htm" target="_blank" rel="noopener">信号量</a></li>
+<li><a href="http://blog.jobbole.com/86709/" target="_blank" rel="noopener">用信号量解决进程的同步与互斥探讨</a></li>
+<li><a href="http://blog.chinaunix.net/uid-15014334-id-2853109.html" target="_blank" rel="noopener">信号量与PV操作</a></li>
+<li><a href="http://www.cnblogs.com/whatbeg/p/4419979.html" target="_blank" rel="noopener">【Windows】用信号量实现生产者-消费者模型</a></li>
+</ul>
+<h1 id="几个关键名词"><a href="#几个关键名词" class="headerlink" title="几个关键名词"></a><strong>几个关键名词</strong></h1><p><strong>原子操作</strong><br><code>原子操作</code>：一个或多个指令的序列，对外是不可分的，即没有其他进程可以看到其中间状态或者中断此操作。</p>
+<p><strong>互斥与同步</strong><br><code>互斥</code>：是指某一资源同时只允许一个访问者对其进行访问，具有唯一性和排它性。但互斥无法限制访问者对资源的访问顺序，即访问是无序的。<br><code>同步</code>：是指在互斥的基础上（大多数情况），通过其它机制实现访问者对资源的有序访问。在大多数情况下，同步已经实现了互斥，特别是所有写入资源的情况必定是互斥的。少数情况是指可以允许多个访问者同时访问资源。</p>
+<p><strong>临界资源与临界区</strong><br><code>临界资源</code>就是一次只允许一个进程访问的资源，一个进程在使用临界资源的时候，另一个进程是无法访问的，操作系统也不能够中途剥夺正在使用者的使用权利，即临界资源是不可剥夺性资源。<br><code>临界区</code>（critical section）就是进程中访问临界资源的那段程序代码。注意，临界区是程序代码，不是内存资源了。这是临界资源与临界区的区别。<br>临界区的使用原则（也即同步机制应遵循的准则，注意与死锁产生的四个条件相区分开来）可总结为十六字诀：“空闲让进，忙则等待，有限等待，让权等待”下：<br>1）空闲让进：临界资源空闲时一定要让进程进入，不发生“互斥礼让”行为。<br>2）忙则等待：临界资源正在使用时外面的进程等待。<br>3）有限等待：进程等待进入临界区的时间是有限的，不会发生“饿死”的情况。<br>4）让权等待：进程等待进入临界区时应该放弃CPU的使用。</p>
+<p><strong>死锁与活锁</strong><br><code>死锁</code>：两个或两个以上的进程因其中的每个进程都在等待其他进程做完某些事情而不能继续执行。<br><code>活锁</code>：两个或两个以上的进程为了响应其他进程中的变化而持续改变自己的状态但不做有用的工作</p>
+<p><strong>饥饿</strong><br><code>饥饿</code>：指一个可运行的进程尽管能继续执行，但被调度器无限期地忽视，而不能被调度执行的情况。</p>
+<a id="more"></a>
+<h1 id="信号量"><a href="#信号量" class="headerlink" title="信号量"></a><strong>信号量</strong></h1><p>信号量是用于进程间传递信号的一个整数值。在信号量上只有三种操作可以进行，初始化、递减和增加。这三种操作都是原子操作。递减操作可以用于阻塞一个进程，增加操作可以用于解除阻塞一个进程。信号量也称为计数信号量或一般信号量。</p>
+<h2 id="信号量的类型定义"><a href="#信号量的类型定义" class="headerlink" title="信号量的类型定义"></a><strong>信号量的类型定义</strong></h2><p>每个信号量至少须记录两个信息：信号量的值和等待该信号量的进程队列。它的类型定义如下：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">semaphore</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">    <span class="keyword">int</span> count;</span><br><span class="line">    queueType <span class="built_in">queue</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>其中，count 表示信号量的值；queue 是进程控制块，是操作系统为每个进程建立的数据结构。<br>当 s.count &gt;= 0 时，s.queue 为空；<br>当 s.count &lt; 0 时，s.count 的绝对值为 s.queue 中等待进程的个数。</p>
+<h2 id="PV-原语"><a href="#PV-原语" class="headerlink" title="PV 原语"></a><strong>PV 原语</strong></h2><p>对一个信号量可以进行两种原语操作，即 P 操作和 V 操作：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">P</span><span class="params">(semaphore s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    s.count--;</span><br><span class="line">    <span class="keyword">if</span>(s.count &lt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 把当前进程插入到队列当中</span></span><br><span class="line">        <span class="comment">// 阻塞当前进程</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">V</span><span class="params">(semaphore s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    s.count++;</span><br><span class="line">    <span class="keyword">if</span>(s.count &lt;= <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">// 把进程 P 从队列当中移除</span></span><br><span class="line">        <span class="comment">// 把进程 P 插入到就绪队列</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>当 s.count 初值为 1 时，信号量相当于 mutex。</p>
+<p><code>P 操作和 V 操作是不可中断的程序段，称为原语。</code>如果将信号量看做共享变量，则 PV 操作为其临界区，多个进程不能同时进行，一般用硬件保证。一个信号量只能置一次初值，以后只能对之进行 P 操作或 V 操作。由此也可以看到，<code>信号量机制必须有公共内存，不能用于分布式操作系统，这是它最大的弱点。</code></p>
+<p>《操作系统：精髓与设计原理》给出了一个关于信号量机制的例子（图 5.5）：<br>进程 A、B、C 依赖于进程 D 的结果，<br>1）A 正在运行，B、C 和 D 就绪，信号量为 1，表示 D 的一个结果可用。当 A 执行 P 操作后，信号量减为 0，A 能继续执行，随后它加入就绪队列。<br>2）B 正在运行，最终执行 P 操作，并被挂起。<br>3）D 被允许执行。<br>4）当 D 完成一个新结果后，执行 V 操作，允许 B 移到就绪队列中。<br>5）D 加入就绪队列，C 开始执行，当它执行 P 指令时被挂起。<br>6）A 和 B 运行，且被挂起在这个信号量上，允许 D 恢复执行。<br>7）当 D 有一个结果后，执行 V 操作，把 C 移到就绪队列中，随后的 D 循环将解除 A 和 B 的挂起状态。</p>
+<p><img src="/images/concurrency/semaphore/图5-5-信号量机制的一个例子.png" alt>  </p>
+<h2 id="信号量用于互斥"><a href="#信号量用于互斥" class="headerlink" title="信号量用于互斥"></a><strong>信号量用于互斥</strong></h2><p>下边程序给出了一种使用信号量 s 解决互斥问题的方法：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> n = <span class="comment">// 进程数</span></span><br><span class="line">semaphore s = <span class="number">1</span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">Proc</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">while</span>(<span class="literal">true</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        P(s);</span><br><span class="line">        <span class="comment">// 临界区</span></span><br><span class="line">        V(s);</span><br><span class="line">        <span class="comment">// 其他部分</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    parbegin(Proc(<span class="number">1</span>), Proc(<span class="number">2</span>), ..., Proc(n));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>设有 n 个进程，用 Proc(i) 表示，所有的进程都需要访问共享资源。每个进程进入临界区前执行 P 操作，如果 s 的值为负，则进程被挂起；如果值为 1，则 s 被减为 0，进程立即进入临界区；由于 s 不再为正，因而其他任何进程都不能进入临界区。<br>信号量一般初始化为 1，这样第一个执行 P 操作的进程可以立即进入临界区，并把 s 的值置为 0。接着任何试图进入临界区的其他进程，都将发现第一个进程忙，因此被阻塞，把 s 的值置为 -1。可以有任意数目的进程试图进入，每个不成功的尝试都会使 s 的值减 1，当最初进入临界区的进程离开时，s 增加 1，一个被阻塞的进程（如果有的话）被移除出等待队列，并置于就绪状态。这样，当操作系统下一次调度时，它可以进入临界区。<br>当进程数为 3 时，一个示意图如下：<br><img src="/images/concurrency/semaphore/图5-7-进程访问受信号量保护的共享数据.png" alt>  </p>
+<h2 id="生产者与消费者问题"><a href="#生产者与消费者问题" class="headerlink" title="生产者与消费者问题"></a><strong>生产者与消费者问题</strong></h2><p>生产者-消费者问题是经典的同步互斥问题，具体表现为：<br>1）两个进程对同一个内存资源进行操作，一个是生产者，一个是消费者。<br>2）生产者往共享内存资源填充数据，如果区域满，则等待消费者消费数据。<br>3）消费者从共享内存资源取数据，如果区域空，则等待生产者填充数据。<br>4）生产者的填充数据行为和消费者的消费数据行为不可在同一时间发生。</p>
+<p><img src="/images/concurrency/semaphore/productor-and-consumer.png" alt>  </p>
+<p>生产者-消费者之间的同步关系表现为缓冲区空，则消费者需要等待生产者往里填充数据，缓冲区满则生产者需要等待消费者消费。两者共同完成数据的转移或传送。生产者-消费者之间的互斥关系表现为生产者往缓冲区里填充数据的时候，消费者无法进行消费，需要等待生产者完成工作，反之亦然。</p>
+<p>下边分几种情况讨论：</p>
+<p><strong>1）一个生产者，一个消费者，公用一个缓冲区</strong><br>定义两个同步信号量：<br>empty —— 表示缓冲区是否为空，初值为 1。<br>full —— 表示缓冲区中是否为满，初值为 0。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/******* 生产者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(TRUE)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 生产一个产品;</span></span><br><span class="line">    P(empty);</span><br><span class="line">    <span class="comment">// 产品送往Buffer;</span></span><br><span class="line">    V(full);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/******* 消费者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(True)</span><br><span class="line">&#123;</span><br><span class="line">    P(full);</span><br><span class="line">    <span class="comment">// 从Buffer取出一个产品;</span></span><br><span class="line">    V(empty);</span><br><span class="line">    <span class="comment">// 消费该产品;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>2）一个生产者，一个消费者，公用 n 个环形缓冲区</strong><br>定义两个同步信号量：<br>empty —— 表示缓冲区是否为空，初值为 n。<br>full —— 表示缓冲区中是否为满，初值为 0。<br>设缓冲区的编号为 1～n-1，定义两个指针 in 和 out，分别是生产者进程和消费者进程使用的指针，指向下一个可用的缓冲区。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/******* 生产者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(TRUE)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 生产一个产品;</span></span><br><span class="line">    P(empty);</span><br><span class="line">    <span class="comment">// 产品送往buffer（in）；</span></span><br><span class="line">    in=(in+<span class="number">1</span>)mod n；</span><br><span class="line">    V(full);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/******* 消费者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(TRUE)</span><br><span class="line">&#123;</span><br><span class="line">    P(full);</span><br><span class="line">    <span class="comment">// 从buffer（out）中取出产品；</span></span><br><span class="line">    out=(out+<span class="number">1</span>)mod n；</span><br><span class="line">    V(empty);</span><br><span class="line">    <span class="comment">// 消费该产品;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>3）一组生产者，一组消费者，公用 n 个环形缓冲区</strong><br>在这个问题中，不仅生产者与消费者之间要同步，而且各个生产者之间、各个消费者之间还必须互斥地访问缓冲区。<br>定义四个信号量：<br>empty —— 表示缓冲区是否为空，初值为 n。<br>full —— 表示缓冲区中是否为满，初值为 0。<br>mutex1 —— 生产者之间的互斥信号量，初值为 1。<br>mutex2 —— 消费者之间的互斥信号量，初值为 1。<br>设缓冲区的编号为1～n-1，定义两个指针 in 和 out，分别是生产者进程和消费者进程使用的指针，指向下一个可用的缓冲区。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/******* 生产者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(TRUE)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 生产一个产品;</span></span><br><span class="line">    P(empty);</span><br><span class="line">    P(mutex1)；</span><br><span class="line">    <span class="comment">// 产品送往buffer（in）；</span></span><br><span class="line">    in=(in+<span class="number">1</span>)mod n；</span><br><span class="line">    V(mutex1);</span><br><span class="line">    V(full);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/******* 消费者进程 *******/</span></span><br><span class="line"><span class="keyword">while</span>(TRUE)</span><br><span class="line">&#123;</span><br><span class="line">    P(full)</span><br><span class="line">    P(mutex2)；</span><br><span class="line">    <span class="comment">// 从buffer（out）中取出产品；</span></span><br><span class="line">    out=(out+<span class="number">1</span>)mod n；</span><br><span class="line">    V（mutex2）；</span><br><span class="line">    V(empty);</span><br><span class="line">    <span class="comment">// 消费该产品;</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>需要注意的是无论在生产者进程中还是在消费者进程中，两个 P 操作的次序不能颠倒。应先执行同步信号量的 P 操作，然后再执行互斥信号量的 P 操作，否则可能造成进程死锁。</p>
+<h1 id="信号量用于进程间通信"><a href="#信号量用于进程间通信" class="headerlink" title="信号量用于进程间通信"></a><strong>信号量用于进程间通信</strong></h1><p>信号量与其他进程间通信方式不大相同，它主要提供对进程间共享资源访问控制机制。相当于内存中的标志，进程可以根据它判定是否能够访问某些共享资源，同时，进程也可以修改该标志。除了用于访问控制外，还可用于进程同步。详细可参考IBM的文章 <a href="https://www.ibm.com/developerworks/cn/linux/l-ipc/part4/index.html" target="_blank" rel="noopener">Linux 环境进程间通信（四）</a>。</p>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2018/09/09/concurrency-linux-multi-threading-programming/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">并发学习笔记：Linux 多线程编程初探</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#几个关键名词"><span class="toc-number">1.</span> <span class="toc-text">几个关键名词</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#信号量"><span class="toc-number">2.</span> <span class="toc-text">信号量</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#信号量的类型定义"><span class="toc-number">2.1.</span> <span class="toc-text">信号量的类型定义</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PV-原语"><span class="toc-number">2.2.</span> <span class="toc-text">PV 原语</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#信号量用于互斥"><span class="toc-number">2.3.</span> <span class="toc-text">信号量用于互斥</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#生产者与消费者问题"><span class="toc-number">2.4.</span> <span class="toc-text">生产者与消费者问题</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#信号量用于进程间通信"><span class="toc-number">3.</span> <span class="toc-text">信号量用于进程间通信</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

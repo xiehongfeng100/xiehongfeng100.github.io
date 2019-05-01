@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>基本数据类型（第 1 部分：整数） | Max&#39;s Blog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="本文主要对整数类型的一些重要或者容易忽略的要点进行总结。 整数在计算机中，整数可分为无符号和有符号两种。在 C/C++ 中包含了这两种，Java 则只包括了有符号整数。 无符号整数的编码无符号整数编码的公式如下：">
+<meta name="keywords" content="C&#x2F;C++,整数">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基本数据类型（第 1 部分：整数）">
+<meta property="og:url" content="http://xiehongfeng100.github.io/2016/01/13/ccplusplus-basic-data-type-part1/index.html">
+<meta property="og:site_name" content="Max&#39;s Blog">
+<meta property="og:description" content="本文主要对整数类型的一些重要或者容易忽略的要点进行总结。 整数在计算机中，整数可分为无符号和有符号两种。在 C/C++ 中包含了这两种，Java 则只包括了有符号整数。 无符号整数的编码无符号整数编码的公式如下：">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/无符号数编码.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/无符号数编码例子.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数编码.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数编码例子.png">
+<meta property="og:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数参与的运算的要时刻记住的图.png">
+<meta property="og:updated_time" content="2019-05-01T05:25:29.881Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="基本数据类型（第 1 部分：整数）">
+<meta name="twitter:description" content="本文主要对整数类型的一些重要或者容易忽略的要点进行总结。 整数在计算机中，整数可分为无符号和有符号两种。在 C/C++ 中包含了这两种，Java 则只包括了有符号整数。 无符号整数的编码无符号整数编码的公式如下：">
+<meta name="twitter:image" content="http://xiehongfeng100.github.io/images/programing-languages/CCPlusPlus/basic-data-types/part1/无符号数编码.png">
+  
+    <link rel="alternative" href="/atom.xml" title="Max&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="img/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+</html>
+<body>
+  <div id="container">
+    <div class="left-col">
+    <div class="overlay"></div>
+<div class="intrude-less">
+	<header id="header" class="inner">
+		<a href="/" class="profilepic">
+			
+			<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+		</a>
+
+		<hgroup>
+		  <h1 class="header-author"><a href="/">Max</a></h1>
+		</hgroup>
+
+		
+		<p class="header-subtitle">Stay hungry, stay foolish.</p>
+		
+
+		
+			<div class="switch-btn">
+				<div class="icon">
+					<div class="icon-ctn">
+						<div class="icon-wrap icon-house" data-idx="0">
+							<div class="birdhouse"></div>
+							<div class="birdhouse_holes"></div>
+						</div>
+						<div class="icon-wrap icon-ribbon hide" data-idx="1">
+							<div class="ribbon"></div>
+						</div>
+						
+						
+						<div class="icon-wrap icon-me hide" data-idx="3">
+							<div class="user"></div>
+							<div class="shoulder"></div>
+						</div>
+						
+					</div>
+					
+				</div>
+				<div class="tips-box hide">
+					<div class="tips-arrow"></div>
+					<ul class="tips-inner">
+						<li>菜单</li>
+						<li>标签</li>
+						
+						
+						<li>关于我</li>
+						
+					</ul>
+				</div>
+			</div>
+		
+
+		<div class="switch-area">
+			<div class="switch-wrap">
+				<section class="switch-part switch-part1">
+					<nav class="header-menu">
+						<ul>
+						
+							<li><a href="/">主页</a></li>
+				        
+							<li><a href="/categories/读书">读书</a></li>
+				        
+							<li><a href="/tags/翻译">翻译</a></li>
+				        
+							<li><a href="/categories/网络">网络</a></li>
+				        
+							<li><a href="/categories/并发">并发</a></li>
+				        
+							<li><a href="/categories/安全">安全</a></li>
+				        
+							<li><a href="/categories/运维">运维</a></li>
+				        
+							<li><a href="/categories/数据库">数据库</a></li>
+				        
+							<li><a href="/categories/云计算">云计算</a></li>
+				        
+							<li><a href="/categories/编程语言">编程语言</a></li>
+				        
+							<li><a href="/categories/操作系统">操作系统</a></li>
+				        
+							<li><a href="/categories/机器学习">机器学习</a></li>
+				        
+						</ul>
+					</nav>
+					<nav class="header-nav">
+						<div class="social">
+							
+								<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+					        
+								<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+					        
+								<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+					        
+						</div>
+					</nav>
+				</section>
+				
+				
+				<section class="switch-part switch-part2">
+					<div class="widget tagcloud" id="js-tagcloud">
+						<a href="/tags/tmp/" style="font-size: 10px;">/tmp</a> <a href="/tags/AT-T/" style="font-size: 10px;">AT&T</a> <a href="/tags/Affin/" style="font-size: 10px;">Affin</a> <a href="/tags/Alembic/" style="font-size: 10px;">Alembic</a> <a href="/tags/B-树/" style="font-size: 10px;">B+ 树</a> <a href="/tags/BIOS/" style="font-size: 10px;">BIOS</a> <a href="/tags/C-C/" style="font-size: 16.36px;">C/C++</a> <a href="/tags/CA/" style="font-size: 10px;">CA</a> <a href="/tags/CBOW/" style="font-size: 10px;">CBOW</a> <a href="/tags/CNN/" style="font-size: 10.91px;">CNN</a> <a href="/tags/DHCP/" style="font-size: 10px;">DHCP</a> <a href="/tags/Decorator/" style="font-size: 10px;">Decorator</a> <a href="/tags/Django/" style="font-size: 10px;">Django</a> <a href="/tags/Dnsmasq/" style="font-size: 10px;">Dnsmasq</a> <a href="/tags/ELF/" style="font-size: 10px;">ELF</a> <a href="/tags/ELK/" style="font-size: 10px;">ELK</a> <a href="/tags/Elasticsearch/" style="font-size: 11.82px;">Elasticsearch</a> <a href="/tags/GCC/" style="font-size: 10px;">GCC</a> <a href="/tags/HBR/" style="font-size: 10px;">HBR</a> <a href="/tags/IO-Multiplexing/" style="font-size: 11.82px;">IO Multiplexing</a> <a href="/tags/IPTables/" style="font-size: 10px;">IPTables</a> <a href="/tags/Immunity-Debugger/" style="font-size: 10px;">Immunity Debugger</a> <a href="/tags/InnoDB/" style="font-size: 10px;">InnoDB</a> <a href="/tags/KD-Tree/" style="font-size: 10.91px;">KD-Tree</a> <a href="/tags/KNN/" style="font-size: 10px;">KNN</a> <a href="/tags/KVM/" style="font-size: 10px;">KVM</a> <a href="/tags/Kali-Linux/" style="font-size: 10px;">Kali Linux</a> <a href="/tags/Keras/" style="font-size: 10px;">Keras</a> <a href="/tags/Keystone/" style="font-size: 13.64px;">Keystone</a> <a href="/tags/Kibana/" style="font-size: 10px;">Kibana</a> <a href="/tags/Lemmatization/" style="font-size: 10px;">Lemmatization</a> <a href="/tags/Libvirt/" style="font-size: 10.91px;">Libvirt</a> <a href="/tags/Linux/" style="font-size: 20px;">Linux</a> <a href="/tags/LinuxBridge/" style="font-size: 11.82px;">LinuxBridge</a> <a href="/tags/Logging/" style="font-size: 10px;">Logging</a> <a href="/tags/Logstash/" style="font-size: 10px;">Logstash</a> <a href="/tags/MRO/" style="font-size: 10px;">MRO</a> <a href="/tags/Metasploit-Framwork/" style="font-size: 10px;">Metasploit Framwork</a> <a href="/tags/MySQL/" style="font-size: 10.91px;">MySQL</a> <a href="/tags/Mysql/" style="font-size: 10px;">Mysql</a> <a href="/tags/Namespace/" style="font-size: 10px;">Namespace</a> <a href="/tags/Neo4J/" style="font-size: 10.91px;">Neo4J</a> <a href="/tags/Neutron/" style="font-size: 13.64px;">Neutron</a> <a href="/tags/Nova/" style="font-size: 14.55px;">Nova</a> <a href="/tags/OpenStack/" style="font-size: 17.27px;">OpenStack</a> <a href="/tags/OpenVSwitch/" style="font-size: 10px;">OpenVSwitch</a> <a href="/tags/PKI/" style="font-size: 10.91px;">PKI</a> <a href="/tags/PasteDeploy/" style="font-size: 10.91px;">PasteDeploy</a> <a href="/tags/Policy/" style="font-size: 10px;">Policy</a> <a href="/tags/Python/" style="font-size: 18.18px;">Python</a> <a href="/tags/QEMU/" style="font-size: 10px;">QEMU</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/RPC/" style="font-size: 10px;">RPC</a> <a href="/tags/SQLAlchemy-Migrate/" style="font-size: 10px;">SQLAlchemy-Migrate</a> <a href="/tags/SSL/" style="font-size: 10px;">SSL</a> <a href="/tags/Sigmoid/" style="font-size: 10px;">Sigmoid</a> <a href="/tags/Skip-Gram/" style="font-size: 10px;">Skip-Gram</a> <a href="/tags/Socket/" style="font-size: 10px;">Socket</a> <a href="/tags/Stop-Words/" style="font-size: 10px;">Stop Words</a> <a href="/tags/TCP/" style="font-size: 10px;">TCP</a> <a href="/tags/Tap/" style="font-size: 10.91px;">Tap</a> <a href="/tags/Token/" style="font-size: 11.82px;">Token</a> <a href="/tags/Tokenization/" style="font-size: 10px;">Tokenization</a> <a href="/tags/Trampolining/" style="font-size: 10px;">Trampolining</a> <a href="/tags/Tun/" style="font-size: 10.91px;">Tun</a> <a href="/tags/Tunnel/" style="font-size: 10px;">Tunnel</a> <a href="/tags/UUID/" style="font-size: 10px;">UUID</a> <a href="/tags/VNC/" style="font-size: 10px;">VNC</a> <a href="/tags/VPN/" style="font-size: 10px;">VPN</a> <a href="/tags/Veth/" style="font-size: 11.82px;">Veth</a> <a href="/tags/VirtualBox/" style="font-size: 10px;">VirtualBox</a> <a href="/tags/Vlan/" style="font-size: 10px;">Vlan</a> <a href="/tags/Vue/" style="font-size: 10px;">Vue</a> <a href="/tags/WSGI/" style="font-size: 13.64px;">WSGI</a> <a href="/tags/Webob/" style="font-size: 10px;">Webob</a> <a href="/tags/Word2Vec/" style="font-size: 10.91px;">Word2Vec</a> <a href="/tags/Yelper/" style="font-size: 15.45px;">Yelper</a> <a href="/tags/bootsect/" style="font-size: 10px;">bootsect</a> <a href="/tags/cookiecutter/" style="font-size: 10px;">cookiecutter</a> <a href="/tags/delete/" style="font-size: 10px;">delete</a> <a href="/tags/dnsmasq/" style="font-size: 10px;">dnsmasq</a> <a href="/tags/entry-points/" style="font-size: 10px;">entry_points</a> <a href="/tags/epoll/" style="font-size: 10px;">epoll</a> <a href="/tags/fork/" style="font-size: 10px;">fork</a> <a href="/tags/head/" style="font-size: 10px;">head</a> <a href="/tags/inode/" style="font-size: 10px;">inode</a> <a href="/tags/malloc/" style="font-size: 10px;">malloc</a> <a href="/tags/mona/" style="font-size: 10px;">mona</a> <a href="/tags/new/" style="font-size: 10px;">new</a> <a href="/tags/property/" style="font-size: 10px;">property</a> <a href="/tags/read/" style="font-size: 10px;">read</a> <a href="/tags/routes/" style="font-size: 10px;">routes</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/setup/" style="font-size: 10px;">setup</a> <a href="/tags/setuptools/" style="font-size: 10px;">setuptools</a> <a href="/tags/shell/" style="font-size: 10.91px;">shell</a> <a href="/tags/stevedore/" style="font-size: 10px;">stevedore</a> <a href="/tags/string/" style="font-size: 10px;">string</a> <a href="/tags/tcpdump/" style="font-size: 10px;">tcpdump</a> <a href="/tags/uWSGI/" style="font-size: 10px;">uWSGI</a> <a href="/tags/update-进程/" style="font-size: 10px;">update 进程</a> <a href="/tags/write/" style="font-size: 10px;">write</a> <a href="/tags/wsgiref/" style="font-size: 10px;">wsgiref</a> <a href="/tags/yield/" style="font-size: 14.55px;">yield</a> <a href="/tags/中断/" style="font-size: 10.91px;">中断</a> <a href="/tags/任务调度/" style="font-size: 10px;">任务调度</a> <a href="/tags/传记/" style="font-size: 10.91px;">传记</a> <a href="/tags/信号/" style="font-size: 10px;">信号</a> <a href="/tags/信号量/" style="font-size: 10px;">信号量</a> <a href="/tags/内存对齐/" style="font-size: 10px;">内存对齐</a> <a href="/tags/内存映射-I-O/" style="font-size: 10px;">内存映射 I/O</a> <a href="/tags/内存规划/" style="font-size: 10px;">内存规划</a> <a href="/tags/内核/" style="font-size: 19.09px;">内核</a> <a href="/tags/内核栈/" style="font-size: 10px;">内核栈</a> <a href="/tags/分页/" style="font-size: 10px;">分页</a> <a href="/tags/加密/" style="font-size: 10.91px;">加密</a> <a href="/tags/加载/" style="font-size: 10.91px;">加载</a> <a href="/tags/协程/" style="font-size: 13.64px;">协程</a> <a href="/tags/可执行目标文件/" style="font-size: 10.91px;">可执行目标文件</a> <a href="/tags/可重定位目标文件/" style="font-size: 10px;">可重定位目标文件</a> <a href="/tags/同步/" style="font-size: 10px;">同步</a> <a href="/tags/商业/" style="font-size: 11.82px;">商业</a> <a href="/tags/地心坐标系/" style="font-size: 10px;">地心坐标系</a> <a href="/tags/多线程/" style="font-size: 10.91px;">多线程</a> <a href="/tags/多进程/" style="font-size: 10px;">多进程</a> <a href="/tags/字符串/" style="font-size: 10px;">字符串</a> <a href="/tags/存储器/" style="font-size: 10.91px;">存储器</a> <a href="/tags/宏/" style="font-size: 10px;">宏</a> <a href="/tags/寄存器/" style="font-size: 10px;">寄存器</a> <a href="/tags/开发环境/" style="font-size: 10px;">开发环境</a> <a href="/tags/异常/" style="font-size: 10px;">异常</a> <a href="/tags/异步/" style="font-size: 10px;">异步</a> <a href="/tags/引导块/" style="font-size: 10px;">引导块</a> <a href="/tags/引导程序/" style="font-size: 12.73px;">引导程序</a> <a href="/tags/归一化/" style="font-size: 10px;">归一化</a> <a href="/tags/微处理器/" style="font-size: 13.64px;">微处理器</a> <a href="/tags/总结/" style="font-size: 10px;">总结</a> <a href="/tags/情感分析/" style="font-size: 10px;">情感分析</a> <a href="/tags/扩容/" style="font-size: 10px;">扩容</a> <a href="/tags/指令集/" style="font-size: 10px;">指令集</a> <a href="/tags/指针/" style="font-size: 12.73px;">指针</a> <a href="/tags/数字签名/" style="font-size: 10px;">数字签名</a> <a href="/tags/数字证书/" style="font-size: 10px;">数字证书</a> <a href="/tags/整数/" style="font-size: 10px;">整数</a> <a href="/tags/文件系统/" style="font-size: 12.73px;">文件系统</a> <a href="/tags/时钟/" style="font-size: 10px;">时钟</a> <a href="/tags/时钟中断/" style="font-size: 10px;">时钟中断</a> <a href="/tags/时间衰减函数/" style="font-size: 10px;">时间衰减函数</a> <a href="/tags/权限/" style="font-size: 10px;">权限</a> <a href="/tags/标准输入/" style="font-size: 10px;">标准输入</a> <a href="/tags/标准输出/" style="font-size: 10px;">标准输出</a> <a href="/tags/标准错误输出/" style="font-size: 10px;">标准错误输出</a> <a href="/tags/栈帧/" style="font-size: 10px;">栈帧</a> <a href="/tags/栈溢出/" style="font-size: 10px;">栈溢出</a> <a href="/tags/根设备/" style="font-size: 10px;">根设备</a> <a href="/tags/母板/" style="font-size: 10px;">母板</a> <a href="/tags/汇编/" style="font-size: 10px;">汇编</a> <a href="/tags/浮点数/" style="font-size: 10px;">浮点数</a> <a href="/tags/消息摘要/" style="font-size: 10px;">消息摘要</a> <a href="/tags/特权级/" style="font-size: 10px;">特权级</a> <a href="/tags/环境变量/" style="font-size: 10px;">环境变量</a> <a href="/tags/生成器/" style="font-size: 14.55px;">生成器</a> <a href="/tags/用户栈/" style="font-size: 10px;">用户栈</a> <a href="/tags/相似度/" style="font-size: 10.91px;">相似度</a> <a href="/tags/硬盘/" style="font-size: 12.73px;">硬盘</a> <a href="/tags/硬链接/" style="font-size: 10px;">硬链接</a> <a href="/tags/管道/" style="font-size: 10px;">管道</a> <a href="/tags/系统调用/" style="font-size: 10px;">系统调用</a> <a href="/tags/索引/" style="font-size: 10px;">索引</a> <a href="/tags/缓冲区/" style="font-size: 10.91px;">缓冲区</a> <a href="/tags/缓冲区溢出/" style="font-size: 10px;">缓冲区溢出</a> <a href="/tags/缺页中断/" style="font-size: 10px;">缺页中断</a> <a href="/tags/网络/" style="font-size: 13.64px;">网络</a> <a href="/tags/翻译/" style="font-size: 14.55px;">翻译</a> <a href="/tags/虚拟地址空间/" style="font-size: 10px;">虚拟地址空间</a> <a href="/tags/虚拟盘/" style="font-size: 10px;">虚拟盘</a> <a href="/tags/请求项/" style="font-size: 10px;">请求项</a> <a href="/tags/质数/" style="font-size: 10px;">质数</a> <a href="/tags/超级块/" style="font-size: 10px;">超级块</a> <a href="/tags/软盘/" style="font-size: 10px;">软盘</a> <a href="/tags/软链接/" style="font-size: 10px;">软链接</a> <a href="/tags/进程派生/" style="font-size: 10px;">进程派生</a> <a href="/tags/进程通信/" style="font-size: 10.91px;">进程通信</a> <a href="/tags/迭代器/" style="font-size: 10px;">迭代器</a> <a href="/tags/金融/" style="font-size: 10px;">金融</a> <a href="/tags/阻塞/" style="font-size: 10.91px;">阻塞</a> <a href="/tags/非阻塞/" style="font-size: 10.91px;">非阻塞</a> <a href="/tags/黑客/" style="font-size: 10px;">黑客</a>
+					</div>
+				</section>
+				
+				
+				
+
+				
+				
+				<section class="switch-part switch-part3">
+				
+					<div id="js-aboutme">谢宏峰，毕业于暨南大学（2009 - 2013）、中国科学院（2013 - 2016），现就职于深信服科技，从事 OpenStack 开发。</div>
+				</section>
+				
+			</div>
+		</div>
+	</header>				
+</div>
+
+    </div>
+    <div class="mid-col">
+      <nav id="mobile-nav">
+  	<div class="overlay">
+  		<div class="slider-trigger"></div>
+  		<h1 class="header-author js-mobile-header hide">Max</h1>
+  	</div>
+	<div class="intrude-less">
+		<header id="header" class="inner">
+			<div class="profilepic">
+			
+				<img lazy-src="/img/author.jpg" class="js-avatar">
+			
+			</div>
+			<hgroup>
+			  <h1 class="header-author">Max</h1>
+			</hgroup>
+			
+			<p class="header-subtitle">Stay hungry, stay foolish.</p>
+			
+			<nav class="header-menu">
+				<ul>
+				
+					<li><a href="/">主页</a></li>
+		        
+					<li><a href="/categories/读书">读书</a></li>
+		        
+					<li><a href="/tags/翻译">翻译</a></li>
+		        
+					<li><a href="/categories/网络">网络</a></li>
+		        
+					<li><a href="/categories/并发">并发</a></li>
+		        
+					<li><a href="/categories/安全">安全</a></li>
+		        
+					<li><a href="/categories/运维">运维</a></li>
+		        
+					<li><a href="/categories/数据库">数据库</a></li>
+		        
+					<li><a href="/categories/云计算">云计算</a></li>
+		        
+					<li><a href="/categories/编程语言">编程语言</a></li>
+		        
+					<li><a href="/categories/操作系统">操作系统</a></li>
+		        
+					<li><a href="/categories/机器学习">机器学习</a></li>
+		        
+		        <div class="clearfix"></div>
+				</ul>
+			</nav>
+			<nav class="header-nav">
+				<div class="social">
+					
+						<a class="github" target="_blank" href="https://github.com/xiehongfeng100" title="github">github</a>
+			        
+						<a class="linkedin" target="_blank" href="http://cn.linkedin.com/in/xiehongfeng100" title="linkedin">linkedin</a>
+			        
+						<a class="mail" target="_blank" href="mailto:xiehongfeng100@yeah.net" title="mail">mail</a>
+			        
+				</div>
+			</nav>
+		</header>				
+	</div>
+</nav>
+
+      <div class="body-wrap"><article id="post-ccplusplus-basic-data-type-part1" class="article article-type-post" itemscope itemprop="blogPost">
+  
+    <div class="article-meta">
+      <a href="/2016/01/13/ccplusplus-basic-data-type-part1/" class="article-date">
+  	<time datetime="2016-01-13T13:02:30.000Z" itemprop="datePublished">2016-01-13</time>
+</a>
+    </div>
+  
+  <div class="article-inner">
+    
+      <input type="hidden" class="isFancy">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      基本数据类型（第 1 部分：整数）
+    </h1>
+  
+
+      </header>
+      
+      <div class="article-info article-info-post">
+        
+	<div class="article-tag tagcloud">
+		<ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/C-C/">C/C++</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/整数/">整数</a></li></ul>
+	</div>
+
+        
+	<div class="article-category tagcloud">
+	<a class="article-category-link" href="/categories/编程语言/">编程语言</a>
+	</div>
+
+
+        <div class="clearfix"></div>
+      </div>
+      
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文主要对整数类型的一些重要或者容易忽略的要点进行总结。</p>
+<h1 id="整数"><a href="#整数" class="headerlink" title="整数"></a><strong>整数</strong></h1><p>在计算机中，整数可分为无符号和有符号两种。在 C/C++ 中包含了这两种，Java 则只包括了有符号整数。</p>
+<h2 id="无符号整数的编码"><a href="#无符号整数的编码" class="headerlink" title="无符号整数的编码"></a><strong>无符号整数的编码</strong></h2><p>无符号整数编码的公式如下：  </p>
+<p><img src="/images/programing-languages/CCPlusPlus/basic-data-types/part1/无符号数编码.png" alt>  </p>
+<a id="more"></a>
+<p>其中 B2U 表示 Binary to Unsigned, w 表示整数数据类型位数，x (上带小箭头)表示该整数表示成二进制数向量，x 表示向量中的具体一位。</p>
+<p>如：  </p>
+<p><img src="/images/programing-languages/CCPlusPlus/basic-data-types/part1/无符号数编码例子.png" alt>  </p>
+<h2 id="有符号整数的编码"><a href="#有符号整数的编码" class="headerlink" title="有符号整数的编码"></a><strong>有符号整数的编码</strong></h2><p>对于有符号整数的编码就是<strong>补码</strong>编码（two’s-complement）。在这里，编码的最高位是符号位，即为 0 是表示整数，为 1 是表示负数。也就该最高位可解释为负权。补码编码公式定义为：  </p>
+<p><img src="/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数编码.png" alt>  </p>
+<p>其中 B2T 表示 Binary to Two’s-complement, w 表示整数数据类型位数，x (上带小箭头)表示该整数表示成二进制数向量，x 表示向量中的具体一位。</p>
+<p>如：</p>
+<p><img src="/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数编码例子.png" alt>  </p>
+<h2 id="8-位有符号数可表示范围"><a href="#8-位有符号数可表示范围" class="headerlink" title="8 位有符号数可表示范围"></a><strong>8 位有符号数可表示范围</strong></h2><p>我们都知道 8 位有符号数可表示的范围在 -128~127，但对 -128 的由来却很难解释清楚。下边将个人所知几种原因陈列如下：</p>
+<h3 id="别浪费"><a href="#别浪费" class="headerlink" title="别浪费"></a><strong>别浪费</strong></h3><p>有人就说了，8 位的有符号数除了表示 -127~127，还剩下一个二进制数 0b1000 0000 没有用，这太浪费了，所以用来表示 -128。支持这一说法的还有一书《C++ 反汇编与逆向分析技术揭秘》第 2.1.1 节说的：</p>
+<blockquote>
+<p>对于 4 字节补码，0x8000 0000 所表达的意义可以是负数 0，也可以是 0x8000 0000 减去 1。由于 0 的正负值是相等的，没有必要还来个负数 0，因此，也就把这个值的意义规定为 0x8000 0000 减去 1，这样 0x8000 0000 也就成为 4 字节负数的最小值了。这也是为什么有符号整数的取值范围中，负数区间总是比正数区间多一个最小值的原因。</p>
+</blockquote>
+<p>这种说法很明显是站不住脚的。原因主要有两个：1）既然浪费，那该二进制数也可用来表示除了 -128 之外的数；2）数学是一门严谨的语言，不存在如此模糊的说法（要不如何保证数据运算的正确性？）。</p>
+<h3 id="列举法"><a href="#列举法" class="headerlink" title="列举法"></a><strong>列举法</strong></h3><p>来自百度文库的一个<a href="http://wenku.baidu.com/link?url=bzBDlPdFjOXMusBxJ0f82DNhGgaE0RZFchdR2qsyHdvwobv2MXq_1wRe1JzFeUWOStD7lbG9-7fKMW-fkHWPrAsblr2eSxfEigXJ1B97Ggm" target="_blank" rel="noopener">说法</a>：<br><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">正数：补码跟原码一样</span><br><span class="line">+<span class="number">127</span>, <span class="number">0111</span> <span class="number">1111</span></span><br><span class="line">+<span class="number">126</span>, <span class="number">0111</span> <span class="number">1110</span></span><br><span class="line">+<span class="number">125</span>, <span class="number">0111</span> <span class="number">1101</span></span><br><span class="line">+<span class="number">124</span>, <span class="number">0111</span> <span class="number">1100</span></span><br><span class="line">+<span class="number">123</span>, <span class="number">0111</span> <span class="number">1011</span></span><br><span class="line">+<span class="number">122</span>, <span class="number">0111</span> <span class="number">1010</span></span><br><span class="line">...</span><br><span class="line">+<span class="number">4</span>,   <span class="number">0000</span> <span class="number">0100</span></span><br><span class="line">+<span class="number">3</span>,   <span class="number">0000</span> <span class="number">0011</span></span><br><span class="line">+<span class="number">2</span>,   <span class="number">0000</span> <span class="number">0010</span></span><br><span class="line">+<span class="number">1</span>,   <span class="number">0000</span> <span class="number">0001</span></span><br><span class="line"><span class="number">0</span>,    <span class="number">0000</span> <span class="number">0000</span> (无正负之分)</span><br><span class="line"></span><br><span class="line">负数：</span><br><span class="line">值     原码       反码        补码</span><br><span class="line"><span class="number">-1</span>,   <span class="number">1000</span> <span class="number">0001</span>, <span class="number">1111</span> <span class="number">1110</span>, <span class="number">1111</span> <span class="number">1111</span></span><br><span class="line"><span class="number">-2</span>,   <span class="number">1000</span> <span class="number">0010</span>, <span class="number">1111</span> <span class="number">1101</span>, <span class="number">1111</span> <span class="number">1110</span></span><br><span class="line"><span class="number">-3</span>,   <span class="number">1000</span> <span class="number">0011</span>, <span class="number">1111</span> <span class="number">1100</span>, <span class="number">1111</span> <span class="number">1101</span></span><br><span class="line"><span class="number">-4</span>,   <span class="number">1000</span> <span class="number">0100</span>, <span class="number">1111</span> <span class="number">1011</span>, <span class="number">1111</span> <span class="number">1100</span></span><br><span class="line"><span class="number">-5</span>,   <span class="number">1000</span> <span class="number">0101</span>, <span class="number">1111</span> <span class="number">1010</span>, <span class="number">1111</span> <span class="number">1011</span></span><br><span class="line"><span class="number">-6</span>,   <span class="number">1000</span> <span class="number">0110</span>, <span class="number">1111</span> <span class="number">1001</span>, <span class="number">1111</span> <span class="number">1010</span></span><br><span class="line"><span class="number">-7</span>,   <span class="number">1000</span> <span class="number">0111</span>, <span class="number">1111</span> <span class="number">1000</span>, <span class="number">1111</span> <span class="number">1001</span></span><br><span class="line"><span class="number">-8</span>,   <span class="number">1000</span> <span class="number">1000</span>, <span class="number">1111</span> <span class="number">0111</span>, <span class="number">1111</span> <span class="number">1000</span></span><br><span class="line"><span class="number">-9</span>,   <span class="number">1000</span> <span class="number">1001</span>, <span class="number">1111</span> <span class="number">0110</span>, <span class="number">1111</span> <span class="number">0111</span></span><br><span class="line"><span class="number">-10</span>,  <span class="number">1000</span> <span class="number">1010</span>, <span class="number">1111</span> <span class="number">0101</span>, <span class="number">1111</span> <span class="number">0110</span></span><br><span class="line"><span class="number">-11</span>,  <span class="number">1000</span> <span class="number">1011</span>, <span class="number">1111</span> <span class="number">0100</span>, <span class="number">1111</span> <span class="number">0101</span></span><br><span class="line"><span class="number">-12</span>,  <span class="number">1000</span> <span class="number">1100</span>, <span class="number">1111</span> <span class="number">0011</span>, <span class="number">1111</span> <span class="number">0100</span></span><br><span class="line"><span class="number">-13</span>,  <span class="number">1000</span> <span class="number">1101</span>, <span class="number">1111</span> <span class="number">0010</span>, <span class="number">1111</span> <span class="number">0011</span></span><br><span class="line"><span class="number">-14</span>,  <span class="number">1000</span> <span class="number">1110</span>, <span class="number">1111</span> <span class="number">0001</span>, <span class="number">1111</span> <span class="number">0010</span></span><br><span class="line"><span class="number">-15</span>,  <span class="number">1000</span> <span class="number">1111</span>, <span class="number">1111</span> <span class="number">0000</span>, <span class="number">1111</span> <span class="number">0001</span></span><br><span class="line"><span class="number">-16</span>,  <span class="number">1001</span> <span class="number">0000</span>, <span class="number">1110</span> <span class="number">1111</span>, <span class="number">1111</span> <span class="number">0000</span></span><br><span class="line"><span class="number">-17</span>,  <span class="number">1001</span> <span class="number">0001</span>, <span class="number">1110</span> <span class="number">1110</span>, <span class="number">1110</span> <span class="number">1111</span></span><br><span class="line">...</span><br><span class="line"><span class="number">-24</span>,  <span class="number">1001</span> <span class="number">1000</span>, <span class="number">1110</span> <span class="number">0111</span>, <span class="number">1110</span> <span class="number">1000</span></span><br><span class="line">...</span><br><span class="line"><span class="number">-99</span>,  <span class="number">1110</span> <span class="number">0011</span>, <span class="number">1001</span> <span class="number">1100</span>, <span class="number">1110</span> <span class="number">0100</span></span><br><span class="line">...</span><br><span class="line"><span class="number">-124</span>, <span class="number">1111</span> <span class="number">1100</span>, <span class="number">1000</span> <span class="number">0011</span>, <span class="number">1000</span> <span class="number">0100</span></span><br><span class="line"><span class="number">-125</span>, <span class="number">1111</span> <span class="number">1101</span>, <span class="number">1000</span> <span class="number">0010</span>, <span class="number">1000</span> <span class="number">0011</span></span><br><span class="line"><span class="number">-126</span>, <span class="number">1111</span> <span class="number">1110</span>, <span class="number">1000</span> <span class="number">0001</span>, <span class="number">1000</span> <span class="number">0010</span></span><br><span class="line"><span class="number">-127</span>, <span class="number">1111</span> <span class="number">1111</span>, <span class="number">1000</span> <span class="number">0000</span>, <span class="number">1000</span> <span class="number">0001</span></span><br></pre></td></tr></table></figure></p>
+<p>按照规律， -127 的补码再往下应该还有补码 “1000 0000”，该二进制数表示 -128。</p>
+<p>作者的列举法看起来确实形象了许多，但却仍未能够解释根本的数学原理（为什么补码 “1000 0000”可用于运算而不出问题？ ）。</p>
+<h3 id="个人胡诌的一个说法"><a href="#个人胡诌的一个说法" class="headerlink" title="个人胡诌的一个说法"></a><strong>个人胡诌的一个说法</strong></h3><p>这种说法是个人的想法，不过跟说法二一样，都是为了解释而解释。</p>
+<p>我们知道 -128 = -127 - 1，那我们就可以通过 -127 和 -1 的相加得到 -128 的补码了。而 -127 的补码为 1000 0001，-1 的补码为 1111 1111，两者相加得到的结果是 1 1000 0000。因为只有 8 位可表示，所以我们可以舍掉补码最高位 1，剩下的就表示 -128 的补码了，也即 -128 的补码为 1000 0000。</p>
+<p>这种说法就更加问题多多，而且还牵扯到了溢出问题。</p>
+<h3 id="最靠谱的说法"><a href="#最靠谱的说法" class="headerlink" title="最靠谱的说法"></a><strong>最靠谱的说法</strong></h3><p><strong>最靠谱的说法一定是来自严格的数学推导或定理。</strong></p>
+<p>如果我们回头看一下前边的补码编码公式，我们就很清楚 -128 是怎么来的了。不过这里需要注意的是，<code>是&quot;补码&quot;能够表示 -128，而不是原码能够表示 -128（原码只能表示 -127~127）。</code></p>
+<p>关于有符号数的运算可参考《深入理解计算机系统》一书的 “2.3 节 整数运算”。</p>
+<p><strong>Note:</strong></p>
+<p>值得注意的是，我们对有符号数参与的运算得格外小心。下边就是一个例子：</p>
+<p>-128 加上 127 应该等于多少？我们从上文已经知道 -128 的补码是 1000 0000，而 127 的补码是 0111 1111，那 -128+127 的结果用补码表示就是 1111 1111。在思维没有切换到原码之前，总是将 1111 1111 当做 -127，而没有将其由补码转化为原码，从而导致理解上的错误。所以，得时刻记住下图：</p>
+<p><img src="/images/programing-languages/CCPlusPlus/basic-data-types/part1/有符号数参与的运算的要时刻记住的图.png" alt> </p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a><strong>参考资料</strong></h1><ul>
+<li><a href="http://www.amazon.cn/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6%E4%B8%9B%E4%B9%A6-%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%B3%BB%E7%BB%9F-%E5%B8%83%E8%8E%B1%E6%81%A9%E7%89%B9/dp/B004BJ18KM" target="_blank" rel="noopener">《深入理解计算机系统》</a></li>
+</ul>
+
+      
+    </div>
+    
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2016/01/14/ccplusplus-basic-data-type-part2/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption"><</strong>
+      <div class="article-nav-title">
+        
+          基本数据类型（第 2 部分：浮点数、字符、字符串及 C++ 中的 string 类）
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2016/01/13/reading-the-house-of-morgan/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">摩根财团:美国一代银行王朝和现代金融业的崛起(1838-1990)</div>
+      <strong class="article-nav-caption">></strong>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+
+
+
+
+
+      <div id="gitalk-container"></div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.css">
+<script src="https://cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.js"></script>
+
+<script>
+var gitalk = new Gitalk({
+  clientID: '64c19d7f57bebbb343c4',
+  clientSecret: '287daeba39e73fdde92f24540c9f3c0fd5238512',
+  repo: 'BlogComments',
+  owner: 'xiemax100',
+  admin: ['xiemax100'],
+  id: md5(window.location.pathname),
+  distractionFreeMode: true
+})
+
+gitalk.render('gitalk-container')
+</script>
+
+
+
+
+
+
+    <div id="toc" class="toc-article">
+    <strong class="toc-title">文章目录</strong>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#整数"><span class="toc-number">1.</span> <span class="toc-text">整数</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#无符号整数的编码"><span class="toc-number">1.1.</span> <span class="toc-text">无符号整数的编码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#有符号整数的编码"><span class="toc-number">1.2.</span> <span class="toc-text">有符号整数的编码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-位有符号数可表示范围"><span class="toc-number">1.3.</span> <span class="toc-text">8 位有符号数可表示范围</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#别浪费"><span class="toc-number">1.3.1.</span> <span class="toc-text">别浪费</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#列举法"><span class="toc-number">1.3.2.</span> <span class="toc-text">列举法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#个人胡诌的一个说法"><span class="toc-number">1.3.3.</span> <span class="toc-text">个人胡诌的一个说法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#最靠谱的说法"><span class="toc-number">1.3.4.</span> <span class="toc-text">最靠谱的说法</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#参考资料"><span class="toc-number">2.</span> <span class="toc-text">参考资料</span></a></li></ol>
+</div>
+<style>
+    .left-col .switch-btn {
+        display: none;
+    }
+    .left-col .switch-area {
+        display: none;
+    }
+</style>
+
+<input type="button" id="tocButton" value="隐藏目录" title="点击按钮隐藏或者显示文章目录">
+
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script>
+    var toc_button = document.getElementById("tocButton");
+    var toc_div = document.getElementById("toc");
+    toc_button.onclick=function() {
+        if (toc_div.style.display == "none") {
+            toc_div.style.display = "block";
+            toc_button.value = "隐藏目录";
+            document.getElementById("switch-btn").style.display = "none";
+            document.getElementById("switch-area").style.display = "none";
+        }
+        else {
+            toc_div.style.display = "none";
+            toc_button.value = "显示目录";
+            document.getElementById("switch-btn").style.display = "block";
+            document.getElementById("switch-area").style.display = "block";
+        }
+    }
+
+    if ($(".toc").length < 1) {
+        $("#toc").css("display","none");
+        $("#tocButton").css("display","none");
+        $(".switch-btn").css("display","block");
+        $(".switch-area").css("display","block");
+    }
+</script>
+
+
+
+
+</div>
+      <footer id="footer">
+  <div class="outer">
+    <div id="footer-info">
+    	<div class="footer-left">
+    		&copy; 2019 Max
+    	</div>
+      	<div class="footer-right">
+      		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
+      	</div>
+    </div>
+  </div>
+</footer>
+    </div>
+    
+  <link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+
+<script>
+	var yiliaConfig = {
+		fancybox: true,
+		mathjax: true,
+		animate: true,
+		isHome: false,
+		isPost: true,
+		isArchive: false,
+		isTag: false,
+		isCategory: false,
+		open_in_new: false
+	}
+</script>
+<script src="http://7.url.cn/edu/jslib/comb/require-2.1.6,jquery-1.9.1.min.js"></script>
+<script src="/js/main.js"></script>
+
+
+
+
+
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+    tex2jax: {
+        inlineMath: [ ['$','$'], ["\\(","\\)"]  ],
+        processEscapes: true,
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    }
+});
+
+MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for(i=0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';                 
+    }       
+});
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+
+  </div>
+</body>
+</html>

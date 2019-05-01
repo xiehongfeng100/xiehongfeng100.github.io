@@ -1,0 +1,130 @@
+@startuml
+
+title Extensions loading
+
+participant api_router as "neutron.api.v2.router::APIRouter"
+participant plugin_aware_extension_manager as "neutron.api.extensions::PluginAwareExtensionManager"
+participant get_extensions_path as "neutron.api.extensions::get_extensions_path"
+participant base_extension_manager as "neutron.api.extensions::ExtensionManager"
+
+activate api_router
+api_router->plugin_aware_extension_manager: call neutron.api.extensions.py::PluginAwareExtensionManager::get_instance()
+
+activate plugin_aware_extension_manager
+note over plugin_aware_extension_manager
+````
+* neutron/api/extensions.py
+class PluginAwareExtensionManager(ExtensionManager):
+	...
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:	# cls._instance is None
+            service_plugins = directory.get_plugins()
+            cls._instance = cls(get_extensions_path(service_plugins),
+                                service_plugins)
+        return cls._instance
+````
+Be careful,
+service_plugins are **Core Plugin and Service Plugins** loaded previously.
+end note
+
+plugin_aware_extension_manager->get_extensions_path: call neutron.api.extensions.py::get_extensions_path()
+
+activate get_extensions_path
+note over get_extensions_path
+````
+* neutron/api/extensions.py
+from neutron import extensions as core_extensions
+
+def get_extensions_path(service_plugins=None):
+    paths = collections.OrderedDict()
+
+    # Add Neutron core extensions
+    paths[core_extensions._\_path__[0]] = 1
+    if service_plugins:	# service_plugins is None
+        ...
+
+    # Add external/other plugins extensions
+    if cfg.CONF.api_extensions_path:	# api_extensions_path is ""
+        ...
+
+    LOG.debug("get_extension_paths = %s", paths)
+
+    # Re-build the extension string
+    path = ':'.join(paths)
+    return path
+````
+So the returned path is:
+OrderedDict([(**'/opt/stack/neutron/neutron/extensions'**, 1)])
+end note
+
+get_extensions_path-->plugin_aware_extension_manager: return extension path
+deactivate get_extensions_path
+
+plugin_aware_extension_manager->plugin_aware_extension_manager: call self cls()
+
+activate plugin_aware_extension_manager
+note over plugin_aware_extension_manager: call parent class _\_init__()
+plugin_aware_extension_manager->base_extension_manager: call neutron.api.extensions.py::ExtensionManager()
+
+activate base_extension_manager
+base_extension_manager->base_extension_manager: cal self._load_all_extensions()
+
+activate base_extension_manager
+note over base_extension_manager
+````
+* neutron/api/extensions.py
+class ExtensionManager(object):
+    ...
+    def _load_all_extensions(self):
+        """Load extensions from the configured path.
+
+        下边这句解释很重要：
+        The extension name is constructed from the module_name. If your
+        extension module is named widgets.py, the extension class within that
+        module should be 'Widgets'.
+        ...
+        """
+
+        for path in self.path.split(':'):
+            if os.path.exists(path):
+                self._load_all_extensions_from_path(path)
+                ...
+
+    def _load_all_extensions_from_path(self, path):
+        # Sorting the extension list makes the order in which they
+        # are loaded predictable across a cluster of load-balanced
+        # Neutron Servers
+        for f in sorted(os.listdir(path)):
+            try:
+                LOG.debug('Loading extension file: %s', f)
+                mod_name, file_ext = os.path.splitext(os.path.split(f)[-1])
+                ext_path = os.path.join(path, f)
+                if file_ext.lower() == '.py' and not mod_name.startswith('_'):
+                    mod = imp.load_source(mod_name, ext_path)
+                    ext_name = mod_name[0].upper() + mod_name[1:]
+                    new_ext_class = getattr(mod, ext_name, None)
+                    if not new_ext_class:
+                        ...
+                        continue
+                    new_ext = new_ext_class()	# !!! Important
+                    self.add_extension(new_ext)
+            ...
+````
+Lastly, **modules in all .py file under directory neutron/extensions are loaded**.
+For example, class L3 will be loaded from neutron/extensions/l3.py file.
+end note
+
+base_extension_manager-->base_extension_manager: returned
+deactivate base_extension_manager
+
+base_extension_manager-->plugin_aware_extension_manager: return
+deactivate base_extension_manager
+
+plugin_aware_extension_manager-->plugin_aware_extension_manager: returned self instance (manager)
+deactivate plugin_aware_extension_manager
+
+plugin_aware_extension_manager-->api_router: return the extension manager
+deactivate plugin_aware_extension_manager
+
+@enduml

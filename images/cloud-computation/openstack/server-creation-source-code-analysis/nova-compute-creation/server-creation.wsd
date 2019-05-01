@@ -1,0 +1,318 @@
+@startuml
+
+title Nova Compute Server Creation
+
+participant nova_compute_api as "nova.compute.api::API"
+participant nova_compute_task_api as "nova.conductor.api::ComputeTaskAPI"
+participant nova_compute_task_rpcapi as "nova.conductor.rpcapi::ComputeTaskAPI"
+participant call_context as "oslo_messaging.rpc.client::_CallContext"
+participant rabbit_driver as "oslo_messaging._drivers.impl_rabbit::RabbitDriver"
+participant compute_task_manager as "nova.conductor.manager::ComputeTaskManager"
+
+activate nova_compute_api
+note over nova_compute_api
+check_multiple_instances_with_specified_ip &
+check_multiple_instances_with_neutron_ports
+end note
+note over nova_compute_api
+check whether the requested wavailability_zone is
+in the available_zones
+end note
+note over nova_compute_api: build_filter_properties
+
+nova_compute_api->nova_compute_api: call self._create_instance()
+
+activate nova_compute_api
+note over nova_compute_api
+settle down & check params as follows:
+1. reservation id (generate it if it is None)
+2. security group
+3. min_count & max_count
+4. block_device_mapping
+5. image id & boot meta (from image or volume)
+6. check auto disk config
+7. validate and build base options (!important)
+8. block_device_mapping (!important)
+end note
+
+nova_compute_api->nova_compute_api: call self._checks_for_create_and_rebuild
+activate nova_compute_api
+note over nova_compute_api: check metadata quota
+note over nova_compute_api: check injected file quota
+note over nova_compute_api: check requested image \n(status, config drive option, min size)
+nova_compute_api-->nova_compute_api: return
+deactivate nova_compute_api
+
+note over nova_compute_api: get instance group
+
+nova_compute_api->nova_compute_api: call self._provision_instance
+activate nova_compute_api
+note over nova_compute_api: **check and reserver quota**
+note over nova_compute_api: get security group list and check a context has a sg
+note over nova_compute_api: generate instance uuid
+note over nova_compute_api: Store (DB) the **RequestSpec** \nthat will be used for scheduling
+note over nova_compute_api: create an instance object and append params to it
+note over nova_compute_api: create_db_entry_for_new_instance \n(**NOT** actuall create in DB \nas param create_instance is set to false)
+note over nova_compute_api: validate block_device_mapping and get it again
+note over nova_compute_api: create **build_request**
+note over nova_compute_api: create **instance_mapping**
+note over nova_compute_api: append (RequestSpec, build_request, \ninstance_mapping) to \ninstances_to_build
+note over nova_compute_api: if instance_group is true,\ncheck server group quota and \nadd the instance to the group
+note over nova_compute_api: **commit quota**
+nova_compute_api-->nova_compute_api: return instances_to_build
+deactivate nova_compute_api
+
+note over nova_compute_api
+as CONF.cells.enable is false, so we will just call
+**self.compute_task_api.**
+**schedule_and_build_instances(...)**
+Details are as follows.
+end note
+
+nova_compute_api->nova_compute_task_api: call nova.conductor.api::\nComputeTaskAPI::\nschedule_and_build_instances()
+
+activate nova_compute_task_api
+nova_compute_task_api->nova_compute_task_rpcapi: call nova.conductor.rpcapi::\nComputeTaskAPI::\nschedule_and_build_instances()
+
+activate nova_compute_task_rpcapi
+note over nova_compute_task_rpcapi
+__Note__
+As initiated in nova.conductor.rpcapi::ComputeTaskAPI::_\_init__(),
+the MQ targets topic is CONF.conductor.topic, and the conductor service
+is listening on this topic:
+```
+* nova/cmd/conductor.py
+def main():
+	...
+    server = service.Service.create(binary='nova-conductor',
+                                    topic=CONF.conductor.topic)
+    ...
+```
+that is, when we call functions defined in this class, the nova conductor
+service will receive and handle our request.
+
+Details are as follows.
+end note
+
+note over nova_compute_task_rpcapi
+call self.client.prepare
+
+we can use this method to **override rpc client properties**,
+like topic, version. It will finally initiated and return a 
+class inherited from oslo_messaging.rpc.client::_BaseCallContext:
+```
+* oslo_messaging.rpc.client.py
+class _CallContext(_BaseCallContext):
+
+    _marker = _BaseCallContext._marker
+
+    @classmethod
+    def _prepare(cls, call_context,
+                 exchange=_marker, topic=_marker, namespace=_marker,
+                 version=_marker, server=_marker, fanout=_marker,
+                 timeout=_marker, version_cap=_marker, retry=_marker):
+    	...
+    	# The **transport and serializer are retrieved from call_context**
+    	# We will talk about them later.
+        return _CallContext(call_context.transport, target,
+                            call_context.serializer,
+                            timeout, version_cap, retry)
+```
+
+The class _BaseCallContext has some two important methods:
+**cast** & **call**
+end note
+
+nova_compute_task_rpcapi->call_context: call oslo_messaging.rpc.client::_CallContext::cast()
+
+activate call_context
+note over call_context
+call self._make_message():
+
+```
+def _make_message(self, ctxt, method, args):
+    msg = dict(method=method)
+
+    msg['args'] = dict()
+    for argname, arg in args.items():
+        msg['args'][argname] = self.serializer.serialize_entity(ctxt, arg)
+
+    if self.target.namespace is not None:
+        msg['namespace'] = self.target.namespace
+    if self.target.version is not None:
+        msg['version'] = self.target.version
+
+    return msg
+```
+end note
+
+note over call_context
+__Note__
+
+As we know, when we init a nova conductor service, 
+its rpc related things are also initiated at the same time:
+
+```
+* nova/cmd/conductor.py
+def main():
+    config.parse_args(sys.argv)
+    ...
+
+* nova/config.py
+def parse_args(argv, default_config_files=None, configure_db=True,
+               init_rpc=True):
+    rpc.set_defaults(control_exchange='nova')
+    ...
+    if init_rpc:
+        rpc.init(CONF)
+
+* nova/rpc.py
+def init(conf):
+    global TRANSPORT, NOTIFICATION_TRANSPORT, ...
+    exmods = get_allowed_exmods()
+    **TRANSPORT** = create_transport(get_transport_url())
+    NOTIFICATION_TRANSPORT = \\
+    	messaging.get_notification_transport(...)
+    **serializer** = RequestContextSerializer(...)
+    if conf.notifications.notification_format == 'unversioned':
+        LEGACY_NOTIFIER = messaging.Notifier(...)
+        NOTIFIER = messaging.Notifier(...)
+    elif conf.notifications.notification_format == 'both':
+        LEGACY_NOTIFIER = messaging.Notifier(...)
+        NOTIFIER = messaging.Notifier(...)
+    else:
+        LEGACY_NOTIFIER = messaging.Notifier(...)
+        NOTIFIER = messaging.Notifier(...)
+```
+
+On how to initiate a TRANSPORT, you can refer to
+**nova-compute-service-rpc-init.png**.
+end note
+
+note over call_context
+call self.serializer.serialize_context(ctxt)
+
+The method is defined as:
+```
+class RequestContextSerializer(messaging.Serializer):
+    ......
+    def serialize_context(self, context):
+        return context.to_dict()
+```
+While the to_dict() method as difined in
+oslo_context.context.py::RequestContext.
+
+It quite a long journey!
+end note
+note over call_context: check verion compatibility
+call_context->rabbit_driver: call (transport) oslo_messaging._drivers.impl_rabbit::\nRabbitDriver::_send()
+
+activate rabbit_driver
+note over rabbit_driver
+__Note__
+
+**Interaction with MQ is of greate importantance and complicated,**
+**so we will talk about it independently.**
+
+Now we go directly to the destination function 
+nova.conductor.manager::
+ComputeTaskManager::
+**schedule_and_build_instances()**
+end note
+
+note over rabbit_driver
+__Note__
+
+One important point is that, **how do we know that the RabbitDriver**
+**will eventually dispatch the message to the**
+  **nova.conductor.manager::**
+  **ComputeTaskManager::**
+  **schedule_and_build_instances()?**
+
+This is because when the nova conductor service is started,
+it will register the self.manger and self. endpoints:
+```
+* nova/service.py
+class Service(service.Service):
+    ...
+    def start(self):
+        ...
+        endpoints = [
+            self.manager,
+            baserpc.BaseRPCAPI(self.manager.service_name, self.backdoor_port)
+        ]
+        **endpoints.extend(self.manager.additional_endpoints)**
+        ...
+
+* nova/conductor/manager.py
+class ConductorManager(manager.Manager):
+    """Mission: Conduct things.
+    ...
+    The nova-conductor service also **exposes an API in the 'compute_task'
+    namespace.**  See the ComputeTaskManager class for details.
+    """
+
+    target = messaging.Target(version='3.0')
+
+    def _\_init__(self, *args, **kwargs):
+        super(ConductorManager, self)._\_init__(service_name='conductor',
+                                               *args, **kwargs)
+        **self.compute_task_mgr = ComputeTaskManager()**
+        **self.additional_endpoints.append(self.compute_task_mgr)**
+```
+end note
+
+rabbit_driver->compute_task_manager: call nova.conductor.manager::\nComputeTaskManager::\nschedule_and_build_instances()
+
+activate compute_task_manager
+
+note over compute_task_manager
+__Note__
+
+In the following, I will mainly
+focus on important parts and
+skip cell related things.
+end note
+
+note over compute_task_manager #EB9898
+schedule instances, plz refer to
+**instance_scheduling.png**
+end note
+note over compute_task_manager: create **instance entry** in DB (!remotablely)
+note over compute_task_manager
+send a state update **notification**
+for the initial creation to show
+it going from non-existent to **BUILDING**
+end note
+note over compute_task_manager: record the instance create **action** in\nDB (!remotablely)
+note over compute_task_manager: create **block_device_mapping** entry in\nDB (!remotablely)
+note over compute_task_manager
+delete build request before/during scheduling
+so the instance is gone and we dont have
+anything to build for this one.
+end note
+note over compute_task_manager: make up legacy security groups
+note over compute_task_manager #EB9898
+build_and_run_instance, plz refer to
+**build_and_run_instance.png**
+end note
+
+compute_task_manager-->rabbit_driver: return
+deactivate rabbit_driver
+
+rabbit_driver-->call_context: return
+deactivate rabbit_driver
+
+call_context-->nova_compute_task_rpcapi: return
+deactivate call_context
+
+nova_compute_task_rpcapi-->nova_compute_task_api: return
+deactivate nova_compute_task_rpcapi
+
+nova_compute_task_api-->nova_compute_api: return
+deactivate nova_compute_task_api
+
+nova_compute_api-->nova_compute_api: return
+deactivate nova_compute_api
+
+@enduml
